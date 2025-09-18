@@ -43,3 +43,10 @@ add_library(lvgl_static_lib STATIC)
 
 target_sources(lvgl_static_lib PRIVATE "${All_Source}")
 target_include_directories(lvgl_static_lib PRIVATE "${All_Include_Dir}")
+target_compile_definitions(
+    lvgl_static_lib PRIVATE
+    USE_PWR_LDO_SUPPLY
+    USE_HAL_DRIVER
+    STM32H743xx
+    $<$<CONFIG:Debug>:DEBUG>
+)
