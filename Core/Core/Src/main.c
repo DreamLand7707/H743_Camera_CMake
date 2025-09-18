@@ -24,6 +24,7 @@
 #include "jpeg.h"
 #include "ltdc.h"
 #include "mdma.h"
+#include "memorymap.h"
 #include "rtc.h"
 #include "sdmmc.h"
 #include "tim.h"
@@ -33,7 +34,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -54,7 +55,10 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+void *const sram2_end_ptr = &sram2_end;
+void *const sram3_end_ptr = &sram3_end;
+void *const sdram_start_ptr = &sdram_start;
+void *const sdram_end_ptr = &sdram_end;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -68,7 +72,7 @@ void MX_FREERTOS_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+extern uint8_t fatfs_align;
 /* USER CODE END 0 */
 
 /**
@@ -99,7 +103,6 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -128,7 +131,16 @@ int main(void)
   MX_TIM12_Init();
   MX_RTC_Init();
   /* USER CODE BEGIN 2 */
-
+  	  sdcard_link_driver = 1;
+  	  SEGGER_RTT_Init();
+  	  GPIO_InitTypeDef GPIO_InitStruct = { 0 };
+  	  GPIO_InitStruct.Pin = T_CS_Pin;
+  	  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  	  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  	  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  	  HAL_GPIO_Init(T_CS_GPIO_Port, &GPIO_InitStruct);
+//   MX_DCMI_Init(); This is confilt with MX_SDMMC1_SD_Init();
+  	  vTraceEnable(TRC_START_FROM_HOST);
   /* USER CODE END 2 */
 
   /* Call init function for freertos objects (in cmsis_os2.c) */
@@ -141,12 +153,11 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
-  {
+	while (1) {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-  }
+	}
   /* USER CODE END 3 */
 }
 
@@ -165,6 +176,11 @@ void SystemClock_Config(void)
 
   /** Configure the main internal regulator output voltage
   */
+  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+
+  while(!__HAL_PWR_GET_FLAG(PWR_FLAG_VOSRDY)) {}
+
+  __HAL_RCC_SYSCFG_CLK_ENABLE();
   __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE0);
 
   while(!__HAL_PWR_GET_FLAG(PWR_FLAG_VOSRDY)) {}
@@ -242,7 +258,16 @@ void PeriphCommonClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+int __io_putchar(int ch) {
+	uint8_t c = ch;
+	HAL_UART_Transmit(&huart1, &c, 1, 0xffffffff);
+	return 0;
+}
+int __io_getchar(void) {
+	uint8_t c = 0;
+	HAL_UART_Receive(&huart1, &c, 1, 0xffffffff);
+	return c;
+}
 /* USER CODE END 4 */
 
  /* MPU Configuration */
@@ -309,8 +334,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   /* USER CODE BEGIN Callback 0 */
 
   /* USER CODE END Callback 0 */
-  if (htim->Instance == TIM7)
-  {
+  if (htim->Instance == TIM7) {
     HAL_IncTick();
   }
   /* USER CODE BEGIN Callback 1 */
@@ -325,14 +349,14 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
-  /* User can add his own implementation to report the HAL error return state */
-  __disable_irq();
-  while (1)
-  {
-  }
+	/* User can add his own implementation to report the HAL error return state */
+	__disable_irq();
+	while (1) {
+	}
   /* USER CODE END Error_Handler_Debug */
 }
-#ifdef USE_FULL_ASSERT
+
+#ifdef  USE_FULL_ASSERT
 /**
   * @brief  Reports the name of the source file and the source line number
   *         where the assert_param error has occurred.
@@ -343,8 +367,8 @@ void Error_Handler(void)
 void assert_failed(uint8_t *file, uint32_t line)
 {
   /* USER CODE BEGIN 6 */
-  /* User can add his own implementation to report the file name and line number,
-     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+    /* User can add his own implementation to report the file name and line number,
+       ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */

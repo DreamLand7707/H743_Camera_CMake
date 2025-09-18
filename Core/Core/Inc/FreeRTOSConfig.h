@@ -160,6 +160,11 @@ standard names. */
 
 /* USER CODE BEGIN Defines */
 /* Section where parameter definitions can be added (for instance, to override default ones in FreeRTOS.h) */
+#define configNUM_THREAD_LOCAL_STORAGE_POINTERS 4
+#define INCLUDE_xTaskGetCurrentTaskHandle 1
+#if ( configUSE_TRACE_FACILITY == 1 )
+#include "trcRecorder.h"
+#endif
 /* USER CODE END Defines */
 
 #endif /* FREERTOS_CONFIG_H */

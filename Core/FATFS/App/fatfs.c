@@ -15,6 +15,7 @@
   *
   ******************************************************************************
   */
+#include "rtc.h"
 /* USER CODE END Header */
 #include "fatfs.h"
 
@@ -45,7 +46,18 @@ void MX_FATFS_Init(void)
 DWORD get_fattime(void)
 {
   /* USER CODE BEGIN get_fattime */
-  return 0;
+	RTC_TimeTypeDef time;
+	RTC_DateTypeDef date;
+	HAL_RTC_GetTime(&hrtc, &time, RTC_FORMAT_BIN);
+	HAL_RTC_GetDate(&hrtc, &date, RTC_FORMAT_BIN);
+//
+	return    ((DWORD) (date.Year + 20) << 25) 		// 年份 (从1980年开始，需要加20因为RTC是从2000年开始)
+			| ((DWORD)  date.Month      << 21)      // 月份 (1-12)
+			| ((DWORD)  date.Date       << 16)      // 日期 (1-31)
+			| ((DWORD)  time.Hours      << 11)      // 小时 (0-23)
+			| ((DWORD)  time.Minutes    << 5)     	// 分钟 (0-59)
+			| ((DWORD)  time.Seconds    >> 1);    	// 秒钟 (0-29，需要除以2)
+//	return 0;
   /* USER CODE END get_fattime */
 }
 

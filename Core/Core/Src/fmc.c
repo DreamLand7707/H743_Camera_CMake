@@ -69,6 +69,7 @@ void MX_FMC_Init(void)
   }
 
   /* USER CODE BEGIN FMC_Init 2 */
+    SDRAM_Init();
 
   /* USER CODE END FMC_Init 2 */
 }

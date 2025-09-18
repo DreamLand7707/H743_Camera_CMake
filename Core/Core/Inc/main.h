@@ -31,16 +31,66 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "cmsis_os.h"
+#include "lvgl.h"
+#include "ansi.h"
+#include "trcRecorder.h"
+#include "my_heap_manage.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
 
+#define jprintf SEGGER_RTT_printf
+
+typedef struct touch_point_ {
+	uint32_t x;
+	uint32_t y;
+	uint32_t size;
+	uint32_t state;
+} touch_point;
+
+typedef union __packed BGR_ {
+	struct {
+		uint16_t B :5;
+		uint16_t G :6;
+		uint16_t R :5;
+	};
+	uint16_t value;
+} BGR;
+
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
 /* USER CODE BEGIN EC */
+extern uint8_t sram2_end;
+extern uint8_t sram3_end;
+extern uint8_t sdram_start;
+extern uint8_t sdram_end;
+extern void *const sram2_end_ptr;
+extern void *const sram3_end_ptr;
+extern void *const sdram_start_ptr;
+extern void *const sdram_end_ptr;
+
+extern osThreadId Initial_TaskHandle;
+extern osThreadId FlashScr_TaskHandle;
+extern osThreadId Camera_TaskHandle;
+
+extern SemaphoreHandle_t sema_flash_screen_routine_start;
+extern SemaphoreHandle_t sema_camera_routine_start;
+extern SemaphoreHandle_t sema_screen_been_touched;
+extern SemaphoreHandle_t sema_timer_handle;
+extern SemaphoreHandle_t sema_33ms_flash_screen;
+extern TimerHandle_t     timer_20_ms_restrain_touch;
+extern TimerHandle_t timer_33ms_flash_screen;
+extern uint8_t mkfs_buffer[4096] __attribute__((section(".fatfs_buffer")));
+
+extern touch_point record_touch[5];
+extern lv_display_t *rgb_screen_disp;
+extern int sdcard_initialized;
+extern int sdcard_link_driver;
+extern int sdcard_disk_init;
+extern int sdcard_is_mounted;
 
 /* USER CODE END EC */
 
@@ -53,7 +103,16 @@ extern "C" {
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
-
+int __io_putchar(int ch);
+int __io_getchar(void);
+void HAL_TIM_TriggerCallback(TIM_HandleTypeDef *htim);
+void print_sdcard_info(void);
+void initial_task_routine(void const * argument);
+void touch_sence_routine(void const * argument);
+void camera_task_routine(void const * argument);
+void timer_20_ms_callback(TimerHandle_t xTimer);
+void timer_33ms_flash_screen_callback(TimerHandle_t xTimer);
+int rgba_equal(BGR *a, BGR *b);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
@@ -89,6 +148,28 @@ void Error_Handler(void);
 #define LCD_BL_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
+
+#define IN_SDRAM __attribute__((section(".sdram")))
+#define IN_SRAM2 __attribute__((section(".ram_d2")))
+#define IN_SRAM3 __attribute__((section(".ram_d3")))
+
+#define CLOSE_BITS(TARGET, MASK)			((TARGET) &= (~(MASK)))
+#define UNSET_BITS(TARGET, MASK)			((TRAGET) &= (~(MASK)))
+#define RESET_BITS(TARGET, MASK)			((TRAGET) &= (~(MASK)))
+#define OPEN_BITS(TARGET, MASK)			((TARGET) |= (MASK))
+#define SET_BITS(TARGET, MASK)			((TARGET) |= (MASK))
+#define SWITCH_BITS(TARGET, MASK)			((TARGET) ^= (MASK))
+#define WARP_BITS(TARGET, MASK)			((TARGET) &= (MASK))
+#define EXTRACT_BITS(TARGET, MASK)		    ((TARGET) &= (MASK))
+
+#define CLOSE_BITS_GET(TARGET, MASK)		((TARGET) & (~(MASK)))
+#define UNSET_BITS_GET(TARGET, MASK)		((TARGET) & (~(MASK)))
+#define RESET_BITS_GET(TARGET, MASK)		((TARGET) & (~(MASK)))
+#define OPEN_BITS_GET(TARGET, MASK)		((TARGET) | (MASK))
+#define SET_BITS_GET(TARGET, MASK)		((TARGET) | (MASK))
+#define SWITCH_BITS_GET(TARGET, MASK)		((TARGET) ^ (MASK))
+#define WARP_BITS_GET(TARGET, MASK)		((TARGET) & (MASK))
+#define EXTRACT_BITS_GET(TARGET, MASK)	    ((TARGET) & (MASK))
 
 /* USER CODE END Private defines */
 
