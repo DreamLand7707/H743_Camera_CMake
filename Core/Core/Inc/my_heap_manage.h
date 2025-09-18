@@ -10,18 +10,17 @@
 
 #include "FreeRTOS.h"
 #include "task.h"
-#include "main.h"
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
-	void* 		sdram_Malloc(size_t xWantedSize);
-	void 		sdram_Free(void *pv);
-	size_t 		sdram_GetFreeHeapSize(void);
-	size_t 		sdram_GetMinimumEverFreeHeapSize(void);
-	void 		sdram_InitialiseBlocks(void);
-	void 		sdram_GetHeapStats(HeapStats_t *pxHeapStats);
+    void* 		sdram_Malloc(size_t xWantedSize);
+    void 		sdram_Free(void *pv);
+    size_t 		sdram_GetFreeHeapSize(void);
+    size_t 		sdram_GetMinimumEverFreeHeapSize(void);
+    void 		sdram_InitialiseBlocks(void);
+    void 		sdram_GetHeapStats(HeapStats_t *pxHeapStats);
 #ifdef __cplusplus
 }
 #endif

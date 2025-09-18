@@ -67,15 +67,9 @@ osThreadId Camera_TaskHandle;
 
 /* USER CODE END FunctionPrototypes */
 
-void initial_task_routine(void const * argument);
-void touch_sence_routine(void const * argument);
-void camera_task_routine(void const * argument);
-
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
 /* Hook prototypes */
-void configureTimerForRunTimeStats(void);
-unsigned long getRunTimeCounterValue(void);
 void vApplicationIdleHook(void);
 void vApplicationTickHook(void);
 void vApplicationStackOverflowHook(xTaskHandle xTask, signed char *pcTaskName);
@@ -84,25 +78,25 @@ void vApplicationMallocFailedHook(void);
 /* USER CODE BEGIN 1 */
 /* Functions needed when configGENERATE_RUN_TIME_STATS is on */
 __weak void configureTimerForRunTimeStats(void) {
-	HAL_TIM_Base_Start_IT(&htim3);
+    HAL_TIM_Base_Start_IT(&htim3);
 }
 extern volatile unsigned long ulHighFrequencyTimerTicks;
 __weak unsigned long getRunTimeCounterValue(void) {
-	return ulHighFrequencyTimerTicks;
+    return ulHighFrequencyTimerTicks;
 }
 /* USER CODE END 1 */
 
 /* USER CODE BEGIN 2 */
 __weak void vApplicationIdleHook(void) {
-	/* vApplicationIdleHook() will only be called if configUSE_IDLE_HOOK is set
-	 to 1 in FreeRTOSConfig.h. It will be called on each iteration of the idle
-	 task. It is essential that code added to this hook function never attempts
-	 to block in any way (for example, call xQueueReceive() with a block time
-	 specified, or call vTaskDelay()). If the application makes use of the
-	 vTaskDelete() API function (as this demo application does) then it is also
-	 important that vApplicationIdleHook() is permitted to return to its calling
-	 function, because it is the responsibility of the idle task to clean up
-	 memory allocated by the kernel to any task that has since been deleted. */
+    /* vApplicationIdleHook() will only be called if configUSE_IDLE_HOOK is set
+     to 1 in FreeRTOSConfig.h. It will be called on each iteration of the idle
+     task. It is essential that code added to this hook function never attempts
+     to block in any way (for example, call xQueueReceive() with a block time
+     specified, or call vTaskDelay()). If the application makes use of the
+     vTaskDelete() API function (as this demo application does) then it is also
+     important that vApplicationIdleHook() is permitted to return to its calling
+     function, because it is the responsibility of the idle task to clean up
+     memory allocated by the kernel to any task that has since been deleted. */
 }
 /* USER CODE END 2 */
 
@@ -114,7 +108,7 @@ __weak void vApplicationTickHook( void )
    added here, but the tick hook is called from an interrupt context, so
    code must not attempt to block, and only the interrupt safe FreeRTOS API
    functions can be used (those that end in FromISR()). */
-	lv_tick_inc(1);
+    lv_tick_inc(1);
 }
 /* USER CODE END 3 */
 
@@ -154,26 +148,26 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE END Init */
 
   /* USER CODE BEGIN RTOS_MUTEX */
-	/* add mutexes, ... */
+    /* add mutexes, ... */
   /* USER CODE END RTOS_MUTEX */
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
-	/* add semaphores, ... */
-	sema_flash_screen_routine_start = xSemaphoreCreateBinary();
-	sema_camera_routine_start = xSemaphoreCreateBinary();
-	sema_screen_been_touched = xSemaphoreCreateBinary();
-	sema_timer_handle = xSemaphoreCreateBinary();
-	sema_33ms_flash_screen = xSemaphoreCreateBinary();
+    /* add semaphores, ... */
+    sema_flash_screen_routine_start = xSemaphoreCreateBinary();
+    sema_camera_routine_start = xSemaphoreCreateBinary();
+    sema_screen_been_touched = xSemaphoreCreateBinary();
+    sema_timer_handle = xSemaphoreCreateBinary();
+    sema_33ms_flash_screen = xSemaphoreCreateBinary();
   /* USER CODE END RTOS_SEMAPHORES */
 
   /* USER CODE BEGIN RTOS_TIMERS */
-	/* start timers, add new ones, ... */
-	timer_20_ms_restrain_touch = xTimerCreate("timer_20_ms_restrain_touch", pdMS_TO_TICKS(20), pdFALSE, NULL, &timer_20_ms_callback);
-	timer_33ms_flash_screen = xTimerCreate("timer_33ms_flash_screen", pdMS_TO_TICKS(33), pdFALSE, NULL, &timer_33ms_flash_screen_callback);
+    /* start timers, add new ones, ... */
+    timer_20_ms_restrain_touch = xTimerCreate("timer_20_ms_restrain_touch", pdMS_TO_TICKS(20), pdFALSE, NULL, &timer_20_ms_callback);
+    timer_33ms_flash_screen = xTimerCreate("timer_33ms_flash_screen", pdMS_TO_TICKS(33), pdFALSE, NULL, &timer_33ms_flash_screen_callback);
   /* USER CODE END RTOS_TIMERS */
 
   /* USER CODE BEGIN RTOS_QUEUES */
-	/* add queues, ... */
+    /* add queues, ... */
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
@@ -190,12 +184,12 @@ void MX_FREERTOS_Init(void) {
   Camera_TaskHandle = osThreadCreate(osThread(Camera_Task), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
-	/* add threads, ... */
-	vQueueAddToRegistry((QueueHandle_t) sema_flash_screen_routine_start, "sema_flash_screen_routine_start");
-	vQueueAddToRegistry((QueueHandle_t) sema_camera_routine_start, "sema_camera_routine_start");
-	vQueueAddToRegistry((QueueHandle_t) sema_screen_been_touched, "sema_screen_been_touched");
-	vQueueAddToRegistry((QueueHandle_t) sema_timer_handle, "sema_timer_handle");
-	vQueueAddToRegistry((QueueHandle_t) sema_33ms_flash_screen, "sema_33ms_flash_screen");
+    /* add threads, ... */
+    vQueueAddToRegistry((QueueHandle_t) sema_flash_screen_routine_start, "sema_flash_screen_routine_start");
+    vQueueAddToRegistry((QueueHandle_t) sema_camera_routine_start, "sema_camera_routine_start");
+    vQueueAddToRegistry((QueueHandle_t) sema_screen_been_touched, "sema_screen_been_touched");
+    vQueueAddToRegistry((QueueHandle_t) sema_timer_handle, "sema_timer_handle");
+    vQueueAddToRegistry((QueueHandle_t) sema_33ms_flash_screen, "sema_33ms_flash_screen");
   /* USER CODE END RTOS_THREADS */
 
 }
@@ -210,10 +204,10 @@ void MX_FREERTOS_Init(void) {
 __weak void initial_task_routine(void const * argument)
 {
   /* USER CODE BEGIN initial_task_routine */
-	/* Infinite loop */
-	for (;;) {
-		osDelay(1);
-	}
+    /* Infinite loop */
+    for (;;) {
+        osDelay(1);
+    }
   /* USER CODE END initial_task_routine */
 }
 
@@ -245,10 +239,10 @@ __weak void touch_sence_routine(void const * argument)
 __weak void camera_task_routine(void const * argument)
 {
   /* USER CODE BEGIN camera_task_routine */
-	/* Infinite loop */
-	for (;;) {
-		osDelay(1);
-	}
+    /* Infinite loop */
+    for (;;) {
+        osDelay(1);
+    }
   /* USER CODE END camera_task_routine */
 }
 

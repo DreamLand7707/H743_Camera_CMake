@@ -131,16 +131,16 @@ int main(void)
   MX_TIM12_Init();
   MX_RTC_Init();
   /* USER CODE BEGIN 2 */
-  	  sdcard_link_driver = 1;
-  	  SEGGER_RTT_Init();
-  	  GPIO_InitTypeDef GPIO_InitStruct = { 0 };
-  	  GPIO_InitStruct.Pin = T_CS_Pin;
-  	  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  	  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  	  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-  	  HAL_GPIO_Init(T_CS_GPIO_Port, &GPIO_InitStruct);
+        sdcard_link_driver = 1;
+        SEGGER_RTT_Init();
+        GPIO_InitTypeDef GPIO_InitStruct = { 0 };
+        GPIO_InitStruct.Pin = T_CS_Pin;
+        GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+        GPIO_InitStruct.Pull = GPIO_NOPULL;
+        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+        HAL_GPIO_Init(T_CS_GPIO_Port, &GPIO_InitStruct);
 //   MX_DCMI_Init(); This is confilt with MX_SDMMC1_SD_Init();
-  	  vTraceEnable(TRC_START_FROM_HOST);
+        vTraceEnable(TRC_START_FROM_HOST);
   /* USER CODE END 2 */
 
   /* Call init function for freertos objects (in cmsis_os2.c) */
@@ -153,11 +153,11 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-	while (1) {
+    while (1) {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	}
+    }
   /* USER CODE END 3 */
 }
 
@@ -259,14 +259,14 @@ void PeriphCommonClock_Config(void)
 
 /* USER CODE BEGIN 4 */
 int __io_putchar(int ch) {
-	uint8_t c = ch;
-	HAL_UART_Transmit(&huart1, &c, 1, 0xffffffff);
-	return 0;
+    uint8_t c = ch;
+    HAL_UART_Transmit(&huart1, &c, 1, 0xffffffff);
+    return 0;
 }
 int __io_getchar(void) {
-	uint8_t c = 0;
-	HAL_UART_Receive(&huart1, &c, 1, 0xffffffff);
-	return c;
+    uint8_t c = 0;
+    HAL_UART_Receive(&huart1, &c, 1, 0xffffffff);
+    return c;
 }
 /* USER CODE END 4 */
 
@@ -349,10 +349,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
-	/* User can add his own implementation to report the HAL error return state */
-	__disable_irq();
-	while (1) {
-	}
+    /* User can add his own implementation to report the HAL error return state */
+    __disable_irq();
+    while (1) {
+    }
   /* USER CODE END Error_Handler_Debug */
 }
 
