@@ -3,3 +3,4 @@ build/
 
 .clangd
 .clang-format
+backup/

@@ -87,10 +87,10 @@ extern uint8_t mkfs_buffer[4096] __attribute__((section(".fatfs_buffer")));
 
 extern touch_point record_touch[5];
 extern lv_display_t *rgb_screen_disp;
-extern int sdcard_initialized;
-extern int sdcard_link_driver;
-extern int sdcard_disk_init;
-extern int sdcard_is_mounted;
+extern uint32_t sdcard_initialized;
+extern uint32_t sdcard_link_driver;
+extern uint32_t sdcard_disk_init;
+extern uint32_t sdcard_is_mounted;
 
 /* USER CODE END EC */
 
@@ -105,7 +105,7 @@ void Error_Handler(void);
 /* USER CODE BEGIN EFP */
 int __io_putchar(int ch);
 int __io_getchar(void);
-void HAL_TIM_TriggerCallback(TIM_HandleTypeDef *htim);
+
 void print_sdcard_info(void);
 void initial_task_routine(void const * argument);
 void touch_sence_routine(void const * argument);
