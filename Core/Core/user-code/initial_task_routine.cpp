@@ -119,11 +119,11 @@ static void initial_before_routine() {
     sema_take_screenshot = xSemaphoreCreateBinary();
     sema_update_local    = xSemaphoreCreateBinary();
 
-    SDRAM_GRAM1        = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
-    SDRAM_GRAM2        = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
-    JPEG_ENCODE_SOURCE = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
-    JPEG_ENCODE_DEST   = sdram_Malloc(256 * 1024);
-    JEPG_YCbCr         = sdram_Malloc(256 * 1024);
+    SDRAM_GRAM1          = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
+    SDRAM_GRAM2          = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
+    JPEG_ENCODE_SOURCE   = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
+    JPEG_ENCODE_DEST     = sdram_Malloc(256 * 1024);
+    JEPG_YCbCr           = sdram_Malloc(256 * 1024);
 
     HAL_LTDC_SetAddress(&hltdc, (uint32_t)SDRAM_GRAM1, LTDC_LAYER_1);
 
@@ -144,7 +144,7 @@ static int routine(int argc, char **argv) {
     xSemaphoreGive(sema_flash_screen_routine_start);
     xSemaphoreGive(sema_camera_routine_start);
 
-    vTaskPrioritySet(Initial_TaskHandle, 2);
+    vTaskPrioritySet(Initial_TaskHandle, 4);
 
     vQueueAddToRegistry((QueueHandle_t)sema_update_local, "sema_update_local");
     vQueueAddToRegistry((QueueHandle_t)mutex_gram_read, "mutex_gram_read");
@@ -176,7 +176,9 @@ static int routine(int argc, char **argv) {
                 lv_label_set_text(label_btn, buff_str);
             lv_unlock();
         }
+        xTracePrint(trace_analyzer_channel2, "=Main Thread= Begin lv_timer_handler");
         lv_timer_handler();
+        xTracePrint(trace_analyzer_channel2, "=Main Thread= End   lv_timer_handler");
         vTaskDelay(1);
     }
 }
@@ -326,7 +328,6 @@ int rgba_equal(BGR *a, BGR *b) {
 
 // ISR Callback
 void HAL_LTDC_ReloadEventCallback(LTDC_HandleTypeDef *hltdc) {
-    vTracePrint(trace_analyzer_channel1, "HAL_LTDC_Reload ISR!");
     BaseType_t woke = pdFALSE;
     xSemaphoreGiveFromISR(sema_render_sync_daemon_handle, &woke);
     xSemaphoreGiveFromISR(sema_swap_buffer_handle, &woke);
@@ -370,12 +371,13 @@ uint8_t BSP_SD_WriteBlocks_DMA(uint32_t *pData, uint32_t WriteAddr, uint32_t Num
 
 // lvgl callback
 void swapBuffer(void *passbuf, lv_display_t *disp) {
-    vTracePrint(trace_analyzer_channel1, "SwapBuffer!");
+    xTracePrint(trace_analyzer_channel1, "=SwapBuffer= Begin Swap");
     HAL_LTDC_SetAddress_NoReload(&hltdc, (uint32_t)passbuf, LTDC_LAYER_1);
     HAL_LTDC_Reload(&hltdc, LTDC_RELOAD_VERTICAL_BLANKING);
     curr_screen_buffer = passbuf;
     xSemaphoreTake(sema_swap_buffer_handle, portMAX_DELAY);
     lv_display_flush_ready(disp);
+    xTracePrint(trace_analyzer_channel1, "=SwapBuffer= End   Swap");
     // jprintf(0, "swapBuffer\n");
 }
 
