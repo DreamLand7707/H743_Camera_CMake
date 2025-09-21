@@ -35,7 +35,7 @@ void touch_sence_routine(void const *argument) {
         xSemaphoreTake(sema_screen_been_touched, portMAX_DELAY);
 
         while (1) {
-            vTaskDelay(pdMS_TO_TICKS(1));
+            vTaskDelay(pdMS_TO_TICKS(10));
             it_high = HAL_GPIO_ReadPin(T_PEN_GPIO_Port, T_PEN_Pin);
             if (it_high) {
                 soft_iic_receive(&scr_touch_iic_handle, touch_state, 2, &rece_data, 1);
@@ -52,6 +52,7 @@ void touch_sence_routine(void const *argument) {
 
                 record_touch_valid_num = touch_number;
                 data_pos[1]            = 0x50;
+                xTracePrint(trace_analyzer_channel2, "=User= Update Record Touch!");
                 for (int i = 0; i < touch_number; i++) {
                     soft_iic_receive(&scr_touch_iic_handle, data_pos, 2, data_buffer, 6);
                     record_touch[i].x     = uint32_t(data_buffer[0]) | uint32_t(data_buffer[1] << 8);

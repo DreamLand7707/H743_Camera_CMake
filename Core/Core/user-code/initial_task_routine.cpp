@@ -19,10 +19,16 @@ uint32_t          sdcard_initialized = 0;
 
 SemaphoreHandle_t sema_flash_screen_routine_start;
 SemaphoreHandle_t sema_camera_routine_start;
-SemaphoreHandle_t sema_timer_handle;
+SemaphoreHandle_t sema_render_sync_daemon_handle;
+SemaphoreHandle_t sema_swap_buffer_handle;
 
 SemaphoreHandle_t sema_33ms_flash_screen;
 TimerHandle_t     timer_33ms_flash_screen;
+
+traceString       trace_analyzer_channel1;
+traceString       trace_analyzer_channel2;
+traceString       trace_analyzer_channel3;
+traceString       trace_analyzer_channel4;
 
 
 // static variable Definition
@@ -40,7 +46,6 @@ namespace
 
     lv_obj_t         *list1;
 
-    TaskHandle_t      render_sync_daemon;
     TaskHandle_t      take_screenshot;
     JPEG_ConfTypeDef  jpeg_conf;
     SemaphoreHandle_t mutex_gram_read;
@@ -75,7 +80,6 @@ static void    lvgl_initialize_port2();
 static void    sdcard_initialize();
 static void    MYSCB_CleanInvalidateDCache_by_AddrRange(const uint32_t *pData_begin, const uint32_t *pData_end);
 static void    timer_500ms_internal_callback(TimerHandle_t xTimer);
-static void    render_sync_daemon_task(void *params);
 static int     routine(int argc, char **argv);
 static void    initial_before_routine();
 extern "C" int _getentropy(void *buffer, size_t length);
@@ -106,16 +110,6 @@ void initial_task_routine(void const *argument) {
     initial_before_routine();
     JPEG_InitColorTables();
     routine(0, nullptr);
-}
-
-// task2
-static void render_sync_daemon_task(void *params) {
-    while (1) {
-        xSemaphoreTake(sema_timer_handle, portMAX_DELAY);
-        xSemaphoreTake(mutex_gram_read, portMAX_DELAY);
-        lv_display_flush_ready(rgb_screen_disp);
-        xSemaphoreGive(mutex_gram_read);
-    }
 }
 
 /*
@@ -153,13 +147,18 @@ static int routine(int argc, char **argv) {
     xSemaphoreGive(sema_flash_screen_routine_start);
     xSemaphoreGive(sema_camera_routine_start);
 
-    osThreadSetPriority(Initial_TaskHandle, osPriorityNormal);
+    vTaskPrioritySet(Initial_TaskHandle, 2);
 
     vQueueAddToRegistry((QueueHandle_t)sema_update_local, "sema_update_local");
     vQueueAddToRegistry((QueueHandle_t)mutex_gram_read, "mutex_gram_read");
     vQueueAddToRegistry((QueueHandle_t)sema_take_screenshot, "sema_take_screenshot");
+    vQueueAddToRegistry((QueueHandle_t)mutex_internal_lvgl, "mutex_internal_lvgl");
 
-    xTaskCreate(render_sync_daemon_task, "thread_render_sync_daemon", 512, nullptr, 5, &render_sync_daemon);
+    trace_analyzer_channel1 = xTraceRegisterString("User_Channel_1");
+    trace_analyzer_channel2 = xTraceRegisterString("User_Channel_2");
+    trace_analyzer_channel3 = xTraceRegisterString("User_Channel_3");
+    trace_analyzer_channel4 = xTraceRegisterString("User_Channel_4");
+
     xTaskCreate(take_screenshot_task, "thread_take_screen_shot", 512, nullptr, 5, &take_screenshot);
 
     TimerHandle_t timer_500ms_internal;
@@ -173,15 +172,15 @@ static int routine(int argc, char **argv) {
     lv_obj_add_event_cb(pop_sd, popbtn_call, LV_EVENT_PRESSED, nullptr);
 
     while (1) {
-        xSemaphoreTake(mutex_internal_lvgl, portMAX_DELAY);
         if (pdTRUE == xSemaphoreTake(sema_update_local, 0)) {
+            lv_lock();
             if (count % 2)
                 lv_label_set_text(myLabel, buff_str);
             else
                 lv_label_set_text(label_btn, buff_str);
+            lv_unlock();
         }
         lv_timer_handler();
-        xSemaphoreGive(mutex_internal_lvgl);
         vTaskDelay(1);
     }
 }
@@ -331,8 +330,10 @@ int rgba_equal(BGR *a, BGR *b) {
 
 // ISR Callback
 void HAL_LTDC_ReloadEventCallback(LTDC_HandleTypeDef *hltdc) {
+    vTracePrint(trace_analyzer_channel1, "HAL_LTDC_Reload ISR!");
     BaseType_t woke = pdFALSE;
-    xSemaphoreGiveFromISR(sema_timer_handle, &woke);
+    xSemaphoreGiveFromISR(sema_render_sync_daemon_handle, &woke);
+    xSemaphoreGiveFromISR(sema_swap_buffer_handle, &woke);
     portYIELD_FROM_ISR(woke);
 }
 
@@ -377,11 +378,14 @@ uint8_t BSP_SD_WriteBlocks_DMA(uint32_t *pData, uint32_t WriteAddr, uint32_t Num
 }
 
 // lvgl callback
-void swapBuffer(void *passbuf) {
+void swapBuffer(void *passbuf, lv_display_t *disp) {
+    vTracePrint(trace_analyzer_channel1, "SwapBuffer!");
     HAL_LTDC_SetAddress_NoReload(&hltdc, (uint32_t)passbuf, LTDC_LAYER_1);
     HAL_LTDC_Reload(&hltdc, LTDC_RELOAD_VERTICAL_BLANKING);
     curr_screen_buffer = passbuf;
-    printf("swapBuffer\n");
+    xSemaphoreTake(sema_swap_buffer_handle, portMAX_DELAY);
+    lv_display_flush_ready(disp);
+    // jprintf(0, "swapBuffer\n");
 }
 
 // std::cout callback

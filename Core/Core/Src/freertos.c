@@ -72,7 +72,7 @@ void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 /* Hook prototypes */
 void vApplicationIdleHook(void);
 void vApplicationTickHook(void);
-void vApplicationStackOverflowHook(xTaskHandle xTask, signed char *pcTaskName);
+void vApplicationStackOverflowHook(TaskHandle_t xTask, signed char *pcTaskName);
 void vApplicationMallocFailedHook(void);
 
 /* USER CODE BEGIN 1 */
@@ -113,7 +113,7 @@ __weak void vApplicationTickHook( void )
 /* USER CODE END 3 */
 
 /* USER CODE BEGIN 4 */
-__weak void vApplicationStackOverflowHook(xTaskHandle xTask, signed char *pcTaskName)
+__weak void vApplicationStackOverflowHook(TaskHandle_t xTask, signed char *pcTaskName)
 {
    /* Run time stack overflow checking is performed if
    configCHECK_FOR_STACK_OVERFLOW is defined to 1 or 2. This hook function is
@@ -156,7 +156,8 @@ void MX_FREERTOS_Init(void) {
     sema_flash_screen_routine_start = xSemaphoreCreateBinary();
     sema_camera_routine_start = xSemaphoreCreateBinary();
     sema_screen_been_touched = xSemaphoreCreateBinary();
-    sema_timer_handle = xSemaphoreCreateBinary();
+    sema_render_sync_daemon_handle = xSemaphoreCreateBinary();
+    sema_swap_buffer_handle = xSemaphoreCreateBinary();
     sema_33ms_flash_screen = xSemaphoreCreateBinary();
   /* USER CODE END RTOS_SEMAPHORES */
 
@@ -188,7 +189,8 @@ void MX_FREERTOS_Init(void) {
     vQueueAddToRegistry((QueueHandle_t) sema_flash_screen_routine_start, "sema_flash_screen_routine_start");
     vQueueAddToRegistry((QueueHandle_t) sema_camera_routine_start, "sema_camera_routine_start");
     vQueueAddToRegistry((QueueHandle_t) sema_screen_been_touched, "sema_screen_been_touched");
-    vQueueAddToRegistry((QueueHandle_t) sema_timer_handle, "sema_timer_handle");
+    vQueueAddToRegistry((QueueHandle_t) sema_render_sync_daemon_handle, "sema_render_sync_daemon_handle");
+    vQueueAddToRegistry((QueueHandle_t) sema_swap_buffer_handle, "sema_swap_buffer_handle");
     vQueueAddToRegistry((QueueHandle_t) sema_33ms_flash_screen, "sema_33ms_flash_screen");
   /* USER CODE END RTOS_THREADS */
 

@@ -47,7 +47,7 @@ void MX_LTDC_Init(void);
     extern void *JPEG_ENCODE_DEST;
     extern void *JEPG_YCbCr;
     extern void *JPEG_ENCODE_SOURCE;
-    void swapBuffer(void *passbuf);
+    void swapBuffer(void *passbuf, lv_display_t *disp);
 /* USER CODE END Prototypes */
 
 #ifdef __cplusplus

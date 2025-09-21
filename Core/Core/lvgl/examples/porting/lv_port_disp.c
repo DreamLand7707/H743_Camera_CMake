@@ -132,7 +132,7 @@ static void disp_flush(lv_display_t *disp_drv, const lv_area_t *area, uint8_t *p
     //     }
     // }
 
-    swapBuffer(px_map);
+    swapBuffer(px_map, disp_drv);
 
     /*IMPORTANT!!!
      *Inform the graphics library that you are ready with the flushing*/
