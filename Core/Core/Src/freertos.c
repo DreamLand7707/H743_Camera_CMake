@@ -158,13 +158,11 @@ void MX_FREERTOS_Init(void) {
     sema_screen_been_touched = xSemaphoreCreateBinary();
     sema_render_sync_daemon_handle = xSemaphoreCreateBinary();
     sema_swap_buffer_handle = xSemaphoreCreateBinary();
-    sema_33ms_flash_screen = xSemaphoreCreateBinary();
   /* USER CODE END RTOS_SEMAPHORES */
 
   /* USER CODE BEGIN RTOS_TIMERS */
     /* start timers, add new ones, ... */
     timer_20_ms_restrain_touch = xTimerCreate("timer_20_ms_restrain_touch", pdMS_TO_TICKS(20), pdFALSE, NULL, &timer_20_ms_callback);
-    timer_33ms_flash_screen = xTimerCreate("timer_33ms_flash_screen", pdMS_TO_TICKS(33), pdFALSE, NULL, &timer_33ms_flash_screen_callback);
   /* USER CODE END RTOS_TIMERS */
 
   /* USER CODE BEGIN RTOS_QUEUES */
@@ -191,7 +189,6 @@ void MX_FREERTOS_Init(void) {
     vQueueAddToRegistry((QueueHandle_t) sema_screen_been_touched, "sema_screen_been_touched");
     vQueueAddToRegistry((QueueHandle_t) sema_render_sync_daemon_handle, "sema_render_sync_daemon_handle");
     vQueueAddToRegistry((QueueHandle_t) sema_swap_buffer_handle, "sema_swap_buffer_handle");
-    vQueueAddToRegistry((QueueHandle_t) sema_33ms_flash_screen, "sema_33ms_flash_screen");
   /* USER CODE END RTOS_THREADS */
 
 }

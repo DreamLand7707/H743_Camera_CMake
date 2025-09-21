@@ -83,7 +83,6 @@ extern "C"
     extern SemaphoreHandle_t sema_screen_been_touched;
     extern SemaphoreHandle_t sema_render_sync_daemon_handle;
     extern SemaphoreHandle_t sema_swap_buffer_handle;
-    extern SemaphoreHandle_t sema_33ms_flash_screen;
     extern TimerHandle_t     timer_20_ms_restrain_touch;
     extern TimerHandle_t     timer_33ms_flash_screen;
     extern uint8_t           mkfs_buffer[4096] __attribute__((section(".fatfs_buffer")));
@@ -119,7 +118,6 @@ extern "C"
     void touch_sence_routine(void const *argument);
     void camera_task_routine(void const *argument);
     void timer_20_ms_callback(TimerHandle_t xTimer);
-    void timer_33ms_flash_screen_callback(TimerHandle_t xTimer);
     int  rgba_equal(BGR *a, BGR *b);
 /* USER CODE END EFP */
 

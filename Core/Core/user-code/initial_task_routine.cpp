@@ -22,7 +22,6 @@ SemaphoreHandle_t sema_camera_routine_start;
 SemaphoreHandle_t sema_render_sync_daemon_handle;
 SemaphoreHandle_t sema_swap_buffer_handle;
 
-SemaphoreHandle_t sema_33ms_flash_screen;
 TimerHandle_t     timer_33ms_flash_screen;
 
 traceString       trace_analyzer_channel1;
@@ -47,18 +46,18 @@ namespace
     lv_obj_t         *list1;
 
     TaskHandle_t      take_screenshot;
-    JPEG_ConfTypeDef  jpeg_conf;
     SemaphoreHandle_t mutex_gram_read;
     SemaphoreHandle_t sema_take_screenshot;
     SemaphoreHandle_t sema_update_local;
     char              buff_str[40];
+
     int               count = 0, i = 0;
+
+    JPEG_ConfTypeDef  jpeg_conf;
     uint8_t          *curr_encode_ptr;
     uint8_t          *target_encode_ptr;
     uint8_t          *curr_dest_ptr;
     FIL               jpeg1;
-
-    SemaphoreHandle_t mutex_internal_lvgl;
 
     void             *curr_screen_buffer;
 
@@ -92,7 +91,6 @@ static void    shot_call(lv_event_t *event);
 static void    insbtn_call(lv_event_t *event);
 static void    popbtn_call(lv_event_t *event);
 
-
 enum class scr_mess {
     INFO = 0,
     WARN = 1,
@@ -120,13 +118,12 @@ static void initial_before_routine() {
     mutex_gram_read      = xSemaphoreCreateMutex();
     sema_take_screenshot = xSemaphoreCreateBinary();
     sema_update_local    = xSemaphoreCreateBinary();
-    mutex_internal_lvgl  = xSemaphoreCreateMutex();
 
-    SDRAM_GRAM1          = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
-    SDRAM_GRAM2          = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
-    JPEG_ENCODE_SOURCE   = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
-    JPEG_ENCODE_DEST     = sdram_Malloc(256 * 1024);
-    JEPG_YCbCr           = sdram_Malloc(256 * 1024);
+    SDRAM_GRAM1        = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
+    SDRAM_GRAM2        = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
+    JPEG_ENCODE_SOURCE = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
+    JPEG_ENCODE_DEST   = sdram_Malloc(256 * 1024);
+    JEPG_YCbCr         = sdram_Malloc(256 * 1024);
 
     HAL_LTDC_SetAddress(&hltdc, (uint32_t)SDRAM_GRAM1, LTDC_LAYER_1);
 
@@ -152,7 +149,6 @@ static int routine(int argc, char **argv) {
     vQueueAddToRegistry((QueueHandle_t)sema_update_local, "sema_update_local");
     vQueueAddToRegistry((QueueHandle_t)mutex_gram_read, "mutex_gram_read");
     vQueueAddToRegistry((QueueHandle_t)sema_take_screenshot, "sema_take_screenshot");
-    vQueueAddToRegistry((QueueHandle_t)mutex_internal_lvgl, "mutex_internal_lvgl");
 
     trace_analyzer_channel1 = xTraceRegisterString("User_Channel_1");
     trace_analyzer_channel2 = xTraceRegisterString("User_Channel_2");
@@ -344,11 +340,6 @@ static void timer_500ms_internal_callback(TimerHandle_t xTimer) {
     count++;
     i = i % 10;
     xSemaphoreGive(sema_update_local);
-}
-
-// timer callback
-void timer_33ms_flash_screen_callback(TimerHandle_t xTimer) {
-    xSemaphoreGive(sema_33ms_flash_screen);
 }
 
 // BSP FATFS Callback
