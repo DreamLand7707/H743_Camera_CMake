@@ -38,6 +38,8 @@ namespace
     lv_obj_t         *pop_sd_label;
     lv_obj_t         *ins_sd_label;
 
+    lv_obj_t         *list1;
+
     TaskHandle_t      render_sync_daemon;
     TaskHandle_t      take_screenshot;
     JPEG_ConfTypeDef  jpeg_conf;
@@ -112,7 +114,6 @@ static void render_sync_daemon_task(void *params) {
         xSemaphoreTake(sema_timer_handle, portMAX_DELAY);
         xSemaphoreTake(mutex_gram_read, portMAX_DELAY);
         lv_display_flush_ready(rgb_screen_disp);
-        //		ulTaskNotifyTake(pdFALSE, portMAX_DELAY);
         xSemaphoreGive(mutex_gram_read);
     }
 }
@@ -185,6 +186,32 @@ static int routine(int argc, char **argv) {
     }
 }
 
+static lv_obj_t *currentButton = NULL;
+static void      event_handler(lv_event_t *e) {
+    lv_event_code_t code = lv_event_get_code(e);
+    lv_obj_t       *obj  = (lv_obj_t *)lv_event_get_target(e);
+    if (code == LV_EVENT_CLICKED) {
+        jprintf(0, "Clicked: %s", lv_list_get_button_text(list1, obj));
+        if (currentButton == obj) {
+            currentButton = NULL;
+        }
+        else {
+            currentButton = obj;
+        }
+        lv_obj_t *parent = lv_obj_get_parent(obj);
+        uint32_t  i;
+        for (i = 0; i < lv_obj_get_child_count(parent); i++) {
+            lv_obj_t *child = lv_obj_get_child(parent, i);
+            if (child == currentButton) {
+                lv_obj_add_state(child, LV_STATE_CHECKED);
+            }
+            else {
+                lv_obj_remove_state(child, LV_STATE_CHECKED);
+            }
+        }
+    }
+}
+
 static void lvgl_initialize_port1() {
     lcd_touch_initialize();
 
@@ -235,6 +262,24 @@ static void lvgl_initialize_port1() {
     lv_label_set_text(ins_sd_label, "ins");
     lv_obj_align(ins_sd_label, LV_ALIGN_CENTER, 0, 0);
     lv_obj_set_style_text_color(ins_sd_label, lv_color_make(0x00, 0x00, 0x00), 0);
+
+    list1 = lv_list_create(lv_screen_active());
+    lv_obj_set_size(list1, lv_pct(60), lv_pct(100));
+    lv_obj_set_style_pad_row(list1, 5, 0);
+
+    /*Add buttons to the list*/
+    lv_obj_t *btn;
+    int       i;
+    for (i = 0; i < 15; i++) {
+        btn = lv_button_create(list1);
+        lv_obj_set_width(btn, lv_pct(50));
+        lv_obj_add_event_cb(btn, event_handler, LV_EVENT_CLICKED, NULL);
+
+        lv_obj_t *lab = lv_label_create(btn);
+        lv_label_set_text_fmt(lab, "Item %d", i);
+    }
+    currentButton = lv_obj_get_child(list1, 0);
+    lv_obj_add_state(currentButton, LV_STATE_CHECKED);
 }
 
 static void sdcard_initialize() {

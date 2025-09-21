@@ -39,8 +39,8 @@ target_sources(${Core_Name} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/touch_sence_routine.cpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/SEGGER-RTT/SEGGER_RTT_ASM_ARMv7M.S
-    # ${CMAKE_CURRENT_SOURCE_DIR}/SEGGER-RTT/SEGGER_RTT_printf.c
-    # ${CMAKE_CURRENT_SOURCE_DIR}/SEGGER-RTT/SEGGER_RTT.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/SEGGER-RTT/SEGGER_RTT_printf.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/SEGGER-RTT/SEGGER_RTT.c
 
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcAssert.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcCounter.c
@@ -67,10 +67,10 @@ target_sources(${Core_Name} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcString.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcTask.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcTimestamp.c
-
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/streamport/SEGGER_RTT_printf.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/streamport/SEGGER_RTT.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/streamport/trcStreamPort.c
+
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/streamport/SEGGER_RTT_printf.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/streamport/SEGGER_RTT.c
 )
 
 # Add include paths

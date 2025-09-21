@@ -8,19 +8,19 @@
 #include "prj_header.hpp"
 #include "SEGGER_RTT.h"
 
-static uint8_t touch_state[3]  = {0x81, 0x4E, 0x00};
-static uint8_t data_pos[2]     = {0x81, 0x50};
-static uint8_t data_buffer[6]  = {};
+static uint8_t    touch_state[3]         = {0x81, 0x4E, 0x00};
+static uint8_t    data_pos[2]            = {0x81, 0x50};
+static uint8_t    data_buffer[6]         = {};
 
-touch_point record_touch[5]    = {};
-uint8_t record_touch_valid_num = {};
+touch_point       record_touch[5]        = {};
+uint8_t           record_touch_valid_num = {};
 
 SemaphoreHandle_t sema_screen_been_touched;
-TimerHandle_t timer_20_ms_restrain_touch;
+TimerHandle_t     timer_20_ms_restrain_touch;
 
-static bool touch_invalidate = true;
+static bool       touch_invalidate = true;
 
-void timer_20_ms_callback(TimerHandle_t xTimer) {
+void              timer_20_ms_callback(TimerHandle_t xTimer) {
     touch_invalidate = true;
 }
 
@@ -28,7 +28,7 @@ void touch_sence_routine(void const *argument) {
     uint8_t rece_data;
     xSemaphoreTake(sema_flash_screen_routine_start, portMAX_DELAY);
 
-    int touch_number = 0;
+    int  touch_number = 0;
     bool not_normal = true, it_high = false, valid = true;
 
     while (1) {
