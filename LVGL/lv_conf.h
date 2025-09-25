@@ -74,7 +74,7 @@
  *====================*/
 
 /*Default display refresh, input device read and animation step period.*/
-#define LV_DEF_REFR_PERIOD  16      /*[ms]*/
+#define LV_DEF_REFR_PERIOD  20      /*[ms]*/
 
 /*Default Dot Per Inch. Used to initialize default sizes such as widgets sized, style paddings.
  *(Not so important, you can adjust it to modify default sizes and spaces)*/
@@ -949,13 +949,13 @@
 
 /*1: Enable file explorer*/
 /*Requires: lv_table*/
-#define LV_USE_FILE_EXPLORER                     0
+#define LV_USE_FILE_EXPLORER                     1
 #if LV_USE_FILE_EXPLORER
     /*Maximum length of path*/
     #define LV_FILE_EXPLORER_PATH_MAX_LEN        (128)
     /*Quick access bar, 1:use, 0:not use*/
     /*Requires: lv_list*/
-    #define LV_FILE_EXPLORER_QUICK_ACCESS        1
+    #define LV_FILE_EXPLORER_QUICK_ACCESS        0
 #endif
 
 /*==================

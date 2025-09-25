@@ -24,6 +24,7 @@
 #define TOUCH_POINT4_REG 	0X8168
 #define TOUCH_POINT5_REG 	0X8170
 
+#include "debugger.h"
 #include "timer_delay.hpp"
 #include "main.h"
 #include "gpio.h"

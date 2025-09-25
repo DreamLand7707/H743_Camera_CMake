@@ -24,6 +24,7 @@
 #include "cmsis_os.h"
 
 #include "lvgl.h"
+#include "ansi.h"
 #include "lvgl/examples/porting/lv_port_disp.h"
 #include "lvgl/examples/porting/lv_port_indev.h"
 #include "lvgl/examples/porting/lv_port_fs.h"

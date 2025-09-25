@@ -164,7 +164,7 @@ standard names. */
 #define configNUM_THREAD_LOCAL_STORAGE_POINTERS 4
 #define INCLUDE_xTaskGetCurrentTaskHandle 1
 #if ( configUSE_TRACE_FACILITY == 1 )
-#include "trcRecorder.h"
+#include "debugger.h"
 #endif
 /* USER CODE END Defines */
 

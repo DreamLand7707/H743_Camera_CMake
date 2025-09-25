@@ -35,8 +35,9 @@ extern "C"
 #include "cmsis_os.h"
 #include "lvgl.h"
 #include "ansi.h"
-#include "trcRecorder.h"
+#include "debugger.h"
 #include "my_heap_manage.h"
+#include <stdint.h>
     /* USER CODE END Includes */
 
     /* Exported types ------------------------------------------------------------*/
@@ -94,10 +95,10 @@ extern "C"
     extern uint32_t          sdcard_disk_init;
     extern uint32_t          sdcard_is_mounted;
 
-    extern traceString       trace_analyzer_channel1;
-    extern traceString       trace_analyzer_channel2;
-    extern traceString       trace_analyzer_channel3;
-    extern traceString       trace_analyzer_channel4;
+    // extern traceString       trace_analyzer_channel1;
+    // extern traceString       trace_analyzer_channel2;
+    // extern traceString       trace_analyzer_channel3;
+    // extern traceString       trace_analyzer_channel4;
 
     /* USER CODE END EC */
 
@@ -118,7 +119,6 @@ extern "C"
     void touch_sence_routine(void const *argument);
     void camera_task_routine(void const *argument);
     void timer_20_ms_callback(TimerHandle_t xTimer);
-    int  rgba_equal(BGR *a, BGR *b);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
@@ -176,6 +176,19 @@ extern "C"
 #define SWITCH_BITS_GET(TARGET, MASK)  ((TARGET) ^ (MASK))
 #define WARP_BITS_GET(TARGET, MASK)    ((TARGET) & (MASK))
 #define EXTRACT_BITS_GET(TARGET, MASK) ((TARGET) & (MASK))
+
+static inline void MYSCB_CleanInvalidateDCache_by_AddrRange(const uint32_t *pData_begin, const uint32_t *pData_end) {
+    uint32_t address_start = (uint32_t)pData_begin;
+    uint32_t address_end   = (uint32_t)pData_end + 31;
+    address_start &= 0xffffffe0;
+    address_end &= 0xffffffe0;
+    int32_t real_size = (int32_t)(address_end - address_start);
+    SCB_CleanInvalidateDCache_by_Addr((uint32_t *)address_start, real_size);
+}
+
+static inline int rgba_equal(BGR *a, BGR *b) {
+    return (a->B == b->B) && (a->G == b->G) && (a->R == b->R);
+}
 
     /* USER CODE END Private defines */
 

@@ -180,7 +180,7 @@ static void touchpad_init(void) {
 static void touchpad_read(lv_indev_t *indev_drv, lv_indev_data_t *data) {
     static int32_t last_x = 0;
     static int32_t last_y = 0;
-    xTracePrint(trace_analyzer_channel2, "=LVGL= Read Record Touch!");
+    // xTracePrint(trace_analyzer_channel2, "=LVGL= Read Record Touch!");
 
     /*Save the pressed coordinates and the state*/
     if (touchpad_is_pressed()) {

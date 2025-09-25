@@ -1,7 +1,7 @@
 #include "prj_header.hpp"
 #include "jpeg_utils.h"
+#include "file_explorer.hpp"
 
-#include "SEGGER_RTT.h"
 #include <ranges>
 
 // extern Variable Definition
@@ -24,18 +24,15 @@ SemaphoreHandle_t sema_swap_buffer_handle;
 
 TimerHandle_t     timer_33ms_flash_screen;
 
-traceString       trace_analyzer_channel1;
-traceString       trace_analyzer_channel2;
-traceString       trace_analyzer_channel3;
-traceString       trace_analyzer_channel4;
+// traceString       trace_analyzer_channel1;
+// traceString       trace_analyzer_channel2;
+// traceString       trace_analyzer_channel3;
+// traceString       trace_analyzer_channel4;
 
 
 // static variable Definition
 namespace
 {
-    lv_obj_t         *myBtn;
-    lv_obj_t         *label_btn;
-    lv_obj_t         *myLabel;
     lv_obj_t         *shot_btn;
     lv_obj_t         *shot_btn_label;
     lv_obj_t         *pop_sd;
@@ -43,15 +40,9 @@ namespace
     lv_obj_t         *pop_sd_label;
     lv_obj_t         *ins_sd_label;
 
-    lv_obj_t         *list1;
-
     TaskHandle_t      take_screenshot;
     SemaphoreHandle_t mutex_gram_read;
     SemaphoreHandle_t sema_take_screenshot;
-    SemaphoreHandle_t sema_update_local;
-    char              buff_str[40];
-
-    int               count = 0, i = 0;
 
     JPEG_ConfTypeDef  jpeg_conf;
     uint8_t          *curr_encode_ptr;
@@ -77,16 +68,12 @@ enum class scr_mess;
 static void    lvgl_initialize_port1();
 static void    lvgl_initialize_port2();
 static void    sdcard_initialize();
-static void    MYSCB_CleanInvalidateDCache_by_AddrRange(const uint32_t *pData_begin, const uint32_t *pData_end);
-static void    timer_500ms_internal_callback(TimerHandle_t xTimer);
 static int     routine(int argc, char **argv);
 static void    initial_before_routine();
 extern "C" int _getentropy(void *buffer, size_t length);
 
 static void    take_screenshot_task(void *params);
 static void    hdma2dCompleteCallback(DMA2D_HandleTypeDef *hdma2d);
-static void    press_call(lv_event_t *event);
-static void    release_call(lv_event_t *event);
 static void    shot_call(lv_event_t *event);
 static void    insbtn_call(lv_event_t *event);
 static void    popbtn_call(lv_event_t *event);
@@ -117,13 +104,13 @@ void initial_task_routine(void const *argument) {
 static void initial_before_routine() {
     mutex_gram_read      = xSemaphoreCreateMutex();
     sema_take_screenshot = xSemaphoreCreateBinary();
-    sema_update_local    = xSemaphoreCreateBinary();
+    // sema_update_local    = xSemaphoreCreateBinary();
 
-    SDRAM_GRAM1          = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
-    SDRAM_GRAM2          = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
-    JPEG_ENCODE_SOURCE   = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
-    JPEG_ENCODE_DEST     = sdram_Malloc(256 * 1024);
-    JEPG_YCbCr           = sdram_Malloc(256 * 1024);
+    SDRAM_GRAM1        = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
+    SDRAM_GRAM2        = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
+    JPEG_ENCODE_SOURCE = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
+    JPEG_ENCODE_DEST   = sdram_Malloc(256 * 1024);
+    JEPG_YCbCr         = sdram_Malloc(256 * 1024);
 
     HAL_LTDC_SetAddress(&hltdc, (uint32_t)SDRAM_GRAM1, LTDC_LAYER_1);
 
@@ -146,66 +133,28 @@ static int routine(int argc, char **argv) {
 
     vTaskPrioritySet(Initial_TaskHandle, 4);
 
-    vQueueAddToRegistry((QueueHandle_t)sema_update_local, "sema_update_local");
     vQueueAddToRegistry((QueueHandle_t)mutex_gram_read, "mutex_gram_read");
     vQueueAddToRegistry((QueueHandle_t)sema_take_screenshot, "sema_take_screenshot");
 
-    trace_analyzer_channel1 = xTraceRegisterString("User_Channel_1");
-    trace_analyzer_channel2 = xTraceRegisterString("User_Channel_2");
-    trace_analyzer_channel3 = xTraceRegisterString("User_Channel_3");
-    trace_analyzer_channel4 = xTraceRegisterString("User_Channel_4");
+    // trace_analyzer_channel1 = xTraceRegisterString("User_Channel_1");
+    // trace_analyzer_channel2 = xTraceRegisterString("User_Channel_2");
+    // trace_analyzer_channel3 = xTraceRegisterString("User_Channel_3");
+    // trace_analyzer_channel4 = xTraceRegisterString("User_Channel_4");
 
     xTaskCreate(take_screenshot_task, "thread_take_screen_shot", 512, nullptr, 5, &take_screenshot);
 
-    TimerHandle_t timer_500ms_internal;
-    timer_500ms_internal = xTimerCreate("timer_500ms_internal", pdMS_TO_TICKS(500), pdTRUE, nullptr, &timer_500ms_internal_callback);
-    xTimerStart(timer_500ms_internal, portMAX_DELAY);
-
-    lv_obj_add_event_cb(myBtn, press_call, LV_EVENT_PRESSED, nullptr);
-    lv_obj_add_event_cb(myBtn, release_call, LV_EVENT_RELEASED, nullptr);
     lv_obj_add_event_cb(shot_btn, shot_call, LV_EVENT_PRESSED, nullptr);
     lv_obj_add_event_cb(ins_sd, insbtn_call, LV_EVENT_PRESSED, nullptr);
     lv_obj_add_event_cb(pop_sd, popbtn_call, LV_EVENT_PRESSED, nullptr);
+    lv_obj_add_state(ins_sd, LV_STATE_CHECKED);
+    
+    file_explorer_create(lv_scr_act(), 40, "0:/");
 
     while (1) {
-        if (pdTRUE == xSemaphoreTake(sema_update_local, 0)) {
-            lv_lock();
-            if (count % 2)
-                lv_label_set_text(myLabel, buff_str);
-            else
-                lv_label_set_text(label_btn, buff_str);
-            lv_unlock();
-        }
-        xTracePrint(trace_analyzer_channel2, "=Main Thread= Begin lv_timer_handler");
+        // xTracePrint(trace_analyzer_channel2, "=Main Thread= Begin lv_timer_handler");
         lv_timer_handler();
-        xTracePrint(trace_analyzer_channel2, "=Main Thread= End   lv_timer_handler");
+        // xTracePrint(trace_analyzer_channel2, "=Main Thread= End   lv_timer_handler");
         vTaskDelay(1);
-    }
-}
-
-static lv_obj_t *currentButton = NULL;
-static void      event_handler(lv_event_t *e) {
-    lv_event_code_t code = lv_event_get_code(e);
-    lv_obj_t       *obj  = (lv_obj_t *)lv_event_get_target(e);
-    if (code == LV_EVENT_CLICKED) {
-        jprintf(0, "Clicked: %s", lv_list_get_button_text(list1, obj));
-        if (currentButton == obj) {
-            currentButton = NULL;
-        }
-        else {
-            currentButton = obj;
-        }
-        lv_obj_t *parent = lv_obj_get_parent(obj);
-        uint32_t  i;
-        for (i = 0; i < lv_obj_get_child_count(parent); i++) {
-            lv_obj_t *child = lv_obj_get_child(parent, i);
-            if (child == currentButton) {
-                lv_obj_add_state(child, LV_STATE_CHECKED);
-            }
-            else {
-                lv_obj_remove_state(child, LV_STATE_CHECKED);
-            }
-        }
     }
 }
 
@@ -215,19 +164,6 @@ static void lvgl_initialize_port1() {
     lv_init();
     lv_port_disp_init();
     lv_port_indev_init();
-
-    myBtn = lv_btn_create(lv_scr_act());
-    lv_obj_set_size(myBtn, 120, 50);
-    lv_obj_align(myBtn, LV_ALIGN_CENTER, 170, 0);
-    lv_obj_set_style_bg_color(myBtn, lv_color_make(255, 0, 0), 0);
-
-    label_btn = lv_label_create(myBtn);
-    lv_obj_align(label_btn, LV_ALIGN_CENTER, 0, 0);
-    lv_label_set_text(label_btn, "--button--\nclick me!");
-
-    myLabel = lv_label_create(lv_scr_act());
-    lv_label_set_text(myLabel, "Hello Kitty!");
-    lv_obj_align(myLabel, LV_ALIGN_CENTER, 100, -50);
 
     shot_btn = lv_btn_create(lv_scr_act());
     lv_obj_align(shot_btn, LV_ALIGN_BOTTOM_RIGHT, 0, 0);
@@ -241,13 +177,13 @@ static void lvgl_initialize_port1() {
     lv_obj_set_style_text_color(shot_btn_label, lv_color_make(0xff, 0xff, 0xff), 0);
 
     pop_sd = lv_button_create(lv_scr_act());
-    lv_obj_align(pop_sd, LV_ALIGN_RIGHT_MID, -20, 60);
-    lv_obj_set_size(pop_sd, 60, 40);
+    lv_obj_align(pop_sd, LV_ALIGN_BOTTOM_RIGHT, -40, 0);
+    lv_obj_set_size(pop_sd, 40, 20);
     lv_obj_set_style_bg_color(pop_sd, lv_palette_main(LV_PALETTE_LIGHT_BLUE), 0);
 
     ins_sd = lv_button_create(lv_scr_act());
-    lv_obj_align(ins_sd, LV_ALIGN_RIGHT_MID, -20, -60);
-    lv_obj_set_size(ins_sd, 60, 40);
+    lv_obj_align(ins_sd, LV_ALIGN_BOTTOM_RIGHT, -80, 0);
+    lv_obj_set_size(ins_sd, 40, 20);
     lv_obj_set_style_bg_color(ins_sd, lv_palette_main(LV_PALETTE_LIGHT_BLUE), 0);
 
     pop_sd_label = lv_label_create(pop_sd);
@@ -259,25 +195,13 @@ static void lvgl_initialize_port1() {
     lv_label_set_text(ins_sd_label, "ins");
     lv_obj_align(ins_sd_label, LV_ALIGN_CENTER, 0, 0);
     lv_obj_set_style_text_color(ins_sd_label, lv_color_make(0x00, 0x00, 0x00), 0);
-
-    list1 = lv_list_create(lv_screen_active());
-    lv_obj_set_size(list1, lv_pct(60), lv_pct(100));
-    lv_obj_set_style_pad_row(list1, 5, 0);
-
-    /*Add buttons to the list*/
-    lv_obj_t *btn;
-    int       i;
-    for (i = 0; i < 15; i++) {
-        btn = lv_button_create(list1);
-        lv_obj_set_width(btn, lv_pct(50));
-        lv_obj_add_event_cb(btn, event_handler, LV_EVENT_CLICKED, NULL);
-
-        lv_obj_t *lab = lv_label_create(btn);
-        lv_label_set_text_fmt(lab, "Item %d", i);
-    }
-    currentButton = lv_obj_get_child(list1, 0);
-    lv_obj_add_state(currentButton, LV_STATE_CHECKED);
 }
+
+static void lvgl_initialize_port2() {
+    lv_port_fs_init();
+}
+
+
 
 static void sdcard_initialize() {
     printf("STATUS: %d\n", SD_Driver.disk_initialize(0));
@@ -305,85 +229,6 @@ static void sdcard_initialize() {
     f_mount(nullptr, SDPath, 1);
 
     sdcard_is_mounted = 0;
-}
-
-static void lvgl_initialize_port2() {
-    lv_port_fs_init();
-}
-
-// Tool function
-static void MYSCB_CleanInvalidateDCache_by_AddrRange(const uint32_t *pData_begin, const uint32_t *pData_end) {
-    uint32_t address_start = (uint32_t)pData_begin;
-    uint32_t address_end   = (uint32_t)pData_end + 31;
-    address_start &= 0xffffffe0;
-    address_end &= 0xffffffe0;
-    int32_t real_size = int32_t(address_end - address_start);
-    SCB_CleanInvalidateDCache_by_Addr((uint32_t *)address_start, real_size);
-}
-
-// Tool function
-int rgba_equal(BGR *a, BGR *b) {
-    return (a->B == b->B) && (a->G == b->G) && (a->R == b->R);
-}
-
-// ISR Callback
-void HAL_LTDC_ReloadEventCallback(LTDC_HandleTypeDef *hltdc) {
-    BaseType_t woke = pdFALSE;
-    xSemaphoreGiveFromISR(sema_render_sync_daemon_handle, &woke);
-    xSemaphoreGiveFromISR(sema_swap_buffer_handle, &woke);
-    portYIELD_FROM_ISR(woke);
-}
-
-// timer callback
-static void timer_500ms_internal_callback(TimerHandle_t xTimer) {
-    sprintf(buff_str, "%d", i);
-    i++;
-    count++;
-    i = i % 10;
-    xSemaphoreGive(sema_update_local);
-}
-
-// BSP FATFS Callback
-uint8_t BSP_SD_ReadBlocks_DMA(uint32_t *pData, uint32_t ReadAddr, uint32_t NumOfBlocks) {
-    uint8_t  sd_state      = MSD_OK;
-    uint32_t address_start = (uint32_t)pData;
-    uint32_t address_end   = address_start + NumOfBlocks * 512;
-    MYSCB_CleanInvalidateDCache_by_AddrRange((uint32_t *)address_start, (uint32_t *)address_end);
-    if (HAL_SD_ReadBlocks_DMA(&hsd1, (uint8_t *)pData, ReadAddr, NumOfBlocks) != HAL_OK) {
-        sd_state = MSD_ERROR;
-    }
-
-    return sd_state;
-}
-
-// BSP FATFS Callback
-uint8_t BSP_SD_WriteBlocks_DMA(uint32_t *pData, uint32_t WriteAddr, uint32_t NumOfBlocks) {
-    uint8_t  sd_state      = MSD_OK;
-    uint32_t address_start = (uint32_t)pData;
-    uint32_t address_end   = address_start + NumOfBlocks * 512;
-    MYSCB_CleanInvalidateDCache_by_AddrRange((uint32_t *)address_start, (uint32_t *)address_end);
-    if (HAL_SD_WriteBlocks_DMA(&hsd1, (uint8_t *)pData, WriteAddr, NumOfBlocks) != HAL_OK) {
-        sd_state = MSD_ERROR;
-    }
-
-    return sd_state;
-}
-
-// lvgl callback
-void swapBuffer(void *passbuf, lv_display_t *disp) {
-    xTracePrint(trace_analyzer_channel1, "=SwapBuffer= Begin Swap");
-    HAL_LTDC_SetAddress_NoReload(&hltdc, (uint32_t)passbuf, LTDC_LAYER_1);
-    HAL_LTDC_Reload(&hltdc, LTDC_RELOAD_VERTICAL_BLANKING);
-    curr_screen_buffer = passbuf;
-    xSemaphoreTake(sema_swap_buffer_handle, portMAX_DELAY);
-    lv_display_flush_ready(disp);
-    xTracePrint(trace_analyzer_channel1, "=SwapBuffer= End   Swap");
-    // jprintf(0, "swapBuffer\n");
-}
-
-// std::cout callback
-int _getentropy(void *buffer, size_t length) {
-    return 0;
 }
 
 void print_sdcard_info(void) {
@@ -419,6 +264,31 @@ void print_sdcard_info(void) {
     jprintf(0, "LogBlockNbr:         %lu \r\n", (uint32_t)(SDCardInfo.LogBlockNbr));  // 逻辑块数量
     jprintf(0, "LogBlockSize:        %lu \r\n", (uint32_t)(SDCardInfo.LogBlockSize)); // 逻辑块大小
     jprintf(0, "Card Capacity:       %lu MB\r\n", (uint32_t)(CardCap >> 20u));        // 卡容量
+}
+
+// ISR Callback
+void HAL_LTDC_ReloadEventCallback(LTDC_HandleTypeDef *hltdc) {
+    BaseType_t woke = pdFALSE;
+    xSemaphoreGiveFromISR(sema_render_sync_daemon_handle, &woke);
+    xSemaphoreGiveFromISR(sema_swap_buffer_handle, &woke);
+    portYIELD_FROM_ISR(woke);
+}
+
+// lvgl callback
+void swapBuffer(void *passbuf, lv_display_t *disp) {
+    // xTracePrint(trace_analyzer_channel1, "=SwapBuffer= Begin Swap");
+    HAL_LTDC_SetAddress_NoReload(&hltdc, (uint32_t)passbuf, LTDC_LAYER_1);
+    HAL_LTDC_Reload(&hltdc, LTDC_RELOAD_VERTICAL_BLANKING);
+    curr_screen_buffer = passbuf;
+    xSemaphoreTake(sema_swap_buffer_handle, portMAX_DELAY);
+    lv_display_flush_ready(disp);
+    // xTracePrint(trace_analyzer_channel1, "=SwapBuffer= End   Swap");
+    // jprintf(0, "swapBuffer\n");
+}
+
+// std::cout callback
+int _getentropy(void *buffer, size_t length) {
+    return 0;
 }
 
 
@@ -476,19 +346,11 @@ static void take_screenshot_task(void *params) {
     }
 }
 
-void press_call(lv_event_t *event) {
-    lv_color_t color = lv_color_make(0xff, 0x00, 0x00);
-    lv_obj_set_style_text_color(myLabel, color, 0);
-}
-void release_call(lv_event_t *event) {
-    lv_color_t color = lv_color_make(0x00, 0x00, 0x00);
-    lv_obj_set_style_text_color(myLabel, color, 0);
-}
 void shot_call(lv_event_t *event) {
     xSemaphoreGive(sema_take_screenshot);
 }
-void insbtn_call(lv_event_t *event) {
 
+void insbtn_call(lv_event_t *event) {
     if (!sdcard_link_driver && FATFS_LinkDriver(&SD_Driver, SDPath) != 0) {
         return;
     }
@@ -502,9 +364,11 @@ void insbtn_call(lv_event_t *event) {
         return;
     }
     sdcard_is_mounted = 1;
+    lv_obj_add_state(ins_sd, LV_STATE_CHECKED);
+    lv_obj_remove_state(pop_sd, LV_STATE_CHECKED);
 }
-void popbtn_call(lv_event_t *event) {
 
+void popbtn_call(lv_event_t *event) {
     if (sdcard_is_mounted && f_mount(nullptr, SDPath, 1) != FR_OK) {
         return;
     }
@@ -517,6 +381,8 @@ void popbtn_call(lv_event_t *event) {
         return;
     }
     sdcard_link_driver = 0;
+    lv_obj_add_state(pop_sd, LV_STATE_CHECKED);
+    lv_obj_remove_state(ins_sd, LV_STATE_CHECKED);
 }
 
 static void hdma2dCompleteCallback(DMA2D_HandleTypeDef *hdma2d) {

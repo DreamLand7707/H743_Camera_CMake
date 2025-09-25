@@ -23,3 +23,4 @@ add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/Core")
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/LVGL")
 
 target_link_libraries(Camera_Core PRIVATE lvgl_static_lib)
+target_compile_options(Camera_Core PRIVATE "-Wno-hicpp-signed-bitwise")

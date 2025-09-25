@@ -6,7 +6,6 @@
  */
 
 #include "prj_header.hpp"
-#include "SEGGER_RTT.h"
 
 static uint8_t    touch_state[3]         = {0x81, 0x4E, 0x00};
 static uint8_t    data_pos[2]            = {0x81, 0x50};
@@ -35,7 +34,7 @@ void touch_sence_routine(void const *argument) {
         xSemaphoreTake(sema_screen_been_touched, portMAX_DELAY);
 
         while (1) {
-            xTracePrint(trace_analyzer_channel2, "=Touch Screen= Begin Touch");
+            // xTracePrint(trace_analyzer_channel2, "=Touch Screen= Begin Touch");
             vTaskDelay(pdMS_TO_TICKS(20));
             it_high = HAL_GPIO_ReadPin(T_PEN_GPIO_Port, T_PEN_Pin);
             if (it_high) {
@@ -69,7 +68,7 @@ void touch_sence_routine(void const *argument) {
                     record_touch[i].state = 0;
                 break;
             }
-            xTracePrint(trace_analyzer_channel2, "=Touch Screen= End Touch");
+            // xTracePrint(trace_analyzer_channel2, "=Touch Screen= End Touch");
         }
     }
 }

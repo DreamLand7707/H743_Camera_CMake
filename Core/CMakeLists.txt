@@ -37,6 +37,8 @@ target_sources(${Core_Name} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/my_heap_manage.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/timer_delay.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/touch_sence_routine.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/file_explorer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/bsp_fatfs_callback.cpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/SEGGER-RTT/SEGGER_RTT_ASM_ARMv7M.S
     ${CMAKE_CURRENT_SOURCE_DIR}/SEGGER-RTT/SEGGER_RTT_printf.c
@@ -68,15 +70,13 @@ target_sources(${Core_Name} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcTask.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcTimestamp.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/streamport/trcStreamPort.c
-
-    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/streamport/SEGGER_RTT_printf.c
-    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/streamport/SEGGER_RTT.c
 )
 
 # Add include paths
 target_include_directories(${Core_Name} PRIVATE
 
     # Add user defined include paths
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/soft_iic
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code
 
