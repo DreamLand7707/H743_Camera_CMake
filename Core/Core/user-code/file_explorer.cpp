@@ -22,6 +22,8 @@
 
 struct file_explorer_styles {
     lv_style_t file_explorer_style;
+    lv_style_t spacer_style;
+    lv_style_t indicator_style;
     lv_style_t container_style;
     struct {
         lv_style_t default_style;
@@ -33,8 +35,10 @@ struct file_explorer_data {
     file_explorer_styles      style;
     lv_style_transition_dsc_t transition;
     lv_style_prop_t          *transition_props;
-    lv_obj_t                 *container;    // the container: item's parent
-    lv_obj_t                **total_items;  // items; elements = item count
+    lv_obj_t                 *container;   // the container: item's parent
+    lv_obj_t                **total_items; // items; elements = item count
+    lv_obj_t                 *indicator;
+    lv_obj_t                 *container_spacer;
     FILINFO                 **info_buffer;  // file info to show
     char                     *current_path; // path; detect the folder
     int32_t                   buffer_idx_begin[3];
@@ -65,10 +69,15 @@ static bool file_explorer_switch_to_next_page(lv_obj_t *fe_obj);
 static bool file_explorer_switch_to_prev_page(lv_obj_t *fe_obj);
 
 lv_obj_t   *file_explorer_create(lv_obj_t *parent, int32_t item_height, const char *start_path) {
-    lv_obj_t *fe_obj = lv_obj_create(parent);
-    lv_obj_t *cont   = lv_obj_create(fe_obj);
+    lv_obj_t *fe_obj           = lv_obj_create(parent);
+    lv_obj_t *indicator        = lv_obj_create(fe_obj);
+    lv_obj_t *container_spacer = lv_obj_create(fe_obj);
+    lv_obj_t *cont             = lv_obj_create(container_spacer);
+    lv_obj_t *indicator_label  = lv_label_create(indicator);
     // user_data
     auto *user_data             = (file_explorer_data *)pvPortMalloc(sizeof(file_explorer_data));
+    user_data->container_spacer = container_spacer;
+    user_data->indicator        = indicator;
     user_data->container        = cont;
     user_data->item_height      = item_height;
     user_data->total_count      = 0;
@@ -94,7 +103,7 @@ lv_obj_t   *file_explorer_create(lv_obj_t *parent, int32_t item_height, const ch
     file_explorer_use_style(fe_obj);
 
     lv_obj_update_layout(fe_obj);
-    int32_t parent_height  = lv_obj_get_height(fe_obj);
+    int32_t parent_height  = lv_obj_get_height(user_data->container_spacer);
     int32_t item_count     = (parent_height / item_height) + 1 + !!(parent_height % item_height);
     user_data->item_count  = item_count;
 
@@ -104,6 +113,8 @@ lv_obj_t   *file_explorer_create(lv_obj_t *parent, int32_t item_height, const ch
         lv_label_create(item);
         user_data->total_items[i] = item;
     }
+
+    lv_obj_set_align(indicator_label, LV_ALIGN_CENTER);
 
     P_BUF_IDX = 0; // 0 -> before
     C_BUF_IDX = 1; // 1 -> current
@@ -118,8 +129,8 @@ lv_obj_t   *file_explorer_create(lv_obj_t *parent, int32_t item_height, const ch
     file_explorer_rename_items(fe_obj);
 
     for (int i = 0; i < item_count; i++)
-        lv_obj_add_event_cb(user_data->total_items[i], file_explorer_item_callback, LV_EVENT_CLICKED, nullptr);
-    lv_obj_add_event_cb(fe_obj, file_explorer_callback, LV_EVENT_ALL, nullptr);
+        lv_obj_add_event_cb(user_data->total_items[i], file_explorer_item_callback, LV_EVENT_CLICKED, fe_obj);
+    lv_obj_add_event_cb(user_data->container_spacer, file_explorer_callback, LV_EVENT_ALL, fe_obj);
 
     return fe_obj;
 }
@@ -160,12 +171,15 @@ static bool file_explorer_opendir(lv_obj_t *fe_obj) {
     f_closedir(&current_dir);
 
     user_data->total_count = count;
-    if (count > (user_data->item_count - 1))
-        user_data->vis_count = (user_data->item_count - 1);
+    if (count > (user_data->item_count))
+        user_data->vis_count = (user_data->item_count);
     else
         user_data->vis_count = count;
 
     user_data->last_idx = user_data->vis_count - 1;
+
+    lv_label_set_text_static(lv_obj_get_child(user_data->indicator, 0), user_data->current_path);
+    lv_obj_set_size(user_data->container, lv_pct(100), user_data->total_count * user_data->item_height);
 
     return true;
 }
@@ -306,13 +320,28 @@ static void file_explorer_init_style(lv_obj_t *fe_obj) {
 
     lv_style_init(&fe_style.file_explorer_style);
     lv_style_init(&fe_style.container_style);
+    lv_style_init(&fe_style.indicator_style);
+    lv_style_init(&fe_style.spacer_style);
     lv_style_init(&fe_style.item_styles.default_style);
     lv_style_init(&fe_style.item_styles.press_style);
 
     lv_style_set_size(&fe_style.file_explorer_style, lv_pct(40), lv_pct(100));
+    lv_style_set_layout(&fe_style.file_explorer_style, LV_LAYOUT_FLEX);
     lv_style_set_flex_flow(&fe_style.file_explorer_style, LV_FLEX_FLOW_COLUMN);
     lv_style_set_pad_all(&fe_style.file_explorer_style, 0);
     lv_style_set_border_color(&fe_style.file_explorer_style, lv_color_hex(0xA0A0A0));
+
+    lv_style_set_width(&fe_style.indicator_style, lv_pct(100));
+    lv_style_set_height(&fe_style.indicator_style, 30);
+    lv_style_set_flex_grow(&fe_style.indicator_style, 0);
+    lv_style_set_bg_color(&fe_style.indicator_style, lv_color_hex(0xB0B0B0));
+    lv_style_set_border_width(&fe_style.indicator_style, 2);
+    lv_style_set_border_color(&fe_style.indicator_style, lv_color_hex(0x777777));
+
+    lv_style_set_width(&fe_style.spacer_style, lv_pct(100));
+    lv_style_set_flex_grow(&fe_style.spacer_style, 1);
+    lv_style_set_pad_all(&fe_style.spacer_style, 0);
+    lv_style_set_border_width(&fe_style.spacer_style, 0);
 
     lv_style_set_size(&fe_style.item_styles.default_style, lv_pct(100), user_data->item_height);
     lv_style_set_bg_color(&fe_style.item_styles.default_style, lv_color_white());
@@ -332,19 +361,28 @@ static void file_explorer_init_style(lv_obj_t *fe_obj) {
 static void file_explorer_use_style(lv_obj_t *fe_obj) {
     auto *user_data = static_cast<file_explorer_data *>(lv_obj_get_user_data(fe_obj));
     auto &fe_style  = user_data->style;
+
+    lv_obj_clear_flag(fe_obj, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_style(fe_obj, &fe_style.file_explorer_style, (lv_style_selector_t)LV_PART_MAIN | (lv_style_selector_t)LV_STATE_DEFAULT);
+
     lv_obj_remove_style_all(user_data->container);
     lv_obj_clear_flag(user_data->container, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_margin_hor(user_data->container, 15,
-                                (lv_style_selector_t)LV_PART_MAIN | (lv_style_selector_t)LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_all(user_data->container, 0, (lv_style_selector_t)LV_PART_MAIN | (lv_style_selector_t)LV_STATE_DEFAULT);
+    lv_obj_set_style_margin_all(user_data->container, 0, (lv_style_selector_t)LV_PART_MAIN | (lv_style_selector_t)LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(user_data->container, 0, (lv_style_selector_t)LV_PART_MAIN | (lv_style_selector_t)LV_STATE_DEFAULT);
+    lv_obj_set_style_margin_hor(user_data->container, 15, (lv_style_selector_t)LV_PART_MAIN | (lv_style_selector_t)LV_STATE_DEFAULT);
 
-    lv_obj_add_style(fe_obj, &fe_style.file_explorer_style, (lv_style_selector_t)LV_PART_MAIN | (lv_style_selector_t)LV_STATE_DEFAULT);
+    lv_obj_add_style(user_data->container_spacer, &fe_style.spacer_style, (lv_style_selector_t)LV_PART_MAIN | (lv_style_selector_t)LV_STATE_DEFAULT);
+
+    lv_obj_add_style(user_data->indicator, &fe_style.indicator_style, (lv_style_selector_t)LV_PART_MAIN | (lv_style_selector_t)LV_STATE_DEFAULT);
+    lv_obj_set_scroll_dir(user_data->indicator, LV_DIR_HOR);
+    lv_obj_set_style_text_color(lv_obj_get_child(user_data->indicator, 0), lv_color_white(), LV_STATE_DEFAULT);
 }
 
 static void file_explorer_use_style_items(lv_obj_t *fe_obj) {
     auto *user_data = static_cast<file_explorer_data *>(lv_obj_get_user_data(fe_obj));
     auto &fe_style  = user_data->style;
 
-    lv_style_set_size(&fe_style.container_style, lv_pct(100), user_data->total_count * user_data->item_height);
     lv_obj_add_style(user_data->container, &fe_style.container_style, (lv_style_selector_t)LV_PART_MAIN | (lv_style_selector_t)LV_STATE_DEFAULT);
 
     for (int i = 0; i < user_data->item_count; i++) {
@@ -380,12 +418,14 @@ static void file_explorer_rename_items(lv_obj_t *fe_obj) {
             lv_obj_add_flag(user_data->total_items[i], LV_OBJ_FLAG_HIDDEN);
             lv_label_set_text_static(item_label, "");
         }
+        lv_obj_update_layout(user_data->total_items[i]);
+        lv_obj_scroll_to(user_data->total_items[i], 0, 0, LV_ANIM_OFF);
     }
 }
 
 static void file_explorer_callback(lv_event_t *e) {
     lv_event_code_t event_code = lv_event_get_code(e);
-    lv_obj_t       *fe_obj     = lv_event_get_current_target_obj(e);
+    auto           *fe_obj     = (lv_obj_t *)lv_event_get_user_data(e);
     auto           *user_data  = static_cast<file_explorer_data *>(lv_obj_get_user_data(fe_obj));
     switch (event_code) {
     case LV_EVENT_DRAW_POST: {
@@ -396,7 +436,7 @@ static void file_explorer_callback(lv_event_t *e) {
                 user_data->reload_pending = false;
                 user_data->virt_curr_idx  = 0;
                 user_data->first_idx      = 0;
-                lv_obj_scroll_to_y(fe_obj, 0, LV_ANIM_OFF);
+                lv_obj_scroll_to_y(user_data->container_spacer, 0, LV_ANIM_OFF);
                 file_explorer_relocate_items(fe_obj, 0);
                 file_explorer_rename_items(fe_obj);
             }
@@ -407,10 +447,9 @@ static void file_explorer_callback(lv_event_t *e) {
         break;
     }
     case LV_EVENT_SCROLL: {
-        lv_coord_t fe_scroll_top = lv_obj_get_scroll_top(fe_obj);
-        lv_coord_t fe_scroll_btm = lv_obj_get_scroll_bottom(fe_obj);
+        lv_coord_t fe_scroll_top = lv_obj_get_scroll_top(user_data->container_spacer);
 
-        int32_t    height        = lv_obj_get_height(fe_obj);
+        int32_t    height        = lv_obj_get_height(user_data->container_spacer);
         int32_t    new_first_idx = fe_scroll_top / user_data->item_height;
         int32_t    new_last_idx =
             ((fe_scroll_top + height) / user_data->item_height) +
@@ -420,9 +459,7 @@ static void file_explorer_callback(lv_event_t *e) {
             new_last_idx = user_data->total_count;
         }
 
-        if (new_first_idx != user_data->first_idx &&
-            new_first_idx >= 0 && fe_scroll_btm >= 0 &&
-            new_last_idx != user_data->last_idx) {
+        if (new_first_idx != user_data->first_idx && new_first_idx >= 0) {
             user_data->virt_curr_idx += (new_first_idx - user_data->first_idx);
             user_data->first_idx = new_first_idx;
             user_data->last_idx  = new_last_idx;
