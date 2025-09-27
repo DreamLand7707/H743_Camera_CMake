@@ -8,7 +8,11 @@
 #ifndef MEMORY_POOL_BLOCK_MEMORY_POOL_BLOCK_HPP_
 #define MEMORY_POOL_BLOCK_MEMORY_POOL_BLOCK_HPP_
 
-#include "prj_header.hpp"
+#include <cstdint>
+#include <cassert>
+#include "main.h"
+#include "FreeRTOS.h"
+#include "semphr.h"
 
 typedef struct memory_pool_block_lite_t memory_pool_block_lite;
 typedef struct memory_pool_block_t      memory_pool_block;

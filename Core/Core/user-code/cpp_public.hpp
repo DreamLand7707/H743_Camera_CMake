@@ -8,8 +8,6 @@
 #ifndef INC_CPP_PUBLIC_HPP_
 #define INC_CPP_PUBLIC_HPP_
 
-#include "prj_header.hpp"
-
 #ifdef __cplusplus
 
 #include <vector>

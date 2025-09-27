@@ -8,7 +8,11 @@
 #ifndef MEMORY_POOL_MEMORY_POOL_H_
 #define MEMORY_POOL_MEMORY_POOL_H_
 
-#include "prj_header.hpp"
+#include <cstdint>
+#include <cassert>
+#include "main.h"
+#include "FreeRTOS.h"
+#include "semphr.h"
 
 #ifdef __cplusplus
 extern "C"
