@@ -39,6 +39,9 @@ target_sources(${Core_Name} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/touch_sence_routine.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/file_explorer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/bsp_fatfs_callback.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/path_func.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/memory_pool.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/std_new_delete.cpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/SEGGER-RTT/SEGGER_RTT_ASM_ARMv7M.S
     ${CMAKE_CURRENT_SOURCE_DIR}/SEGGER-RTT/SEGGER_RTT_printf.c

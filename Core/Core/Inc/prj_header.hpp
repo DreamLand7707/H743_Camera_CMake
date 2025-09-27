@@ -33,6 +33,6 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
-
+#include <cassert>
 
 #endif /* INC_PRJ_HEADER_HPP_ */
