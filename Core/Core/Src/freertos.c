@@ -156,7 +156,6 @@ void MX_FREERTOS_Init(void) {
     sema_flash_screen_routine_start = xSemaphoreCreateBinary();
     sema_camera_routine_start = xSemaphoreCreateBinary();
     sema_screen_been_touched = xSemaphoreCreateBinary();
-    sema_render_sync_daemon_handle = xSemaphoreCreateBinary();
     sema_swap_buffer_handle = xSemaphoreCreateBinary();
   /* USER CODE END RTOS_SEMAPHORES */
 
@@ -187,7 +186,6 @@ void MX_FREERTOS_Init(void) {
     vQueueAddToRegistry((QueueHandle_t) sema_flash_screen_routine_start, "sema_flash_screen_routine_start");
     vQueueAddToRegistry((QueueHandle_t) sema_camera_routine_start, "sema_camera_routine_start");
     vQueueAddToRegistry((QueueHandle_t) sema_screen_been_touched, "sema_screen_been_touched");
-    vQueueAddToRegistry((QueueHandle_t) sema_render_sync_daemon_handle, "sema_render_sync_daemon_handle");
     vQueueAddToRegistry((QueueHandle_t) sema_swap_buffer_handle, "sema_swap_buffer_handle");
   /* USER CODE END RTOS_THREADS */
 

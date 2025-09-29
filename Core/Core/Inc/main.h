@@ -82,10 +82,8 @@ extern "C"
     extern SemaphoreHandle_t sema_flash_screen_routine_start;
     extern SemaphoreHandle_t sema_camera_routine_start;
     extern SemaphoreHandle_t sema_screen_been_touched;
-    extern SemaphoreHandle_t sema_render_sync_daemon_handle;
     extern SemaphoreHandle_t sema_swap_buffer_handle;
     extern TimerHandle_t     timer_20_ms_restrain_touch;
-    extern TimerHandle_t     timer_33ms_flash_screen;
     extern uint8_t           mkfs_buffer[4096] __attribute__((section(".fatfs_buffer")));
 
     extern touch_point       record_touch[5];

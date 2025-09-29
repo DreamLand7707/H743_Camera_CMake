@@ -3885,7 +3885,7 @@ static void prvCheckTasksWaitingTermination( void )
 #if ( INCLUDE_vTaskDelete == 1 )
 
 	static void prvDeleteTCB( TCB_t *pxTCB )
-	{
+ 	{
 		/* This call is required specifically for the TriCore port.  It must be
 		above the vPortFree() calls.  The call is also used by ports/demos that
 		want to allocate and clean RAM statically. */

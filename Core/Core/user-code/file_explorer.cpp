@@ -4,21 +4,23 @@
 #include "core/lv_obj_class_private.h"
 #include "core/lv_obj_private.h"
 
-#define P_BUF_IDX user_data->buffer_idx[0]
-#define C_BUF_IDX user_data->buffer_idx[1]
-#define N_BUF_IDX user_data->buffer_idx[2]
+#define P_BUF_IDX    user_data->buffer_idx[0]
+#define C_BUF_IDX    user_data->buffer_idx[1]
+#define N_BUF_IDX    user_data->buffer_idx[2]
 
-#define P_BUF_BEG user_data->buffer_idx_begin[P_BUF_IDX]
-#define C_BUF_BEG user_data->buffer_idx_begin[C_BUF_IDX]
-#define N_BUF_BEG user_data->buffer_idx_begin[N_BUF_IDX]
+#define P_BUF_BEG    user_data->buffer_idx_begin[P_BUF_IDX]
+#define C_BUF_BEG    user_data->buffer_idx_begin[C_BUF_IDX]
+#define N_BUF_BEG    user_data->buffer_idx_begin[N_BUF_IDX]
 
-#define P_BUF_LEN user_data->buffer_length[P_BUF_IDX]
-#define C_BUF_LEN user_data->buffer_length[C_BUF_IDX]
-#define N_BUF_LEN user_data->buffer_length[N_BUF_IDX]
+#define P_BUF_LEN    user_data->buffer_length[P_BUF_IDX]
+#define C_BUF_LEN    user_data->buffer_length[C_BUF_IDX]
+#define N_BUF_LEN    user_data->buffer_length[N_BUF_IDX]
 
-#define P_BUF     user_data->info_buffer[P_BUF_IDX]
-#define C_BUF     user_data->info_buffer[C_BUF_IDX]
-#define N_BUF     user_data->info_buffer[N_BUF_IDX]
+#define P_BUF        user_data->info_buffer[P_BUF_IDX]
+#define C_BUF        user_data->info_buffer[C_BUF_IDX]
+#define N_BUF        user_data->info_buffer[N_BUF_IDX]
+
+#define EVENT_UPDATE (LV_EVENT_LAST + 1)
 
 struct file_explorer_styles {
     lv_style_t file_explorer_style;
@@ -32,27 +34,28 @@ struct file_explorer_styles {
 };
 
 struct file_explorer_data {
-    file_explorer_styles      style;
-    lv_style_transition_dsc_t transition;
-    lv_style_prop_t          *transition_props;
-    lv_obj_t                 *container;   // the container: item's parent
-    lv_obj_t                **total_items; // items; elements = item count
-    lv_obj_t                 *indicator;
-    lv_obj_t                 *container_spacer;
-    FILINFO                 **info_buffer;  // file info to show
-    char                     *current_path; // path; detect the folder
-    int32_t                   buffer_idx_begin[3];
-    int32_t                   buffer_length[3];
-    int32_t                   buffer_idx[3];
-    int32_t                   total_count;   // current path's file count
-    int32_t                   vis_count;     // how many items can be seen now
-    int32_t                   item_count;    // how many items is used now
-    int32_t                   item_height;   // the item height
-    int32_t                   virt_curr_idx; // logic curr_idx
-    int32_t                   first_idx;     // the first item you can see
-    int32_t                   last_idx;      // the last item you can see
-    bool                      reload_pending;
-    bool                      should_reload;
+    file_explorer_styles            style;
+    lv_style_transition_dsc_t       transition;
+    lv_style_prop_t                *transition_props;
+    lv_obj_t                       *container;   // the container: item's parent
+    lv_obj_t                      **total_items; // items; elements = item count
+    lv_obj_t                       *indicator;
+    lv_obj_t                       *container_spacer;
+    FILINFO                       **info_buffer;  // file info to show
+    char                           *current_path; // path; detect the folder
+    char                           *path_buffer;
+    file_explorer_openfile_callback open_callback;
+    int32_t                         buffer_idx_begin[3];
+    int32_t                         buffer_length[3];
+    int32_t                         buffer_idx[3];
+    int32_t                         total_count;   // current path's file count
+    int32_t                         vis_count;     // how many items can be seen now
+    int32_t                         item_count;    // how many items is used now
+    int32_t                         item_height;   // the item height
+    int32_t                         virt_curr_idx; // logic curr_idx
+    int32_t                         first_idx;     // the first item you can see
+    int32_t                         last_idx;      // the last item you can see
+    bool                            invalid;
 };
 
 static void file_explorer_init_style(lv_obj_t *fe_obj);
@@ -87,10 +90,12 @@ lv_obj_t   *file_explorer_create(lv_obj_t *parent, int32_t item_height, const ch
     user_data->last_idx         = 0;
     user_data->virt_curr_idx    = 0;
     user_data->total_items      = nullptr;
+    user_data->open_callback    = nullptr;
     user_data->transition_props = (lv_style_prop_t *)pvPortMalloc(4 * sizeof(lv_style_prop_t));
     user_data->current_path     = (char *)pvPortMalloc(512);
+    user_data->path_buffer      = (char *)pvPortMalloc(512);
     user_data->info_buffer      = (FILINFO **)pvPortMalloc(sizeof(FILINFO *) * 3);
-    user_data->reload_pending   = false;
+    user_data->invalid          = false;
     for (int i = 0; i < 3; i++) {
         user_data->info_buffer[i]   = (FILINFO *)pvPortMalloc(sizeof(FILINFO) * 32);
         user_data->buffer_length[i] = 0;
@@ -114,7 +119,7 @@ lv_obj_t   *file_explorer_create(lv_obj_t *parent, int32_t item_height, const ch
         user_data->total_items[i] = item;
     }
 
-    lv_obj_set_align(indicator_label, LV_ALIGN_CENTER);
+    lv_obj_set_align(indicator_label, LV_ALIGN_LEFT_MID);
 
     P_BUF_IDX = 0; // 0 -> before
     C_BUF_IDX = 1; // 1 -> current
@@ -122,7 +127,11 @@ lv_obj_t   *file_explorer_create(lv_obj_t *parent, int32_t item_height, const ch
     P_BUF_BEG = -1;
     C_BUF_BEG = 0;
     N_BUF_BEG = 32;
-    file_explorer_opendir(fe_obj);
+    if (!file_explorer_opendir(fe_obj)) {
+        user_data->invalid = true;
+        lv_label_set_text_static(lv_obj_get_child(user_data->indicator, 0), "Can't Open Directory!");
+        lv_obj_set_style_bg_color(user_data->indicator, lv_color_hex(0xd6175e), LV_PART_MAIN);
+    }
 
     file_explorer_use_style_items(fe_obj);
     file_explorer_relocate_items(fe_obj, 0);
@@ -136,27 +145,45 @@ lv_obj_t   *file_explorer_create(lv_obj_t *parent, int32_t item_height, const ch
 }
 
 static bool file_explorer_opendir(lv_obj_t *fe_obj) {
-    auto   *user_data = static_cast<file_explorer_data *>(lv_obj_get_user_data(fe_obj));
+    auto *user_data = static_cast<file_explorer_data *>(lv_obj_get_user_data(fe_obj));
+    if (user_data->invalid)
+        return false;
 
-    int32_t count     = 0;
+    int32_t count = 0;
     DIR     current_dir;
     FILINFO file_info;
     FRESULT fres = f_opendir(&current_dir, user_data->current_path);
     if (fres != FR_OK) {
         f_closedir(&current_dir);
-        jprintf(0, "Can't Open Directory %s\n", user_data->current_path);
         return false;
     }
 
     // reset all length
-    P_BUF_LEN = 0;
-    C_BUF_LEN = 0;
-    N_BUF_LEN = 0;
+    P_BUF_LEN              = 0;
+    C_BUF_LEN              = 0;
+    N_BUF_LEN              = 0;
+
+    bool add_parent_folder = true;
+
+    add_parent_folder      = path_norm(user_data->current_path, nullptr) & PATH_HAVE_PARENT;
 
     while (true) {
-        fres = f_readdir(&current_dir, &file_info);
-        if (fres != FR_OK || (file_info.fname[0] == 0)) {
-            break;
+        if (add_parent_folder) {
+            file_info.fattrib    = AM_DIR;
+            file_info.fdate      = 0;
+            file_info.fsize      = 0;
+            file_info.altname[0] = '\0';
+            file_info.ftime      = 0;
+            file_info.fname[0]   = '.';
+            file_info.fname[1]   = '.';
+            file_info.fname[2]   = '\0';
+            add_parent_folder    = false;
+        }
+        else {
+            fres = f_readdir(&current_dir, &file_info);
+            if (fres != FR_OK || (file_info.fname[0] == 0)) {
+                break;
+            }
         }
         count++;
         if (C_BUF_LEN < 32) {
@@ -325,7 +352,7 @@ static void file_explorer_init_style(lv_obj_t *fe_obj) {
     lv_style_init(&fe_style.item_styles.default_style);
     lv_style_init(&fe_style.item_styles.press_style);
 
-    lv_style_set_size(&fe_style.file_explorer_style, lv_pct(40), lv_pct(100));
+    lv_style_set_size(&fe_style.file_explorer_style, lv_pct(45), lv_pct(100));
     lv_style_set_layout(&fe_style.file_explorer_style, LV_LAYOUT_FLEX);
     lv_style_set_flex_flow(&fe_style.file_explorer_style, LV_FLEX_FLOW_COLUMN);
     lv_style_set_pad_all(&fe_style.file_explorer_style, 0);
@@ -370,7 +397,7 @@ static void file_explorer_use_style(lv_obj_t *fe_obj) {
     lv_obj_set_style_pad_all(user_data->container, 0, (lv_style_selector_t)LV_PART_MAIN | (lv_style_selector_t)LV_STATE_DEFAULT);
     lv_obj_set_style_margin_all(user_data->container, 0, (lv_style_selector_t)LV_PART_MAIN | (lv_style_selector_t)LV_STATE_DEFAULT);
     lv_obj_set_style_border_width(user_data->container, 0, (lv_style_selector_t)LV_PART_MAIN | (lv_style_selector_t)LV_STATE_DEFAULT);
-    lv_obj_set_style_margin_hor(user_data->container, 15, (lv_style_selector_t)LV_PART_MAIN | (lv_style_selector_t)LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_hor(user_data->container, 10, (lv_style_selector_t)LV_PART_MAIN | (lv_style_selector_t)LV_STATE_DEFAULT);
 
     lv_obj_add_style(user_data->container_spacer, &fe_style.spacer_style, (lv_style_selector_t)LV_PART_MAIN | (lv_style_selector_t)LV_STATE_DEFAULT);
 
@@ -403,15 +430,29 @@ static void file_explorer_rename_items(lv_obj_t *fe_obj) {
     for (int i = 0; i < user_data->item_count; i++) {
         lv_obj_t *item_label = lv_obj_get_child(user_data->total_items[i], 0);
         if (i < user_data->vis_count) {
-            int n = user_data->virt_curr_idx + i;
+            int  n      = user_data->virt_curr_idx + i;
+            bool is_dir = false;
             if (n < 0) {
                 lv_label_set_text_static(item_label, P_BUF[32 + n].fname);
+                lv_obj_set_user_data(user_data->total_items[i], &(P_BUF[32 + n]));
+                is_dir = P_BUF[32 + n].fattrib & AM_DIR;
             }
             else if (n > 31) {
                 lv_label_set_text_static(item_label, N_BUF[n - 32].fname);
+                lv_obj_set_user_data(user_data->total_items[i], &(N_BUF[n - 32]));
+                is_dir = N_BUF[n - 32].fattrib & AM_DIR;
             }
             else {
                 lv_label_set_text_static(item_label, C_BUF[n].fname);
+                lv_obj_set_user_data(user_data->total_items[i], &(C_BUF[n]));
+                is_dir = C_BUF[n].fattrib & AM_DIR;
+            }
+            lv_obj_remove_flag(user_data->total_items[i], LV_OBJ_FLAG_HIDDEN);
+            if (is_dir) {
+                lv_obj_set_style_bg_color(user_data->total_items[i], lv_color_hex(0xEEEEEE), LV_PART_MAIN);
+            }
+            else {
+                lv_obj_set_style_bg_color(user_data->total_items[i], lv_color_white(), LV_PART_MAIN);
             }
         }
         else {
@@ -427,25 +468,9 @@ static void file_explorer_callback(lv_event_t *e) {
     lv_event_code_t event_code = lv_event_get_code(e);
     auto           *fe_obj     = (lv_obj_t *)lv_event_get_user_data(e);
     auto           *user_data  = static_cast<file_explorer_data *>(lv_obj_get_user_data(fe_obj));
+    if (user_data->invalid)
+        return;
     switch (event_code) {
-    case LV_EVENT_DRAW_POST: {
-        if (user_data->reload_pending) {
-            // reload the current directory
-            if (file_explorer_opendir(fe_obj)) {
-                // reload
-                user_data->reload_pending = false;
-                user_data->virt_curr_idx  = 0;
-                user_data->first_idx      = 0;
-                lv_obj_scroll_to_y(user_data->container_spacer, 0, LV_ANIM_OFF);
-                file_explorer_relocate_items(fe_obj, 0);
-                file_explorer_rename_items(fe_obj);
-            }
-            else {
-                jprintf(0, "Can't Reload the directory: %s\n", user_data->current_path);
-            }
-        }
-        break;
-    }
     case LV_EVENT_SCROLL: {
         lv_coord_t fe_scroll_top = lv_obj_get_scroll_top(user_data->container_spacer);
 
@@ -487,5 +512,86 @@ static void file_explorer_callback(lv_event_t *e) {
 }
 
 static void file_explorer_item_callback(lv_event_t *e) {
-    jprintf(0, ANSI_COLOR_FG_BRIGHT_GREEN "lv_event_clicked\n");
+    // lv_event_code_t event_code     = lv_event_get_code(e);
+    auto       *fe_obj         = (lv_obj_t *)lv_event_get_user_data(e);
+    auto       *user_data      = static_cast<file_explorer_data *>(lv_obj_get_user_data(fe_obj));
+    auto       *btn_obj        = (lv_obj_t *)lv_event_get_current_target(e);
+
+    auto       *obj_file_info  = (FILINFO *)lv_obj_get_user_data(btn_obj);
+    const char *press_btn_path = obj_file_info->fname;
+
+    if (user_data->invalid)
+        return;
+
+    int ret = path_concat(user_data->current_path, press_btn_path, user_data->path_buffer);
+
+    if (ret < 0)
+        return;
+
+    DIR     dir;
+    FRESULT f_res;
+    f_res = f_opendir(&dir, user_data->path_buffer);
+
+    if (f_res == FR_OK) {
+        f_closedir(&dir);
+        std::swap(user_data->current_path, user_data->path_buffer);
+        file_explorer_reload_force(fe_obj);
+    }
+    else {
+        if (user_data->open_callback) {
+            user_data->open_callback(e, user_data->path_buffer);
+        }
+    }
+}
+
+void file_explorer_set_callback(lv_obj_t *fe_obj, file_explorer_openfile_callback callback) {
+    auto *user_data          = static_cast<file_explorer_data *>(lv_obj_get_user_data(fe_obj));
+    user_data->open_callback = callback;
+}
+
+void file_explorer_reload_force(lv_obj_t *fe_obj) {
+    auto *user_data = static_cast<file_explorer_data *>(lv_obj_get_user_data(fe_obj));
+    if (file_explorer_opendir(fe_obj)) {
+        user_data->virt_curr_idx = 0;
+        user_data->first_idx     = 0;
+        lv_obj_scroll_to_y(user_data->container_spacer, 0, LV_ANIM_OFF);
+        file_explorer_relocate_items(fe_obj, 0);
+        file_explorer_rename_items(fe_obj);
+    }
+    lv_obj_invalidate(fe_obj);
+}
+
+void file_explorer_media_invalid(lv_obj_t *fe_obj) {
+    auto *user_data = static_cast<file_explorer_data *>(lv_obj_get_user_data(fe_obj));
+    if (user_data->invalid)
+        return;
+    lv_obj_set_style_bg_color(user_data->indicator, lv_color_hex(0xd6175e), LV_PART_MAIN);
+    lv_label_set_text_static(lv_obj_get_child(user_data->indicator, 0), "Storage Media Is Removed!");
+    user_data->invalid = true;
+}
+
+void file_explorer_media_valid(lv_obj_t *fe_obj) {
+    auto *user_data = static_cast<file_explorer_data *>(lv_obj_get_user_data(fe_obj));
+    if (!user_data->invalid)
+        return;
+    FILINFO info;
+    FRESULT fres = f_stat(user_data->current_path, &info);
+    if (fres == FR_OK && (info.fattrib & AM_DIR)) {
+        lv_label_set_text_static(lv_obj_get_child(user_data->indicator, 0), user_data->current_path);
+    }
+    else {
+        char disk_root[16] {};
+        int  ret = path_get_disk_root(user_data->current_path, disk_root);
+        if (ret < 0) {
+            user_data->invalid = true;
+            lv_label_set_text_static(lv_obj_get_child(user_data->indicator, 0), "Invalid Path!");
+            return;
+        }
+        else {
+            strcpy(user_data->current_path, disk_root);
+        }
+    }
+    lv_obj_remove_local_style_prop(user_data->indicator, LV_STYLE_BG_COLOR, LV_PART_MAIN);
+    user_data->invalid = false;
+    file_explorer_reload_force(fe_obj);
 }

@@ -19,10 +19,7 @@ uint32_t          sdcard_initialized = 0;
 
 SemaphoreHandle_t sema_flash_screen_routine_start;
 SemaphoreHandle_t sema_camera_routine_start;
-SemaphoreHandle_t sema_render_sync_daemon_handle;
 SemaphoreHandle_t sema_swap_buffer_handle;
-
-TimerHandle_t     timer_33ms_flash_screen;
 
 // traceString       trace_analyzer_channel1;
 // traceString       trace_analyzer_channel2;
@@ -33,24 +30,17 @@ TimerHandle_t     timer_33ms_flash_screen;
 // static variable Definition
 namespace
 {
-    lv_obj_t         *shot_btn;
-    lv_obj_t         *shot_btn_label;
-    lv_obj_t         *pop_sd;
-    lv_obj_t         *ins_sd;
-    lv_obj_t         *pop_sd_label;
-    lv_obj_t         *ins_sd_label;
-
     TaskHandle_t      take_screenshot;
     SemaphoreHandle_t mutex_gram_read;
-    SemaphoreHandle_t sema_take_screenshot;
+    // SemaphoreHandle_t sema_take_screenshot;
 
-    JPEG_ConfTypeDef  jpeg_conf;
-    uint8_t          *curr_encode_ptr;
-    uint8_t          *target_encode_ptr;
-    uint8_t          *curr_dest_ptr;
-    FIL               jpeg1;
+    JPEG_ConfTypeDef jpeg_conf;
+    uint8_t         *curr_encode_ptr;
+    uint8_t         *target_encode_ptr;
+    uint8_t         *curr_dest_ptr;
+    FIL              jpeg1;
 
-    void             *curr_screen_buffer;
+    void            *curr_screen_buffer;
 
 } // namespace
 
@@ -72,11 +62,14 @@ static int     routine(int argc, char **argv);
 static void    initial_before_routine();
 extern "C" int _getentropy(void *buffer, size_t length);
 
-static void    take_screenshot_task(void *params);
 static void    hdma2dCompleteCallback(DMA2D_HandleTypeDef *hdma2d);
-static void    shot_call(lv_event_t *event);
 static void    insbtn_call(lv_event_t *event);
 static void    popbtn_call(lv_event_t *event);
+static void    ins_card_call();
+static void    pop_card_call();
+static void    lvgl_create_main_interface();
+static void    change_to_camera(lv_event_t *event);
+static void    click_one_file(lv_event_t *e, const char *path);
 
 enum class scr_mess {
     INFO = 0,
@@ -102,8 +95,8 @@ void initial_task_routine(void const *argument) {
 */
 
 static void initial_before_routine() {
-    mutex_gram_read      = xSemaphoreCreateMutex();
-    sema_take_screenshot = xSemaphoreCreateBinary();
+    mutex_gram_read = xSemaphoreCreateMutex();
+    // sema_take_screenshot = xSemaphoreCreateBinary();
     // sema_update_local    = xSemaphoreCreateBinary();
 
     SDRAM_GRAM1        = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
@@ -134,21 +127,16 @@ static int routine(int argc, char **argv) {
     vTaskPrioritySet(Initial_TaskHandle, 4);
 
     vQueueAddToRegistry((QueueHandle_t)mutex_gram_read, "mutex_gram_read");
-    vQueueAddToRegistry((QueueHandle_t)sema_take_screenshot, "sema_take_screenshot");
+    // vQueueAddToRegistry((QueueHandle_t)sema_take_screenshot, "sema_take_screenshot");
 
     // trace_analyzer_channel1 = xTraceRegisterString("User_Channel_1");
     // trace_analyzer_channel2 = xTraceRegisterString("User_Channel_2");
     // trace_analyzer_channel3 = xTraceRegisterString("User_Channel_3");
     // trace_analyzer_channel4 = xTraceRegisterString("User_Channel_4");
 
-    xTaskCreate(take_screenshot_task, "thread_take_screen_shot", 512, nullptr, 5, &take_screenshot);
+    // xTaskCreate(take_screenshot_task, "thread_take_screen_shot", 512, nullptr, 5, &take_screenshot);
 
-    lv_obj_add_event_cb(shot_btn, shot_call, LV_EVENT_PRESSED, nullptr);
-    lv_obj_add_event_cb(ins_sd, insbtn_call, LV_EVENT_PRESSED, nullptr);
-    lv_obj_add_event_cb(pop_sd, popbtn_call, LV_EVENT_PRESSED, nullptr);
-    lv_obj_add_state(ins_sd, LV_STATE_CHECKED);
-    
-    file_explorer_create(lv_scr_act(), 40, "0:/");
+    lvgl_create_main_interface();
 
     while (1) {
         // xTracePrint(trace_analyzer_channel2, "=Main Thread= Begin lv_timer_handler");
@@ -158,17 +146,77 @@ static int routine(int argc, char **argv) {
     }
 }
 
-static void lvgl_initialize_port1() {
-    lcd_touch_initialize();
+namespace
+{
+    lv_obj_t *screen_container;
 
-    lv_init();
-    lv_port_disp_init();
-    lv_port_indev_init();
+    lv_obj_t *file_explorer_obj;
+    lv_obj_t *right_container;
 
-    shot_btn = lv_btn_create(lv_scr_act());
-    lv_obj_align(shot_btn, LV_ALIGN_BOTTOM_RIGHT, 0, 0);
-    lv_obj_set_size(shot_btn, 40, 20);
+    lv_obj_t *image_container;
+    lv_obj_t *button_container;
+
+    lv_obj_t *image;
+    lv_obj_t *image_indicator;
+    lv_obj_t *image_indicator_label;
+
+    lv_obj_t *shot_btn;
+    lv_obj_t *pop_sd;
+    lv_obj_t *ins_sd;
+    lv_obj_t *shot_btn_label;
+    lv_obj_t *pop_sd_label;
+    lv_obj_t *ins_sd_label;
+} // namespace
+
+static void lvgl_create_main_interface() {
+    screen_container = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(screen_container, LV_PCT(100), LV_PCT(100));
+    lv_obj_set_layout(screen_container, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(screen_container, LV_FLEX_FLOW_ROW);
+    lv_obj_set_style_pad_all(screen_container, 0, LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(screen_container, 0, LV_STATE_DEFAULT);
+
+    file_explorer_obj = file_explorer_create(screen_container, 40, "0:/");
+    lv_obj_set_flex_grow(file_explorer_obj, 0);
+
+    right_container = lv_obj_create(screen_container);
+    lv_obj_set_style_height(right_container, LV_PCT(100), LV_STATE_DEFAULT);
+    lv_obj_set_flex_grow(right_container, 1);
+    lv_obj_set_layout(right_container, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(right_container, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_all(right_container, 0, LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(right_container, 0, LV_STATE_DEFAULT);
+
+    image_container = lv_obj_create(right_container);
+    lv_obj_set_style_width(image_container, LV_PCT(100), LV_STATE_DEFAULT);
+    lv_obj_set_flex_grow(image_container, 4);
+    lv_obj_set_layout(image_container, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(image_container, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_all(image_container, 0, LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(image_container, 0, LV_STATE_DEFAULT);
+
+    button_container = lv_obj_create(right_container);
+    lv_obj_set_style_width(button_container, LV_PCT(100), LV_STATE_DEFAULT);
+    lv_obj_set_flex_grow(button_container, 1);
+    lv_obj_set_layout(button_container, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(button_container, LV_FLEX_FLOW_ROW);
+    lv_obj_set_style_border_width(button_container, 0, LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_all(button_container, 5, LV_STATE_DEFAULT);
+
+    shot_btn = lv_btn_create(button_container);
+    lv_obj_set_size(shot_btn, lv_pct(20), lv_pct(100));
     lv_obj_set_style_bg_color(shot_btn, lv_color_make(0x00, 0x77, 0x77), 0);
+    lv_obj_set_flex_grow(shot_btn, 1);
+
+    pop_sd = lv_button_create(button_container);
+    lv_obj_set_size(pop_sd, lv_pct(20), lv_pct(100));
+    lv_obj_set_style_bg_color(pop_sd, lv_palette_main(LV_PALETTE_LIGHT_BLUE), 0);
+    lv_obj_set_flex_grow(pop_sd, 2);
+
+    ins_sd = lv_button_create(button_container);
+    lv_obj_set_size(ins_sd, lv_pct(20), lv_pct(100));
+    lv_obj_set_style_bg_color(ins_sd, lv_palette_main(LV_PALETTE_LIGHT_BLUE), 0);
+    lv_obj_set_flex_grow(ins_sd, 2);
 
     shot_btn_label = lv_label_create(shot_btn);
     lv_obj_align(shot_btn_label, LV_ALIGN_CENTER, 0, 0);
@@ -176,35 +224,61 @@ static void lvgl_initialize_port1() {
     lv_label_set_text(shot_btn_label, MY_CAMERA_SYMBOL);
     lv_obj_set_style_text_color(shot_btn_label, lv_color_make(0xff, 0xff, 0xff), 0);
 
-    pop_sd = lv_button_create(lv_scr_act());
-    lv_obj_align(pop_sd, LV_ALIGN_BOTTOM_RIGHT, -40, 0);
-    lv_obj_set_size(pop_sd, 40, 20);
-    lv_obj_set_style_bg_color(pop_sd, lv_palette_main(LV_PALETTE_LIGHT_BLUE), 0);
-
-    ins_sd = lv_button_create(lv_scr_act());
-    lv_obj_align(ins_sd, LV_ALIGN_BOTTOM_RIGHT, -80, 0);
-    lv_obj_set_size(ins_sd, 40, 20);
-    lv_obj_set_style_bg_color(ins_sd, lv_palette_main(LV_PALETTE_LIGHT_BLUE), 0);
-
     pop_sd_label = lv_label_create(pop_sd);
-    lv_label_set_text(pop_sd_label, "pop");
     lv_obj_align(pop_sd_label, LV_ALIGN_CENTER, 0, 0);
     lv_obj_set_style_text_color(pop_sd_label, lv_color_make(0x00, 0x00, 0x00), 0);
 
     ins_sd_label = lv_label_create(ins_sd);
-    lv_label_set_text(ins_sd_label, "ins");
     lv_obj_align(ins_sd_label, LV_ALIGN_CENTER, 0, 0);
     lv_obj_set_style_text_color(ins_sd_label, lv_color_make(0x00, 0x00, 0x00), 0);
+
+    image_indicator = lv_obj_create(image_container);
+    lv_obj_set_flex_grow(image_indicator, 1);
+    lv_obj_set_style_width(image_indicator, LV_PCT(100), LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(image_indicator, 2, LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_all(image_indicator, 0, LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_hor(image_indicator, 10, LV_STATE_DEFAULT);
+    lv_obj_set_style_margin_all(image_indicator, 0, LV_STATE_DEFAULT);
+    lv_obj_set_style_margin_right(image_indicator, 10, LV_STATE_DEFAULT);
+
+    image_indicator_label = lv_label_create(image_indicator);
+    lv_obj_set_style_align(image_indicator_label, LV_ALIGN_LEFT_MID, LV_STATE_DEFAULT);
+
+    image = lv_obj_create(image_container);
+    lv_obj_set_flex_grow(image, 4);
+    lv_obj_set_style_width(image, LV_PCT(100), LV_STATE_DEFAULT);
+    lv_obj_set_style_margin_right(image, 10, LV_STATE_DEFAULT);
+
+    lv_obj_add_event_cb(shot_btn, change_to_camera, LV_EVENT_PRESSED, nullptr);
+    file_explorer_set_callback(file_explorer_obj, click_one_file);
+    lv_obj_add_event_cb(ins_sd, insbtn_call, LV_EVENT_PRESSED, nullptr);
+    lv_obj_add_event_cb(pop_sd, popbtn_call, LV_EVENT_PRESSED, nullptr);
+    if (sdcard_disk_init)
+        ins_card_call();
+    else
+        pop_card_call();
+}
+
+static void lvgl_initialize_port1() {
+    lcd_touch_initialize();
+
+    lv_init();
+    lv_port_disp_init();
+    lv_port_indev_init();
 }
 
 static void lvgl_initialize_port2() {
-    lv_port_fs_init();
+    if (sdcard_disk_init)
+        lv_port_fs_init();
 }
 
 
-
 static void sdcard_initialize() {
-    printf("STATUS: %d\n", SD_Driver.disk_initialize(0));
+    DSTATUS ret = SD_Driver.disk_initialize(0);
+    printf("STATUS: %d\n", ret);
+
+    if (ret != RES_OK)
+        return;
     sdcard_disk_init = 1;
     print_sdcard_info();
 
@@ -226,9 +300,8 @@ static void sdcard_initialize() {
     UINT        get    = 0;
     f_write(&SDFile, str, expect, &get);
     f_close(&SDFile);
-    f_mount(nullptr, SDPath, 1);
-
-    sdcard_is_mounted = 0;
+    // f_mount(nullptr, SDPath, 1);
+    // sdcard_is_mounted = 0;
 }
 
 void print_sdcard_info(void) {
@@ -269,7 +342,6 @@ void print_sdcard_info(void) {
 // ISR Callback
 void HAL_LTDC_ReloadEventCallback(LTDC_HandleTypeDef *hltdc) {
     BaseType_t woke = pdFALSE;
-    xSemaphoreGiveFromISR(sema_render_sync_daemon_handle, &woke);
     xSemaphoreGiveFromISR(sema_swap_buffer_handle, &woke);
     portYIELD_FROM_ISR(woke);
 }
@@ -291,6 +363,62 @@ int _getentropy(void *buffer, size_t length) {
     return 0;
 }
 
+static void insbtn_call(lv_event_t *event) {
+    if (!sdcard_link_driver && FATFS_LinkDriver(&SD_Driver, SDPath) != 0) {
+        return;
+    }
+    sdcard_link_driver = 1;
+    if (!sdcard_disk_init && SD_Driver.disk_initialize(0) != RES_OK) {
+        HAL_SD_DeInit(&hsd1);
+        return;
+    }
+    sdcard_disk_init = 1;
+    if (!sdcard_is_mounted && f_mount(&SDFatFS, SDPath, 1) != FR_OK) {
+        return;
+    }
+    sdcard_is_mounted = 1;
+    file_explorer_media_valid(file_explorer_obj);
+    ins_card_call();
+}
+
+static void popbtn_call(lv_event_t *event) {
+    if (sdcard_is_mounted && f_mount(nullptr, SDPath, 1) != FR_OK) {
+        return;
+    }
+    sdcard_is_mounted = 0;
+    if (sdcard_disk_init && HAL_SD_DeInit(&hsd1) != HAL_OK) {
+        return;
+    }
+    sdcard_disk_init = 0;
+    if (sdcard_link_driver && FATFS_UnLinkDriver(SDPath) != 0) {
+        return;
+    }
+    sdcard_link_driver = 0;
+    file_explorer_media_invalid(file_explorer_obj);
+    pop_card_call();
+}
+
+static void ins_card_call() {
+    lv_obj_add_state(ins_sd, LV_STATE_CHECKED);
+    lv_label_set_text_static(ins_sd_label, "SD Card\nOK");
+    lv_label_set_text_static(pop_sd_label, "SD Card\nClick To Pop");
+    lv_obj_remove_state(pop_sd, LV_STATE_CHECKED);
+}
+
+static void pop_card_call() {
+    lv_obj_add_state(pop_sd, LV_STATE_CHECKED);
+    lv_label_set_text_static(ins_sd_label, "SD Card\nClick To Ins");
+    lv_label_set_text_static(pop_sd_label, "SD Card\nRemoved");
+    lv_obj_remove_state(ins_sd, LV_STATE_CHECKED);
+}
+
+static void change_to_camera(lv_event_t *event) {
+    // xSemaphoreGive(sema_take_screenshot);
+}
+
+static void click_one_file(lv_event_t *e, const char *path) {
+}
+
 
 ////////////////////////////////////////////////////////////////////////
 // Take Screen Shot!!!
@@ -299,7 +427,7 @@ int _getentropy(void *buffer, size_t length) {
 static void take_screenshot_task(void *params) {
     uint32_t notification_value = 0;
     while (1) {
-        xSemaphoreTake(sema_take_screenshot, portMAX_DELAY);
+        // xSemaphoreTake(sema_take_screenshot, portMAX_DELAY);
         xSemaphoreTake(mutex_gram_read, portMAX_DELAY);
         HAL_DMA2D_Start_IT(&hdma2d, (uint32_t)curr_screen_buffer, (uint32_t)JPEG_ENCODE_SOURCE, 480, 272);
         while (1) {
@@ -346,44 +474,6 @@ static void take_screenshot_task(void *params) {
     }
 }
 
-void shot_call(lv_event_t *event) {
-    xSemaphoreGive(sema_take_screenshot);
-}
-
-void insbtn_call(lv_event_t *event) {
-    if (!sdcard_link_driver && FATFS_LinkDriver(&SD_Driver, SDPath) != 0) {
-        return;
-    }
-    sdcard_link_driver = 1;
-    if (!sdcard_disk_init && SD_Driver.disk_initialize(0) != RES_OK) {
-        HAL_SD_DeInit(&hsd1);
-        return;
-    }
-    sdcard_disk_init = 1;
-    if (!sdcard_is_mounted && f_mount(&SDFatFS, SDPath, 1) != FR_OK) {
-        return;
-    }
-    sdcard_is_mounted = 1;
-    lv_obj_add_state(ins_sd, LV_STATE_CHECKED);
-    lv_obj_remove_state(pop_sd, LV_STATE_CHECKED);
-}
-
-void popbtn_call(lv_event_t *event) {
-    if (sdcard_is_mounted && f_mount(nullptr, SDPath, 1) != FR_OK) {
-        return;
-    }
-    sdcard_is_mounted = 0;
-    if (sdcard_disk_init && HAL_SD_DeInit(&hsd1) != HAL_OK) {
-        return;
-    }
-    sdcard_disk_init = 0;
-    if (sdcard_link_driver && FATFS_UnLinkDriver(SDPath) != 0) {
-        return;
-    }
-    sdcard_link_driver = 0;
-    lv_obj_add_state(pop_sd, LV_STATE_CHECKED);
-    lv_obj_remove_state(ins_sd, LV_STATE_CHECKED);
-}
 
 static void hdma2dCompleteCallback(DMA2D_HandleTypeDef *hdma2d) {
     BaseType_t woken;
