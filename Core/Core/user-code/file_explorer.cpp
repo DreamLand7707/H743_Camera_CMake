@@ -25,7 +25,10 @@
 struct file_explorer_styles {
     lv_style_t file_explorer_style;
     lv_style_t spacer_style;
-    lv_style_t indicator_style;
+    struct {
+        lv_style_t indicator_style;
+        lv_style_t indicator_pressed_style;
+    };
     lv_style_t container_style;
     struct {
         lv_style_t default_style;
@@ -64,6 +67,7 @@ static void file_explorer_relocate_items(lv_obj_t *fe_obj, int32_t from_pos);
 static void file_explorer_rename_items(lv_obj_t *fe_obj);
 static void file_explorer_callback(lv_event_t *e);
 static void file_explorer_item_callback(lv_event_t *e);
+static void file_explorer_indicator_callback(lv_event_t *e);
 static void file_explorer_use_style_items(lv_obj_t *fe_obj);
 static bool file_explorer_opendir(lv_obj_t *fe_obj);
 static bool file_explorer_load_next_page(lv_obj_t *fe_obj);
@@ -140,6 +144,7 @@ lv_obj_t   *file_explorer_create(lv_obj_t *parent, int32_t item_height, const ch
     for (int i = 0; i < item_count; i++)
         lv_obj_add_event_cb(user_data->total_items[i], file_explorer_item_callback, LV_EVENT_CLICKED, fe_obj);
     lv_obj_add_event_cb(user_data->container_spacer, file_explorer_callback, LV_EVENT_ALL, fe_obj);
+    lv_obj_add_event_cb(user_data->indicator, file_explorer_indicator_callback, LV_EVENT_CLICKED, fe_obj);
 
     return fe_obj;
 }
@@ -303,9 +308,9 @@ static bool file_explorer_switch_to_next_page(lv_obj_t *fe_obj) {
     C_BUF_IDX    = N_BUF_IDX;
     N_BUF_IDX    = temp;
     //
-    P_BUF_BEG = C_BUF_BEG;
-    C_BUF_BEG = N_BUF_BEG;
-    N_BUF_BEG += 32;
+    // P_BUF_BEG = C_BUF_BEG;
+    // C_BUF_BEG = N_BUF_BEG;
+    N_BUF_BEG = C_BUF_BEG + 32;
     if (N_BUF_BEG >= user_data->total_count) {
         N_BUF_BEG = -1;
     }
@@ -325,11 +330,11 @@ static bool file_explorer_switch_to_prev_page(lv_obj_t *fe_obj) {
     C_BUF_IDX    = P_BUF_IDX;
     P_BUF_IDX    = temp;
     //
-    N_BUF_IDX = C_BUF_BEG;
-    C_BUF_BEG = P_BUF_IDX;
-    P_BUF_IDX -= 32;
-    if (P_BUF_IDX < 0) {
-        P_BUF_IDX = -1;
+    // N_BUF_IDX = C_BUF_BEG;
+    // C_BUF_BEG = P_BUF_IDX;
+    P_BUF_BEG = C_BUF_BEG - 32;
+    if (P_BUF_BEG < 0) {
+        P_BUF_BEG = -1;
     }
     //
     user_data->buffer_length[P_BUF_IDX] = 0;
@@ -348,6 +353,7 @@ static void file_explorer_init_style(lv_obj_t *fe_obj) {
     lv_style_init(&fe_style.file_explorer_style);
     lv_style_init(&fe_style.container_style);
     lv_style_init(&fe_style.indicator_style);
+    lv_style_init(&fe_style.indicator_pressed_style);
     lv_style_init(&fe_style.spacer_style);
     lv_style_init(&fe_style.item_styles.default_style);
     lv_style_init(&fe_style.item_styles.press_style);
@@ -364,6 +370,8 @@ static void file_explorer_init_style(lv_obj_t *fe_obj) {
     lv_style_set_bg_color(&fe_style.indicator_style, lv_color_hex(0xB0B0B0));
     lv_style_set_border_width(&fe_style.indicator_style, 2);
     lv_style_set_border_color(&fe_style.indicator_style, lv_color_hex(0x777777));
+
+    lv_style_set_bg_color(&fe_style.indicator_pressed_style, lv_color_hex(0xFFFFFF));
 
     lv_style_set_width(&fe_style.spacer_style, lv_pct(100));
     lv_style_set_flex_grow(&fe_style.spacer_style, 1);
@@ -383,6 +391,8 @@ static void file_explorer_init_style(lv_obj_t *fe_obj) {
     lv_style_transition_dsc_init(&user_data->transition, user_data->transition_props, lv_anim_path_ease_out, 200, 0, nullptr);
     lv_style_set_transition(&fe_style.item_styles.default_style, &user_data->transition);
     lv_style_set_transition(&fe_style.item_styles.press_style, &user_data->transition);
+    lv_style_set_transition(&fe_style.indicator_style, &user_data->transition);
+    lv_style_set_transition(&fe_style.indicator_pressed_style, &user_data->transition);
 }
 
 static void file_explorer_use_style(lv_obj_t *fe_obj) {
@@ -402,6 +412,7 @@ static void file_explorer_use_style(lv_obj_t *fe_obj) {
     lv_obj_add_style(user_data->container_spacer, &fe_style.spacer_style, (lv_style_selector_t)LV_PART_MAIN | (lv_style_selector_t)LV_STATE_DEFAULT);
 
     lv_obj_add_style(user_data->indicator, &fe_style.indicator_style, (lv_style_selector_t)LV_PART_MAIN | (lv_style_selector_t)LV_STATE_DEFAULT);
+    lv_obj_add_style(user_data->indicator, &fe_style.indicator_pressed_style, (lv_style_selector_t)LV_PART_MAIN | (lv_style_selector_t)LV_STATE_PRESSED);
     lv_obj_set_scroll_dir(user_data->indicator, LV_DIR_HOR);
     lv_obj_set_style_text_color(lv_obj_get_child(user_data->indicator, 0), lv_color_white(), LV_STATE_DEFAULT);
 }
@@ -432,20 +443,23 @@ static void file_explorer_rename_items(lv_obj_t *fe_obj) {
         if (i < user_data->vis_count) {
             int  n      = user_data->virt_curr_idx + i;
             bool is_dir = false;
-            if (n < 0) {
-                lv_label_set_text_static(item_label, P_BUF[32 + n].fname);
-                lv_obj_set_user_data(user_data->total_items[i], &(P_BUF[32 + n]));
-                is_dir = P_BUF[32 + n].fattrib & AM_DIR;
+            if (n < 0 && (P_BUF_LEN + n) >= 0) {
+                lv_label_set_text_static(item_label, P_BUF[P_BUF_LEN + n].fname);
+                lv_obj_set_user_data(user_data->total_items[i], &(P_BUF[P_BUF_LEN + n]));
+                is_dir = P_BUF[P_BUF_LEN + n].fattrib & AM_DIR;
             }
-            else if (n > 31) {
-                lv_label_set_text_static(item_label, N_BUF[n - 32].fname);
-                lv_obj_set_user_data(user_data->total_items[i], &(N_BUF[n - 32]));
-                is_dir = N_BUF[n - 32].fattrib & AM_DIR;
+            else if (n >= C_BUF_LEN && (n - C_BUF_LEN) < 32) {
+                lv_label_set_text_static(item_label, N_BUF[n - C_BUF_LEN].fname);
+                lv_obj_set_user_data(user_data->total_items[i], &(N_BUF[n - C_BUF_LEN]));
+                is_dir = N_BUF[n - C_BUF_LEN].fattrib & AM_DIR;
             }
-            else {
+            else if (n >= 0 && n < C_BUF_LEN) {
                 lv_label_set_text_static(item_label, C_BUF[n].fname);
                 lv_obj_set_user_data(user_data->total_items[i], &(C_BUF[n]));
                 is_dir = C_BUF[n].fattrib & AM_DIR;
+            }
+            else {
+                continue;
             }
             lv_obj_remove_flag(user_data->total_items[i], LV_OBJ_FLAG_HIDDEN);
             if (is_dir) {
@@ -462,6 +476,59 @@ static void file_explorer_rename_items(lv_obj_t *fe_obj) {
         lv_obj_update_layout(user_data->total_items[i]);
         lv_obj_scroll_to(user_data->total_items[i], 0, 0, LV_ANIM_OFF);
     }
+}
+
+void file_explorer_reload_force(lv_obj_t *fe_obj) {
+    auto *user_data = static_cast<file_explorer_data *>(lv_obj_get_user_data(fe_obj));
+    if (file_explorer_opendir(fe_obj)) {
+        user_data->virt_curr_idx = 0;
+        user_data->first_idx     = 0;
+        lv_obj_scroll_to_y(user_data->container_spacer, 0, LV_ANIM_OFF);
+        file_explorer_relocate_items(fe_obj, 0);
+        file_explorer_rename_items(fe_obj);
+    }
+    lv_obj_invalidate(fe_obj);
+}
+
+void file_explorer_media_invalid(lv_obj_t *fe_obj) {
+    auto *user_data = static_cast<file_explorer_data *>(lv_obj_get_user_data(fe_obj));
+    if (user_data->invalid)
+        return;
+    lv_obj_set_style_bg_color(user_data->indicator, lv_color_hex(0xd6175e), LV_PART_MAIN);
+    lv_label_set_text_static(lv_obj_get_child(user_data->indicator, 0), "Storage Media Is Removed!");
+    user_data->invalid = true;
+}
+
+void file_explorer_media_valid(lv_obj_t *fe_obj) {
+    auto *user_data = static_cast<file_explorer_data *>(lv_obj_get_user_data(fe_obj));
+    if (!user_data->invalid)
+        return;
+    DIR     dir;
+    FRESULT fres = f_opendir(&dir, user_data->current_path);
+    if (fres == FR_OK) {
+        f_closedir(&dir);
+        lv_label_set_text_static(lv_obj_get_child(user_data->indicator, 0), user_data->current_path);
+    }
+    else {
+        char disk_root[16] {};
+        int  ret = path_get_disk_root(user_data->current_path, disk_root);
+        if (ret < 0) {
+            user_data->invalid = true;
+            lv_label_set_text_static(lv_obj_get_child(user_data->indicator, 0), "Invalid Root!");
+            return;
+        }
+        else {
+            strcpy(user_data->current_path, disk_root);
+        }
+    }
+    lv_obj_remove_local_style_prop(user_data->indicator, LV_STYLE_BG_COLOR, LV_PART_MAIN);
+    user_data->invalid = false;
+    file_explorer_reload_force(fe_obj);
+}
+
+void file_explorer_set_callback(lv_obj_t *fe_obj, file_explorer_openfile_callback callback) {
+    auto *user_data          = static_cast<file_explorer_data *>(lv_obj_get_user_data(fe_obj));
+    user_data->open_callback = callback;
 }
 
 static void file_explorer_callback(lv_event_t *e) {
@@ -494,13 +561,25 @@ static void file_explorer_callback(lv_event_t *e) {
             int n = user_data->virt_curr_idx + user_data->vis_count;
             int m = user_data->virt_curr_idx;
 
-            if (m < -15) {
-                file_explorer_switch_to_prev_page(fe_obj);
-                file_explorer_load_prev_page(fe_obj);
+            if (P_BUF_BEG >= 0) {
+                if (m < -(P_BUF_LEN / 2)) {
+                    file_explorer_switch_to_prev_page(fe_obj);
+                    file_explorer_load_prev_page(fe_obj);
+                }
             }
-            else if (n > 15) {
-                file_explorer_switch_to_next_page(fe_obj);
-                file_explorer_load_next_page(fe_obj);
+            else {
+                if (N_BUF_BEG == -1) {
+                    if (n > (C_BUF_LEN / 2)) {
+                        file_explorer_switch_to_next_page(fe_obj);
+                        file_explorer_load_next_page(fe_obj);
+                    }
+                }
+                else {
+                    if (n > (C_BUF_LEN + (N_BUF_LEN / 2))) {
+                        file_explorer_switch_to_next_page(fe_obj);
+                        file_explorer_load_next_page(fe_obj);
+                    }
+                }
             }
         }
 
@@ -544,54 +623,28 @@ static void file_explorer_item_callback(lv_event_t *e) {
     }
 }
 
-void file_explorer_set_callback(lv_obj_t *fe_obj, file_explorer_openfile_callback callback) {
-    auto *user_data          = static_cast<file_explorer_data *>(lv_obj_get_user_data(fe_obj));
-    user_data->open_callback = callback;
-}
-
-void file_explorer_reload_force(lv_obj_t *fe_obj) {
-    auto *user_data = static_cast<file_explorer_data *>(lv_obj_get_user_data(fe_obj));
-    if (file_explorer_opendir(fe_obj)) {
-        user_data->virt_curr_idx = 0;
-        user_data->first_idx     = 0;
-        lv_obj_scroll_to_y(user_data->container_spacer, 0, LV_ANIM_OFF);
-        file_explorer_relocate_items(fe_obj, 0);
-        file_explorer_rename_items(fe_obj);
-    }
-    lv_obj_invalidate(fe_obj);
-}
-
-void file_explorer_media_invalid(lv_obj_t *fe_obj) {
+static void file_explorer_indicator_callback(lv_event_t *e) {
+    auto *fe_obj    = (lv_obj_t *)lv_event_get_user_data(e);
     auto *user_data = static_cast<file_explorer_data *>(lv_obj_get_user_data(fe_obj));
     if (user_data->invalid)
         return;
-    lv_obj_set_style_bg_color(user_data->indicator, lv_color_hex(0xd6175e), LV_PART_MAIN);
-    lv_label_set_text_static(lv_obj_get_child(user_data->indicator, 0), "Storage Media Is Removed!");
-    user_data->invalid = true;
-}
-
-void file_explorer_media_valid(lv_obj_t *fe_obj) {
-    auto *user_data = static_cast<file_explorer_data *>(lv_obj_get_user_data(fe_obj));
-    if (!user_data->invalid)
-        return;
-    FILINFO info;
-    FRESULT fres = f_stat(user_data->current_path, &info);
-    if (fres == FR_OK && (info.fattrib & AM_DIR)) {
-        lv_label_set_text_static(lv_obj_get_child(user_data->indicator, 0), user_data->current_path);
+    DIR     dir;
+    FRESULT fres = f_opendir(&dir, user_data->current_path);
+    if (fres == FR_OK) {
+        f_closedir(&dir);
     }
     else {
         char disk_root[16] {};
         int  ret = path_get_disk_root(user_data->current_path, disk_root);
         if (ret < 0) {
             user_data->invalid = true;
-            lv_label_set_text_static(lv_obj_get_child(user_data->indicator, 0), "Invalid Path!");
+            lv_label_set_text_static(lv_obj_get_child(user_data->indicator, 0), "Invalid Root!");
             return;
         }
         else {
             strcpy(user_data->current_path, disk_root);
         }
     }
-    lv_obj_remove_local_style_prop(user_data->indicator, LV_STYLE_BG_COLOR, LV_PART_MAIN);
-    user_data->invalid = false;
+
     file_explorer_reload_force(fe_obj);
 }
