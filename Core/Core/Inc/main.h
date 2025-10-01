@@ -90,8 +90,10 @@ extern "C"
     extern lv_display_t     *rgb_screen_disp;
     extern uint32_t          sdcard_initialized;
     extern uint32_t          sdcard_link_driver;
-    extern uint32_t          sdcard_disk_init;
     extern uint32_t          sdcard_is_mounted;
+    extern uint8_t          *file_exchange_buffer;
+    extern uint8_t          *jpeg_after_buffer;
+    extern uint8_t          *jpeg_before_buffer_rgb;
 
     // extern traceString       trace_analyzer_channel1;
     // extern traceString       trace_analyzer_channel2;
@@ -106,7 +108,8 @@ extern "C"
     /* USER CODE END EM */
 
     /* Exported functions prototypes ---------------------------------------------*/
-    void Error_Handler(void);
+    void
+    Error_Handler(void);
 
     /* USER CODE BEGIN EFP */
     int  __io_putchar(int ch);
@@ -176,29 +179,29 @@ extern "C"
 #define EXTRACT_BITS_GET(TARGET, MASK) ((TARGET) & (MASK))
 
 #ifdef DEBUG
-#define ADD_SEMAQUEUE(SEMAQUEUE, NAME) vQueueAddToRegistry(SEMAQUEUE, #NAME)
-#define DEL_SEMAQUEUE(SEMAQUEUE) 	   vQueueUnregisterQueue(SEMAQUEUE)
+    #define ADD_SEMAQUEUE(SEMAQUEUE, NAME) vQueueAddToRegistry(SEMAQUEUE, #NAME)
+    #define DEL_SEMAQUEUE(SEMAQUEUE)       vQueueUnregisterQueue(SEMAQUEUE)
 #else
-#define ADD_SEMAQUEUE(SEMAQUEUE, NAME)
-#define DEL_SEMAQUEUE(SEMAQUEUE)
+    #define ADD_SEMAQUEUE(SEMAQUEUE, NAME)
+    #define DEL_SEMAQUEUE(SEMAQUEUE)
 #endif
 
-static inline void MYSCB_CleanInvalidateDCache_by_AddrRange(const uint32_t *pData_begin, const uint32_t *pData_end) {
-    uint32_t address_start = (uint32_t)pData_begin;
-    uint32_t address_end   = (uint32_t)pData_end + 31;
-    address_start &= 0xffffffe0;
-    address_end &= 0xffffffe0;
-    int32_t real_size = (int32_t)(address_end - address_start);
-    SCB_CleanInvalidateDCache_by_Addr((uint32_t *)address_start, real_size);
-}
+    static inline void MYSCB_CleanInvalidateDCache_by_AddrRange(const uint32_t *pData_begin, const uint32_t *pData_end) {
+        uint32_t address_start = (uint32_t)pData_begin;
+        uint32_t address_end   = (uint32_t)pData_end + 31;
+        address_start &= 0xffffffe0;
+        address_end &= 0xffffffe0;
+        int32_t real_size = (int32_t)(address_end - address_start);
+        SCB_CleanInvalidateDCache_by_Addr((uint32_t *)address_start, real_size);
+    }
 
-static inline int rgba_equal(BGR *a, BGR *b) {
-    return (a->B == b->B) && (a->G == b->G) && (a->R == b->R);
-}
+    static inline int rgba_equal(BGR *a, BGR *b) {
+        return (a->B == b->B) && (a->G == b->G) && (a->R == b->R);
+    }
 
-__STATIC_FORCEINLINE int in_handler_mode (void) {
-	return __get_IPSR() != 0;
-}
+    __STATIC_FORCEINLINE int in_handler_mode(void) {
+        return __get_IPSR() != 0;
+    }
 
     /* USER CODE END Private defines */
 

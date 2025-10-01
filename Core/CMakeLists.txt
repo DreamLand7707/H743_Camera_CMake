@@ -47,32 +47,32 @@ target_sources(${Core_Name} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/SEGGER-RTT/SEGGER_RTT_printf.c
     ${CMAKE_CURRENT_SOURCE_DIR}/SEGGER-RTT/SEGGER_RTT.c
 
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcAssert.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcCounter.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcDiagnostics.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcEntryTable.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcError.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcEvent.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcEventBuffer.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcExtension.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcHardwarePort.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcHeap.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcInternalEventBuffer.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcInterval.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcISR.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcKernelPort.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcMultiCoreEventBuffer.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcObject.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcPrint.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcSnapshotRecorder.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcStackMonitor.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcStateMachine.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcStaticBuffer.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcStreamingRecorder.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcString.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcTask.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcTimestamp.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/streamport/trcStreamPort.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcAssert.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcCounter.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcDiagnostics.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcEntryTable.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcError.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcEvent.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcEventBuffer.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcExtension.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcHardwarePort.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcHeap.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcInternalEventBuffer.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcInterval.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcISR.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcKernelPort.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcMultiCoreEventBuffer.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcObject.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcPrint.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcSnapshotRecorder.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcStackMonitor.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcStateMachine.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcStaticBuffer.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcStreamingRecorder.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcString.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcTask.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcTimestamp.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/streamport/trcStreamPort.c
 )
 
 # Add include paths
