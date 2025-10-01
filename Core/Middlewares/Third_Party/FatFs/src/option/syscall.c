@@ -39,25 +39,25 @@ int ff_cre_syncobj(              /* 1:Function succeeded, 0:Could not create the
 ) {
 
     int ret;
-#if _USE_MUTEX
+    #if _USE_MUTEX
 
-#if (osCMSIS < 0x20000U)
+        #if (osCMSIS < 0x20000U)
     osMutexDef(MTX);
     *sobj = osMutexCreate(osMutex(MTX));
-#else
+        #else
     *sobj = osMutexNew(NULL);
-#endif
+        #endif
 
-#else
+    #else
 
-#if (osCMSIS < 0x20000U)
+        #if (osCMSIS < 0x20000U)
     osSemaphoreDef(SEM);
     *sobj = osSemaphoreCreate(osSemaphore(SEM), 1);
-#else
+        #else
     *sobj = osSemaphoreNew(1, 1, NULL);
-#endif
+        #endif
 
-#endif
+    #endif
     ret = (*sobj != NULL);
 
     return ret;
@@ -76,11 +76,11 @@ int ff_cre_syncobj(              /* 1:Function succeeded, 0:Could not create the
 int ff_del_syncobj(             /* 1:Function succeeded, 0:Could not delete due to any error */
                    _SYNC_t sobj /* Sync object tied to the logical drive to be deleted */
 ) {
-#if _USE_MUTEX
+    #if _USE_MUTEX
     osMutexDelete(sobj);
-#else
+    #else
     osSemaphoreDelete(sobj);
-#endif
+    #endif
     return 1;
 }
 
@@ -97,23 +97,23 @@ int ff_req_grant(             /* 1:Got a grant to access the volume, 0:Could not
                  _SYNC_t sobj /* Sync object to wait */
 ) {
     int ret = 0;
-#if (osCMSIS < 0x20000U)
+    #if (osCMSIS < 0x20000U)
 
-#if _USE_MUTEX
+        #if _USE_MUTEX
     if (osMutexWait(sobj, _FS_TIMEOUT) == osOK)
-#else
+        #else
     if (osSemaphoreWait(sobj, _FS_TIMEOUT) == osOK)
-#endif
+        #endif
 
-#else
+    #else
 
-#if _USE_MUTEX
+        #if _USE_MUTEX
     if (osMutexAcquire(sobj, _FS_TIMEOUT) == osOK)
-#else
+        #else
     if (osSemaphoreAcquire(sobj, _FS_TIMEOUT) == osOK)
-#endif
+        #endif
 
-#endif
+    #endif
     {
         ret = 1;
     }
@@ -132,11 +132,11 @@ int ff_req_grant(             /* 1:Got a grant to access the volume, 0:Could not
 void ff_rel_grant(
     _SYNC_t sobj /* Sync object to be signaled */
 ) {
-#if _USE_MUTEX
+    #if _USE_MUTEX
     osMutexRelease(sobj);
-#else
+    #else
     osSemaphoreRelease(sobj);
-#endif
+    #endif
 }
 
 #endif

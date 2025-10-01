@@ -30,7 +30,7 @@ extern "C"
 #include "ffconf.h"  /* FatFs configuration options */
 
 #if _FATFS != _FFCONF
-#error Wrong configuration file (ffconf.h).
+    #error Wrong configuration file (ffconf.h).
 #endif
 
 
@@ -50,20 +50,20 @@ extern "C"
     /* Type of path name strings on FatFs API */
 
 #if _LFN_UNICODE /* Unicode (UTF-16) string */
-#if _USE_LFN == 0
-#error _LFN_UNICODE must be 0 at non-LFN cfg.
-#endif
-#ifndef _INC_TCHAR
+    #if _USE_LFN == 0
+        #error _LFN_UNICODE must be 0 at non-LFN cfg.
+    #endif
+    #ifndef _INC_TCHAR
     typedef WCHAR TCHAR;
-#define _T(x)    L##x
-#define _TEXT(x) L##x
-#endif
+        #define _T(x)    L##x
+        #define _TEXT(x) L##x
+    #endif
 #else /* ANSI/OEM string */
-#ifndef _INC_TCHAR
+    #ifndef _INC_TCHAR
 typedef char TCHAR;
-#define _T(x)    x
-#define _TEXT(x) x
-#endif
+        #define _T(x)    x
+        #define _TEXT(x) x
+    #endif
 #endif
 
 
@@ -71,9 +71,9 @@ typedef char TCHAR;
     /* Type of file size variables */
 
 #if _FS_EXFAT
-#if _USE_LFN == 0
-#error LFN must be enabled when enable exFAT
-#endif
+    #if _USE_LFN == 0
+        #error LFN must be enabled when enable exFAT
+    #endif
     typedef QWORD FSIZE_t;
 #else
 typedef DWORD FSIZE_t;
@@ -110,11 +110,11 @@ typedef DWORD FSIZE_t;
 #endif
 #if _FS_RPATH != 0
         DWORD cdir; /* Current directory start cluster (0:root) */
-#if _FS_EXFAT
+    #if _FS_EXFAT
         DWORD cdc_scl;  /* Containing directory start cluster (invalid when cdir is 0) */
         DWORD cdc_size; /* b31-b8:Size of containing directory, b7-b0: Chain status */
         DWORD cdc_ofs;  /* Offset in the containing directory (invalid when cdir is 0) */
-#endif
+    #endif
 #endif
         DWORD n_fatent;     /* Number of FAT entries (number of clusters + 2) */
         DWORD fsize;        /* Size of an FAT [sectors] */
@@ -283,7 +283,7 @@ typedef DWORD FSIZE_t;
 #define f_rmdir(path)   f_unlink(path)
 
 #ifndef EOF
-#define EOF (-1)
+    #define EOF (-1)
 #endif
 
 
@@ -301,10 +301,10 @@ typedef DWORD FSIZE_t;
 #if _USE_LFN != 0                          /* Unicode - OEM code conversion */
     WCHAR ff_convert(WCHAR chr, UINT dir); /* OEM-Unicode bidirectional conversion */
     WCHAR ff_wtoupper(WCHAR chr);          /* Unicode upper-case conversion */
-#if _USE_LFN == 3                          /* Memory functions */
+    #if _USE_LFN == 3                      /* Memory functions */
     void *ff_memalloc(UINT msize);         /* Allocate memory block */
     void  ff_memfree(void *mblock);        /* Free memory block */
-#endif
+    #endif
 #endif
 
 /* Sync functions */

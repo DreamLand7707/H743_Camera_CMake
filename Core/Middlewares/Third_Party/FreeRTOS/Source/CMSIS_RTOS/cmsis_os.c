@@ -61,22 +61,22 @@
  */
 #if defined(__CC_ARM)
 
-#define __ASM           __asm
-#define __INLINE        __inline
-#define __STATIC_INLINE static __inline
+    #define __ASM           __asm
+    #define __INLINE        __inline
+    #define __STATIC_INLINE static __inline
 
-#include "cmsis_armcc.h"
+    #include "cmsis_armcc.h"
 
 /*
  * GNU Compiler
  */
 #elif defined(__GNUC__)
 
-#define __ASM           __asm  /*!< asm keyword for GNU Compiler          */
-#define __INLINE        inline /*!< inline keyword for GNU Compiler       */
-#define __STATIC_INLINE static inline
+    #define __ASM           __asm  /*!< asm keyword for GNU Compiler          */
+    #define __INLINE        inline /*!< inline keyword for GNU Compiler       */
+    #define __STATIC_INLINE static inline
 
-#include "cmsis_gcc.h"
+    #include "cmsis_gcc.h"
 
 
 /*
@@ -84,17 +84,17 @@
  */
 #elif defined(__ICCARM__)
 
-#ifndef __ASM
-#define __ASM __asm
-#endif
-#ifndef __INLINE
-#define __INLINE inline
-#endif
-#ifndef __STATIC_INLINE
-#define __STATIC_INLINE static inline
-#endif
+    #ifndef __ASM
+        #define __ASM __asm
+    #endif
+    #ifndef __INLINE
+        #define __INLINE inline
+    #endif
+    #ifndef __STATIC_INLINE
+        #define __STATIC_INLINE static inline
+    #endif
 
-#include <cmsis_iar.h>
+    #include <cmsis_iar.h>
 #endif
 
 extern void xPortSysTickHandler(void);
@@ -342,7 +342,7 @@ osEvent osWait(uint32_t millisec);
 osTimerId osTimerCreate(const osTimerDef_t *timer_def, os_timer_type type, void *argument) {
 #if (configUSE_TIMERS == 1)
 
-#if ((configSUPPORT_STATIC_ALLOCATION == 1) && (configSUPPORT_DYNAMIC_ALLOCATION == 1))
+    #if ((configSUPPORT_STATIC_ALLOCATION == 1) && (configSUPPORT_DYNAMIC_ALLOCATION == 1))
     if (timer_def->controlblock != NULL) {
         return xTimerCreateStatic((const char *)"",
                                   1, // period should be filled when starting the Timer using osTimerStart
@@ -358,20 +358,20 @@ osTimerId osTimerCreate(const osTimerDef_t *timer_def, os_timer_type type, void 
                             (void *)argument,
                             (TimerCallbackFunction_t)timer_def->ptimer);
     }
-#elif (configSUPPORT_STATIC_ALLOCATION == 1)
+    #elif (configSUPPORT_STATIC_ALLOCATION == 1)
     return xTimerCreateStatic((const char *)"",
                               1, // period should be filled when starting the Timer using osTimerStart
                               (type == osTimerPeriodic) ? pdTRUE : pdFALSE,
                               (void *)argument,
                               (TimerCallbackFunction_t)timer_def->ptimer,
                               (StaticTimer_t *)timer_def->controlblock);
-#else
+    #else
     return xTimerCreate((const char *)"",
                         1, // period should be filled when starting the Timer using osTimerStart
                         (type == osTimerPeriodic) ? pdTRUE : pdFALSE,
                         (void *)argument,
                         (TimerCallbackFunction_t)timer_def->ptimer);
-#endif
+    #endif
 
 #else
     return NULL;
@@ -570,7 +570,7 @@ osEvent osSignalWait(int32_t signals, uint32_t millisec) {
 osMutexId osMutexCreate(const osMutexDef_t *mutex_def) {
 #if (configUSE_MUTEXES == 1)
 
-#if (configSUPPORT_STATIC_ALLOCATION == 1) && (configSUPPORT_DYNAMIC_ALLOCATION == 1)
+    #if (configSUPPORT_STATIC_ALLOCATION == 1) && (configSUPPORT_DYNAMIC_ALLOCATION == 1)
 
     if (mutex_def->controlblock != NULL) {
         return xSemaphoreCreateMutexStatic(mutex_def->controlblock);
@@ -578,11 +578,11 @@ osMutexId osMutexCreate(const osMutexDef_t *mutex_def) {
     else {
         return xSemaphoreCreateMutex();
     }
-#elif (configSUPPORT_STATIC_ALLOCATION == 1)
+    #elif (configSUPPORT_STATIC_ALLOCATION == 1)
     return xSemaphoreCreateMutexStatic(mutex_def->controlblock);
-#else
+    #else
     return xSemaphoreCreateMutex();
-#endif
+    #endif
 #else
     return NULL;
 #endif
@@ -678,7 +678,7 @@ osStatus osMutexDelete(osMutexId mutex_id) {
  * @note   MUST REMAIN UNCHANGED: \b osSemaphoreCreate shall be consistent in every CMSIS-RTOS.
  */
 osSemaphoreId osSemaphoreCreate(const osSemaphoreDef_t *semaphore_def, int32_t count) {
-#if (configSUPPORT_STATIC_ALLOCATION == 1) && (configSUPPORT_DYNAMIC_ALLOCATION == 1)
+    #if (configSUPPORT_STATIC_ALLOCATION == 1) && (configSUPPORT_DYNAMIC_ALLOCATION == 1)
 
     osSemaphoreId sema;
 
@@ -687,11 +687,11 @@ osSemaphoreId osSemaphoreCreate(const osSemaphoreDef_t *semaphore_def, int32_t c
             return xSemaphoreCreateBinaryStatic(semaphore_def->controlblock);
         }
         else {
-#if (configUSE_COUNTING_SEMAPHORES == 1)
+        #if (configUSE_COUNTING_SEMAPHORES == 1)
             return xSemaphoreCreateCountingStatic(count, count, semaphore_def->controlblock);
-#else
+        #else
             return NULL;
-#endif
+        #endif
         }
     }
     else {
@@ -700,25 +700,25 @@ osSemaphoreId osSemaphoreCreate(const osSemaphoreDef_t *semaphore_def, int32_t c
             return sema;
         }
         else {
-#if (configUSE_COUNTING_SEMAPHORES == 1)
+        #if (configUSE_COUNTING_SEMAPHORES == 1)
             return xSemaphoreCreateCounting(count, count);
-#else
+        #else
             return NULL;
-#endif
+        #endif
         }
     }
-#elif (configSUPPORT_STATIC_ALLOCATION == 1) // configSUPPORT_DYNAMIC_ALLOCATION == 0
+    #elif (configSUPPORT_STATIC_ALLOCATION == 1) // configSUPPORT_DYNAMIC_ALLOCATION == 0
     if (count == 1) {
         return xSemaphoreCreateBinaryStatic(semaphore_def->controlblock);
     }
     else {
-#if (configUSE_COUNTING_SEMAPHORES == 1)
+        #if (configUSE_COUNTING_SEMAPHORES == 1)
         return xSemaphoreCreateCountingStatic(count, count, semaphore_def->controlblock);
-#else
+        #else
         return NULL;
-#endif
+        #endif
     }
-#else // configSUPPORT_STATIC_ALLOCATION == 0  && configSUPPORT_DYNAMIC_ALLOCATION == 1
+    #else // configSUPPORT_STATIC_ALLOCATION == 0  && configSUPPORT_DYNAMIC_ALLOCATION == 1
     osSemaphoreId sema;
 
     if (count == 1) {
@@ -726,13 +726,13 @@ osSemaphoreId osSemaphoreCreate(const osSemaphoreDef_t *semaphore_def, int32_t c
         return sema;
     }
     else {
-#if (configUSE_COUNTING_SEMAPHORES == 1)
+        #if (configUSE_COUNTING_SEMAPHORES == 1)
         return xSemaphoreCreateCounting(count, count);
-#else
+        #else
         return NULL;
-#endif
+        #endif
     }
-#endif
+    #endif
 }
 
 /**
@@ -844,7 +844,7 @@ typedef struct os_pool_cb {
  * @note   MUST REMAIN UNCHANGED: \b osPoolCreate shall be consistent in every CMSIS-RTOS.
  */
 osPoolId osPoolCreate(const osPoolDef_t *pool_def) {
-#if (configSUPPORT_DYNAMIC_ALLOCATION == 1)
+    #if (configSUPPORT_DYNAMIC_ALLOCATION == 1)
     osPoolId thePool;
     int      itemSize = 4 * ((pool_def->item_sz + 3) / 4);
     uint32_t i;
@@ -884,9 +884,9 @@ osPoolId osPoolCreate(const osPoolDef_t *pool_def) {
 
     return thePool;
 
-#else
+    #else
     return NULL;
-#endif
+    #endif
 }
 
 /**
@@ -998,7 +998,7 @@ osStatus osPoolFree(osPoolId pool_id, void *block) {
 osMessageQId osMessageCreate(const osMessageQDef_t *queue_def, osThreadId thread_id) {
     (void)thread_id;
 
-#if (configSUPPORT_STATIC_ALLOCATION == 1) && (configSUPPORT_DYNAMIC_ALLOCATION == 1)
+    #if (configSUPPORT_STATIC_ALLOCATION == 1) && (configSUPPORT_DYNAMIC_ALLOCATION == 1)
 
     if ((queue_def->buffer != NULL) && (queue_def->controlblock != NULL)) {
         return xQueueCreateStatic(queue_def->queue_sz, queue_def->item_sz, queue_def->buffer, queue_def->controlblock);
@@ -1006,11 +1006,11 @@ osMessageQId osMessageCreate(const osMessageQDef_t *queue_def, osThreadId thread
     else {
         return xQueueCreate(queue_def->queue_sz, queue_def->item_sz);
     }
-#elif (configSUPPORT_STATIC_ALLOCATION == 1)
+    #elif (configSUPPORT_STATIC_ALLOCATION == 1)
     return xQueueCreateStatic(queue_def->queue_sz, queue_def->item_sz, queue_def->buffer, queue_def->controlblock);
-#else
+    #else
     return xQueueCreate(queue_def->queue_sz, queue_def->item_sz);
-#endif
+    #endif
 }
 
 /**
@@ -1121,7 +1121,7 @@ typedef struct os_mailQ_cb {
  * @note   MUST REMAIN UNCHANGED: \b osMailCreate shall be consistent in every CMSIS-RTOS.
  */
 osMailQId osMailCreate(const osMailQDef_t *queue_def, osThreadId thread_id) {
-#if (configSUPPORT_DYNAMIC_ALLOCATION == 1)
+    #if (configSUPPORT_DYNAMIC_ALLOCATION == 1)
     (void)thread_id;
 
     osPoolDef_t pool_def = {queue_def->queue_sz, queue_def->item_sz, NULL};
@@ -1153,9 +1153,9 @@ osMailQId osMailCreate(const osMailQDef_t *queue_def, osThreadId thread_id) {
     }
 
     return *(queue_def->cb);
-#else
+    #else
     return NULL;
-#endif
+    #endif
 }
 
 /**
@@ -1563,7 +1563,7 @@ osStatus osMessageDelete(osMessageQId queue_id) {
  */
 osMutexId osRecursiveMutexCreate(const osMutexDef_t *mutex_def) {
 #if (configUSE_RECURSIVE_MUTEXES == 1)
-#if (configSUPPORT_STATIC_ALLOCATION == 1) && (configSUPPORT_DYNAMIC_ALLOCATION == 1)
+    #if (configSUPPORT_STATIC_ALLOCATION == 1) && (configSUPPORT_DYNAMIC_ALLOCATION == 1)
 
     if (mutex_def->controlblock != NULL) {
         return xSemaphoreCreateRecursiveMutexStatic(mutex_def->controlblock);
@@ -1571,11 +1571,11 @@ osMutexId osRecursiveMutexCreate(const osMutexDef_t *mutex_def) {
     else {
         return xSemaphoreCreateRecursiveMutex();
     }
-#elif (configSUPPORT_STATIC_ALLOCATION == 1)
+    #elif (configSUPPORT_STATIC_ALLOCATION == 1)
     return xSemaphoreCreateRecursiveMutexStatic(mutex_def->controlblock);
-#else
+    #else
     return xSemaphoreCreateRecursiveMutex();
-#endif
+    #endif
 #else
     return NULL;
 #endif
