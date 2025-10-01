@@ -5,11 +5,11 @@
 #include <ranges>
 
 // extern Variable Definition
-void             *SDRAM_GRAM1;
-void             *SDRAM_GRAM2;
-void             *JPEG_ENCODE_DEST;
-void             *JEPG_YCbCr;
-void             *JPEG_ENCODE_SOURCE;
+void *SDRAM_GRAM1;
+void *SDRAM_GRAM2;
+// void             *JPEG_ENCODE_DEST;
+// void             *JEPG_YCbCr;
+// void             *JPEG_ENCODE_SOURCE;
 
 uint8_t           mkfs_buffer[4096] __attribute__((section(".fatfs_buffer")));
 uint32_t          sdcard_link_driver = 0;
@@ -62,14 +62,14 @@ static int     routine(int argc, char **argv);
 static void    initial_before_routine();
 extern "C" int _getentropy(void *buffer, size_t length);
 
-static void    hdma2dCompleteCallback(DMA2D_HandleTypeDef *hdma2d);
-static void    insbtn_call(lv_event_t *event);
-static void    popbtn_call(lv_event_t *event);
-static void    ins_card_call();
-static void    pop_card_call();
-static void    lvgl_create_main_interface();
-static void    change_to_camera(lv_event_t *event);
-static void    click_one_file(lv_event_t *e, const char *path);
+// static void    hdma2dCompleteCallback(DMA2D_HandleTypeDef *hdma2d);
+static void insbtn_call(lv_event_t *event);
+static void popbtn_call(lv_event_t *event);
+static void ins_card_call();
+static void pop_card_call();
+static void lvgl_create_main_interface();
+static void change_to_camera(lv_event_t *event);
+static void click_one_file(lv_event_t *e, const char *path);
 
 enum class scr_mess {
     INFO = 0,
@@ -99,21 +99,18 @@ static void initial_before_routine() {
     // sema_take_screenshot = xSemaphoreCreateBinary();
     // sema_update_local    = xSemaphoreCreateBinary();
 
-    SDRAM_GRAM1        = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
-    SDRAM_GRAM2        = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
-    JPEG_ENCODE_SOURCE = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
-    JPEG_ENCODE_DEST   = sdram_Malloc(256 * 1024);
-    JEPG_YCbCr         = sdram_Malloc(256 * 1024);
+    SDRAM_GRAM1 = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
+    SDRAM_GRAM2 = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
 
     HAL_LTDC_SetAddress(&hltdc, (uint32_t)SDRAM_GRAM1, LTDC_LAYER_1);
 
-    hdma2d.XferCpltCallback     = hdma2dCompleteCallback;
-    jpeg_conf.ChromaSubsampling = JPEG_444_SUBSAMPLING;
-    jpeg_conf.ColorSpace        = JPEG_YCBCR_COLORSPACE;
-    jpeg_conf.ImageQuality      = 100;
-    jpeg_conf.ImageHeight       = 272;
-    jpeg_conf.ImageWidth        = 480;
-    HAL_JPEG_ConfigEncoding(&hjpeg, &jpeg_conf);
+    // hdma2d.XferCpltCallback     = hdma2dCompleteCallback;
+    // jpeg_conf.ChromaSubsampling = JPEG_444_SUBSAMPLING;
+    // jpeg_conf.ColorSpace        = JPEG_YCBCR_COLORSPACE;
+    // jpeg_conf.ImageQuality      = 100;
+    // jpeg_conf.ImageHeight       = 272;
+    // jpeg_conf.ImageWidth        = 480;
+    // HAL_JPEG_ConfigEncoding(&hjpeg, &jpeg_conf);
 }
 
 static int routine(int argc, char **argv) {
@@ -244,10 +241,11 @@ static void lvgl_create_main_interface() {
     image_indicator_label = lv_label_create(image_indicator);
     lv_obj_set_style_align(image_indicator_label, LV_ALIGN_LEFT_MID, LV_STATE_DEFAULT);
 
-    image = lv_obj_create(image_container);
+    image = lv_image_create(image_container);
     lv_obj_set_flex_grow(image, 4);
     lv_obj_set_style_width(image, LV_PCT(100), LV_STATE_DEFAULT);
     lv_obj_set_style_margin_right(image, 10, LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(image, 1, LV_STATE_DEFAULT);
 
     lv_obj_add_event_cb(shot_btn, change_to_camera, LV_EVENT_PRESSED, nullptr);
     file_explorer_set_callback(file_explorer_obj, click_one_file);
@@ -416,9 +414,48 @@ static void change_to_camera(lv_event_t *event) {
     // xSemaphoreGive(sema_take_screenshot);
 }
 
+namespace
+{
+    void            *fe_file_read_buffer      = nullptr;
+
+    void            *jpeg_decode_after_buffer = nullptr; // YCbCr
+    void            *jpeg_decode_rgb_buffer   = nullptr; // YCbCr -> RGB
+    JPEG_ConfTypeDef jpeg_decode_conf;
+    // use sd card as storage of all rgb
+    void  *pict_to_show = nullptr; // RGB ----down sample----> RGB --> LVGL
+    size_t pict_size[2] = {0, 0};
+
+} // namespace
+
 static void click_one_file(lv_event_t *e, const char *path) {
+    DIR     x_dir;
+    FRESULT f_res = f_opendir(&x_dir, "0:/.temp");
+    if (f_res == FR_OK) {
+        f_closedir(&x_dir);
+    }
+    else {
+        f_res = f_mkdir("0:/.temp");
+        if (f_res != FR_OK) {
+            return;
+        }
+    }
+
+    FIL temp_file;
+    f_res = f_open(&temp_file, "0:/.temp/jpeg_pict_temp", FA_READ | FA_WRITE | FA_CREATE_ALWAYS);
+
+    if (f_res != FR_OK)
+        return;
 }
 
+void HAL_JPEG_InfoReadyCallback(JPEG_HandleTypeDef *hjpeg, JPEG_ConfTypeDef *pInfo) {}
+void HAL_JPEG_EncodeCpltCallback(JPEG_HandleTypeDef *hjpeg) {}
+void HAL_JPEG_DecodeCpltCallback(JPEG_HandleTypeDef *hjpeg) {}
+
+void HAL_JPEG_GetDataCallback(JPEG_HandleTypeDef *hjpeg, uint32_t NbDecodedData) {
+}
+
+void HAL_JPEG_DataReadyCallback(JPEG_HandleTypeDef *hjpeg, uint8_t *pDataOut, uint32_t OutDataLength) {
+}
 
 ////////////////////////////////////////////////////////////////////////
 // Take Screen Shot!!!
@@ -429,7 +466,7 @@ static void take_screenshot_task(void *params) {
     while (1) {
         // xSemaphoreTake(sema_take_screenshot, portMAX_DELAY);
         xSemaphoreTake(mutex_gram_read, portMAX_DELAY);
-        HAL_DMA2D_Start_IT(&hdma2d, (uint32_t)curr_screen_buffer, (uint32_t)JPEG_ENCODE_SOURCE, 480, 272);
+        // HAL_DMA2D_Start_IT(&hdma2d, (uint32_t)curr_screen_buffer, (uint32_t)JPEG_ENCODE_SOURCE, 480, 272);
         while (1) {
             xTaskNotifyWait(0, 0x01, &notification_value, portMAX_DELAY);
             if (notification_value & 0x01u) {
@@ -445,11 +482,11 @@ static void take_screenshot_task(void *params) {
         JPEG_GetEncodeColorConvertFunc(&jpeg_conf, &conv_func, &nbMcu);
 
         uint32_t byte_consume;
-        conv_func((uint8_t *)JPEG_ENCODE_SOURCE, (uint8_t *)JEPG_YCbCr, 0, sizeof(SDRAM_SCREEN_BUFFER), &byte_consume);
+        // conv_func((uint8_t *)JPEG_ENCODE_SOURCE, (uint8_t *)JEPG_YCbCr, 0, sizeof(SDRAM_SCREEN_BUFFER), &byte_consume);
 
-        curr_encode_ptr   = (uint8_t *)JEPG_YCbCr;
-        target_encode_ptr = (uint8_t *)JEPG_YCbCr + byte_consume;
-        curr_dest_ptr     = (uint8_t *)JPEG_ENCODE_DEST;
+        // curr_encode_ptr   = (uint8_t *)JEPG_YCbCr;
+        // target_encode_ptr = (uint8_t *)JEPG_YCbCr + byte_consume;
+        // curr_dest_ptr     = (uint8_t *)JPEG_ENCODE_DEST;
         HAL_JPEG_Encode_DMA(&hjpeg, curr_encode_ptr, 65536, curr_dest_ptr, 65536);
         while (1) {
             xTaskNotifyWait(0, 0x02, &notification_value, portMAX_DELAY);
@@ -464,10 +501,10 @@ static void take_screenshot_task(void *params) {
         if (f_open(&jpeg1, "0:/a.jpeg", (uint32_t)FA_WRITE | (uint32_t)FA_CREATE_ALWAYS) != FR_OK) {
             continue;
         }
-        UINT brw;
-        if (f_write(&jpeg1, (const uint8_t *)JPEG_ENCODE_DEST, (UINT)(curr_dest_ptr - (uint8_t *)JPEG_ENCODE_DEST), &brw) != FR_OK) {
-            continue;
-        }
+        // UINT brw;
+        // if (f_write(&jpeg1, (const uint8_t *)JPEG_ENCODE_DEST, (UINT)(curr_dest_ptr - (uint8_t *)JPEG_ENCODE_DEST), &brw) != FR_OK) {
+        // continue;
+        // }
         if (f_close(&jpeg1) != FR_OK) {
             continue;
         }
@@ -475,33 +512,14 @@ static void take_screenshot_task(void *params) {
 }
 
 
-static void hdma2dCompleteCallback(DMA2D_HandleTypeDef *hdma2d) {
-    BaseType_t woken;
-    xTaskNotifyFromISR(take_screenshot, 0x01, eSetBits, &woken);
-    portYIELD_FROM_ISR(woken);
-}
+// static void hdma2dCompleteCallback(DMA2D_HandleTypeDef *hdma2d) {
+//     BaseType_t woken;
+//     xTaskNotifyFromISR(take_screenshot, 0x01, eSetBits, &woken);
+//     portYIELD_FROM_ISR(woken);
+// }
 
-void HAL_JPEG_EncodeCpltCallback(JPEG_HandleTypeDef *hjpeg) {
-    BaseType_t woken;
-    xTaskNotifyFromISR(take_screenshot, 0x02, eSetBits, &woken);
-    portYIELD_FROM_ISR(woken);
-}
-
-void HAL_JPEG_GetDataCallback(JPEG_HandleTypeDef *hjpeg, uint32_t NbDecodedData) {
-    uint32_t length_this_time;
-    curr_encode_ptr += NbDecodedData;
-    if (curr_encode_ptr < target_encode_ptr) {
-        length_this_time = uint32_t(target_encode_ptr - curr_encode_ptr);
-        if (length_this_time > 65536)
-            length_this_time = 65536;
-    }
-    else {
-        length_this_time = 0;
-    }
-    HAL_JPEG_ConfigInputBuffer(hjpeg, curr_encode_ptr, length_this_time);
-}
-
-void HAL_JPEG_DataReadyCallback(JPEG_HandleTypeDef *hjpeg, uint8_t *pDataOut, uint32_t OutDataLength) {
-    curr_dest_ptr += OutDataLength;
-    HAL_JPEG_ConfigOutputBuffer(hjpeg, curr_dest_ptr, 65536);
-}
+// void HAL_JPEG_EncodeCpltCallback(JPEG_HandleTypeDef *hjpeg) {
+//     BaseType_t woken;
+//     xTaskNotifyFromISR(take_screenshot, 0x02, eSetBits, &woken);
+//     portYIELD_FROM_ISR(woken);
+// }
