@@ -10,6 +10,7 @@
 soft_iic_port_origin scr_touch_iic_port;
 soft_iic_param       scr_touch_iic_param;
 soft_iic_handle      scr_touch_iic_handle;
+touch_ic_type        touch_ic;
 
 const uint8_t        Config_table[] =
     {0x80, 0x47,
@@ -44,7 +45,23 @@ static uint8_t Send_Cfg(uint8_t mode) {
     soft_iic_transmit(&scr_touch_iic_handle, buf, 4);
     return 0;
 }
-void lcd_touch_initialize() {
+
+static touch_ic_type read_and_match_screen() {
+    uint8_t send_data[]  = {0x81, 0x40};
+    uint8_t rece_data[5] = {};
+    soft_iic_receive(&scr_touch_iic_handle, send_data, 2, rece_data, 4);
+
+    if (strcmp((char *)rece_data, "9147") == 0) {
+        return GT9174;
+    }
+    else if (strcmp((char *)rece_data, "1158") == 0) {
+        return GT1158;
+    }
+    else
+        return UNKNOWN;
+}
+
+int lcd_touch_initialize() {
     GPIO_InitTypeDef gp;
     static auto      delay_handle = [](uint32_t delay)
     {
@@ -70,7 +87,6 @@ void lcd_touch_initialize() {
 
     vQueueAddToRegistry((QueueHandle_t)scr_touch_iic_handle.mutex, "iic_handle_mutex");
 
-    uint8_t temp[5];
 
     gp.Mode  = GPIO_MODE_INPUT;
     gp.Pin   = T_PEN_Pin;
@@ -84,29 +100,53 @@ void lcd_touch_initialize() {
 
     HAL_GPIO_WritePin(T_CS_GPIO_Port, T_CS_Pin, GPIO_PIN_SET);
 
-    timer_delay_ms(10);
+    timer_delay_ms(200);
 
-    gp.Mode = GPIO_MODE_INPUT;
-    gp.Pull = GPIO_NOPULL;
-    HAL_GPIO_Init(T_PEN_GPIO_Port, &gp);
+    touch_ic = read_and_match_screen();
+    if (touch_ic == GT9174) {
+        gp.Mode = GPIO_MODE_INPUT;
+        gp.Pull = GPIO_NOPULL;
+        HAL_GPIO_Init(T_PEN_GPIO_Port, &gp);
+        // Wait...
+        timer_delay_ms(100);
 
-    timer_delay_ms(100);
-    temp[0] = ((uint32_t)TOUCH_CTRL_REG & 0xff00u) >> 8u;
-    temp[1] = ((uint32_t)TOUCH_CTRL_REG & 0x00ffu);
-    temp[2] = 0x02;
-    soft_iic_transmit(&scr_touch_iic_handle, temp, 3);
-    timer_delay_ms(10);
-    temp[2] = 0x00;
-    soft_iic_transmit(&scr_touch_iic_handle, temp, 3);
+        uint8_t temp[5];
+        temp[0] = ((uint32_t)TOUCH_CTRL_REG & 0xff00u) >> 8u;
+        temp[1] = ((uint32_t)TOUCH_CTRL_REG & 0x00ffu);
+        temp[2] = 0x02;
+        soft_iic_transmit(&scr_touch_iic_handle, temp, 3);
+        timer_delay_ms(10);
+        temp[2] = 0x00;
+        soft_iic_transmit(&scr_touch_iic_handle, temp, 3);
 
-    Send_Cfg(0);
+        Send_Cfg(0);
 
-    gp.Mode = GPIO_MODE_IT_RISING;
-    HAL_GPIO_Init(T_PEN_GPIO_Port, &gp);
-    HAL_NVIC_SetPriority(EXTI9_5_IRQn, 6, 0);
-    HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+        touch_ic_isr_callback = GT9174_isr_callback;
+        gp.Mode               = GPIO_MODE_IT_RISING;
+        HAL_GPIO_Init(T_PEN_GPIO_Port, &gp);
+        HAL_NVIC_SetPriority(EXTI9_5_IRQn, 6, 0);
+        HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+        return 0;
+    }
+    else if (touch_ic == GT1158 || touch_ic == GT1151Q) {
+        touch_ic_isr_callback = GT1151Q_1158_isr_callback;
+        gp.Mode               = GPIO_MODE_IT_FALLING;
+        HAL_GPIO_Init(T_PEN_GPIO_Port, &gp);
+        HAL_NVIC_SetPriority(EXTI9_5_IRQn, 6, 0);
+        HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+        return 0;
+    }
+    return -1;
 }
 
 void EXTI9_5_IRQHandler() {
     HAL_GPIO_EXTI_IRQHandler(T_PEN_Pin);
+}
+
+void gt1158_reset() {
+    if (touch_ic == GT1158 || touch_ic == GT1151Q) {
+        HAL_GPIO_WritePin(T_CS_GPIO_Port, T_CS_Pin, GPIO_PIN_RESET);
+        vTaskDelay(1);
+        HAL_GPIO_WritePin(T_CS_GPIO_Port, T_CS_Pin, GPIO_PIN_SET);
+    }
 }

@@ -9,20 +9,20 @@
 #define USER_CODE_LCD_TOUCH_HPP_
 
 
-#define WRITE_ADDRESS 		0X28
-#define READ_ADDRESS 		0X29
+#define WRITE_ADDRESS    0X28
+#define READ_ADDRESS     0X29
 
-#define TOUCH_CTRL_REG 		0X8040
-#define TOUCH_CONFIG_REG 	0X8047
-#define TOUCH_CKSUM_REG 	0X80FF
-#define TOUCH_PID_REG 		0X8140
+#define TOUCH_CTRL_REG   0X8040
+#define TOUCH_CONFIG_REG 0X8047
+#define TOUCH_CKSUM_REG  0X80FF
+#define TOUCH_PID_REG    0X8140
 
-#define TOUCH_STATUS_REG 	0X814E
-#define TOUCH_POINT1_REG 	0X8150
-#define TOUCH_POINT2_REG 	0X8158
-#define TOUCH_POINT3_REG 	0X8160
-#define TOUCH_POINT4_REG 	0X8168
-#define TOUCH_POINT5_REG 	0X8170
+#define TOUCH_STATUS_REG 0X814E
+#define TOUCH_POINT1_REG 0X8150
+#define TOUCH_POINT2_REG 0X8158
+#define TOUCH_POINT3_REG 0X8160
+#define TOUCH_POINT4_REG 0X8168
+#define TOUCH_POINT5_REG 0X8170
 
 #include "debugger.h"
 #include "timer_delay.hpp"
@@ -49,17 +49,32 @@ extern "C"
 {
 #endif
 
-void EXTI9_5_IRQHandler();
+    void           EXTI9_5_IRQHandler();
 
-extern uint8_t record_touch_valid_num;
+    extern uint8_t record_touch_valid_num;
 
 #ifdef __cplusplus
 }
 #endif
 
-void lcd_touch_initialize();
+enum touch_ic_type {
+    GT9174,
+    GT1151Q,
+    GT1158,
+    UNKNOWN
+};
+
+int  lcd_touch_initialize();
+void gt1158_reset();
+void GT9174_isr_callback();
+void GT1151Q_1158_isr_callback();
+int  touch_sence_init();
+//
+
 extern soft_iic_port_origin scr_touch_iic_port;
-extern soft_iic_param scr_touch_iic_param;
-extern soft_iic_handle scr_touch_iic_handle;
+extern soft_iic_param       scr_touch_iic_param;
+extern soft_iic_handle      scr_touch_iic_handle;
+extern touch_ic_type        touch_ic;
+extern touch_ic_isr         touch_ic_isr_callback;
 
 #endif /* USER_CODE_LCD_TOUCH_HPP_ */

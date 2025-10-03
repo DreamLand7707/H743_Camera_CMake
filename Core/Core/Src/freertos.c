@@ -155,13 +155,12 @@ void MX_FREERTOS_Init(void) {
     /* add semaphores, ... */
     sema_flash_screen_routine_start = xSemaphoreCreateBinary();
     sema_camera_routine_start = xSemaphoreCreateBinary();
-    sema_screen_been_touched = xSemaphoreCreateBinary();
     sema_swap_buffer_handle = xSemaphoreCreateBinary();
   /* USER CODE END RTOS_SEMAPHORES */
 
   /* USER CODE BEGIN RTOS_TIMERS */
     /* start timers, add new ones, ... */
-    timer_20_ms_restrain_touch = xTimerCreate("timer_20_ms_restrain_touch", pdMS_TO_TICKS(20), pdFALSE, NULL, &timer_20_ms_callback);
+
   /* USER CODE END RTOS_TIMERS */
 
   /* USER CODE BEGIN RTOS_QUEUES */
@@ -185,7 +184,6 @@ void MX_FREERTOS_Init(void) {
     /* add threads, ... */
     vQueueAddToRegistry((QueueHandle_t) sema_flash_screen_routine_start, "sema_flash_screen_routine_start");
     vQueueAddToRegistry((QueueHandle_t) sema_camera_routine_start, "sema_camera_routine_start");
-    vQueueAddToRegistry((QueueHandle_t) sema_screen_been_touched, "sema_screen_been_touched");
     vQueueAddToRegistry((QueueHandle_t) sema_swap_buffer_handle, "sema_swap_buffer_handle");
   /* USER CODE END RTOS_THREADS */
 

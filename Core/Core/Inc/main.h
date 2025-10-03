@@ -62,6 +62,8 @@ extern "C"
         uint16_t value;
     } BGR;
 
+    typedef void (*touch_ic_isr)();
+
     /* USER CODE END ET */
 
     /* Exported constants --------------------------------------------------------*/
@@ -81,12 +83,10 @@ extern "C"
 
     extern SemaphoreHandle_t sema_flash_screen_routine_start;
     extern SemaphoreHandle_t sema_camera_routine_start;
-    extern SemaphoreHandle_t sema_screen_been_touched;
     extern SemaphoreHandle_t sema_swap_buffer_handle;
-    extern TimerHandle_t     timer_20_ms_restrain_touch;
     extern uint8_t           mkfs_buffer[4096] __attribute__((section(".fatfs_buffer")));
 
-    extern touch_point       record_touch[5];
+    extern touch_point       record_touch[10];
     extern lv_display_t     *rgb_screen_disp;
     extern uint32_t          sdcard_initialized;
     extern uint32_t          sdcard_link_driver;
@@ -119,7 +119,6 @@ extern "C"
     void initial_task_routine(void const *argument);
     void touch_sence_routine(void const *argument);
     void camera_task_routine(void const *argument);
-    void timer_20_ms_callback(TimerHandle_t xTimer);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/

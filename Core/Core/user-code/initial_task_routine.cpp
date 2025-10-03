@@ -252,7 +252,7 @@ static void lvgl_create_main_interface() {
     lv_obj_set_style_border_width(image, 1, LV_STATE_DEFAULT);
 
     lv_obj_add_event_cb(shot_btn, change_to_camera, LV_EVENT_PRESSED, nullptr);
-    file_explorer_set_callback(file_explorer_obj, click_one_file);
+//    file_explorer_set_callback(file_explorer_obj, click_one_file);
     lv_obj_add_event_cb(ins_sd, insbtn_call, LV_EVENT_PRESSED, nullptr);
     lv_obj_add_event_cb(pop_sd, popbtn_call, LV_EVENT_PRESSED, nullptr);
     if (sdcard_is_mounted)
@@ -262,7 +262,7 @@ static void lvgl_create_main_interface() {
 }
 
 static void lvgl_initialize_port1() {
-    lcd_touch_initialize();
+    touch_sence_init();
 
     lv_init();
     lv_port_disp_init();
