@@ -155,6 +155,10 @@ static void GT1151Q_1158_logic() { // always falling -> ISR Will Be called alway
 int touch_sence_init() {
     timer_20_ms_restrain_touch = xTimerCreate("timer_20_ms_restrain_touch", pdMS_TO_TICKS(20), pdFALSE, NULL, &timer_20_ms_callback);
     sema_screen_been_touched   = xSemaphoreCreateBinary();
+
+    vQueueAddToRegistry((QueueHandle_t)sema_screen_been_touched, "sema_screen_been_touched");
+    vTimerSetTimerNumber(timer_20_ms_restrain_touch, 0);
+
     lcd_touch_initialize();
     return 0;
 }

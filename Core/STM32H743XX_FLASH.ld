@@ -67,7 +67,7 @@ MEMORY
   RAM_D2 (xrw)   : ORIGIN = 0x30000000, LENGTH = 288K
   RAM_D3 (xrw)   : ORIGIN = 0x38000000, LENGTH = 64K
   ITCMRAM (xrw)  : ORIGIN = 0x00000000, LENGTH = 64K
-  SDRAM (rw)     : ORIGIN = 0xc0000000, LENGTH = 32M
+  SDRAM (rw)     : ORIGIN = 0x70000000, LENGTH = 32M
 }
 
 /* Define output sections */

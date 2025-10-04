@@ -145,9 +145,11 @@ int path_get_file_name(const char *lhs, char *file_name) {
 void path_get_file_extension(const char *file_name, char *extension) {
     size_t n = strlen(file_name);
     size_t b = n;
-    for (size_t i = n - 1; i <= 0; i--) {
-        if (file_name[i] == '.')
-            b = i + 1;
+    for (size_t i = n - 1; i >= 0; i--) {
+        if (file_name[i] == '.') {
+            b = i;
+            break;
+        }
     }
     strncpy(extension, file_name + b, n - b);
 }

@@ -97,6 +97,7 @@ void initial_task_routine(void const *argument) {
 
 static void initial_before_routine() {
     mutex_gram_read = xSemaphoreCreateMutex();
+    vQueueAddToRegistry((QueueHandle_t)mutex_gram_read, "mutex_gram_read");
     // sema_take_screenshot = xSemaphoreCreateBinary();
     // sema_update_local    = xSemaphoreCreateBinary();
 
@@ -124,9 +125,8 @@ static int routine(int argc, char **argv) {
     xSemaphoreGive(sema_flash_screen_routine_start);
     xSemaphoreGive(sema_camera_routine_start);
 
-    vTaskPrioritySet(Initial_TaskHandle, 4);
+    vTaskPrioritySet(Initial_TaskHandle, 3);
 
-    vQueueAddToRegistry((QueueHandle_t)mutex_gram_read, "mutex_gram_read");
     // vQueueAddToRegistry((QueueHandle_t)sema_take_screenshot, "sema_take_screenshot");
 
     // trace_analyzer_channel1 = xTraceRegisterString("User_Channel_1");
@@ -252,7 +252,7 @@ static void lvgl_create_main_interface() {
     lv_obj_set_style_border_width(image, 1, LV_STATE_DEFAULT);
 
     lv_obj_add_event_cb(shot_btn, change_to_camera, LV_EVENT_PRESSED, nullptr);
-//    file_explorer_set_callback(file_explorer_obj, click_one_file);
+    file_explorer_set_callback(file_explorer_obj, click_one_file);
     lv_obj_add_event_cb(ins_sd, insbtn_call, LV_EVENT_PRESSED, nullptr);
     lv_obj_add_event_cb(pop_sd, popbtn_call, LV_EVENT_PRESSED, nullptr);
     if (sdcard_is_mounted)
@@ -421,92 +421,91 @@ namespace
     QueueHandle_t     jpeg_decode_ctrl_task_queue          = nullptr;
     TaskHandle_t      jpeg_decode_task_handle              = nullptr;
     TaskHandle_t      jpeg_decode_ctrl_task_handle         = nullptr;
+    TaskHandle_t      picture_show_task_handle             = nullptr;
     QueueHandle_t     jpeg_decode_input_data_req           = nullptr;
     QueueHandle_t     jpeg_decode_output_buffer_req        = nullptr;
     QueueSetHandle_t  jpeg_decode_input_output_queueset    = nullptr;
     SemaphoreHandle_t jpeg_decode_complete                 = nullptr;
+    QueueHandle_t     picture_show_loading                 = nullptr;
+    TimeOut_t         lastest_decode_time                  = {};
 
     struct jpeg_output_buffer_req {
         uint8_t *data_out;
         uint32_t length;
     };
 
+    struct jpeg_decode_command {
+        std::string *path;
+        TimeOut_t    decode_time;
+    };
+
+    struct pict_show_command {
+        int       type;
+        TimeOut_t show_time;
+    };
+
 } // namespace
 
 static void jpeg_decode_task(void *args);
 static void jpeg_decode_ctrl_task(void *args);
+static void picture_show_task(void *arg);
 
 static void click_file_init() {
     jpeg_decode_task_interrupt_mutex  = xSemaphoreCreateMutex();
-    jpeg_decode_ctrl_task_queue       = xQueueCreate(1, sizeof(std::string *));
+    jpeg_decode_ctrl_task_queue       = xQueueCreate(1, sizeof(jpeg_decode_command));
     jpeg_decode_input_data_req        = xQueueCreate(1, sizeof(uint32_t));
     jpeg_decode_output_buffer_req     = xQueueCreate(1, sizeof(jpeg_output_buffer_req));
+    picture_show_loading              = xQueueCreate(1, sizeof(pict_show_command));
     jpeg_decode_complete              = xSemaphoreCreateBinary();
     jpeg_decode_input_output_queueset = xQueueCreateSet(3);
     xQueueAddToSet(jpeg_decode_input_data_req, jpeg_decode_input_output_queueset);
     xQueueAddToSet(jpeg_decode_output_buffer_req, jpeg_decode_input_output_queueset);
     xQueueAddToSet(jpeg_decode_complete, jpeg_decode_input_output_queueset);
+
+    vQueueAddToRegistry((QueueHandle_t)jpeg_decode_task_interrupt_mutex, "jpeg_decode_task_interrupt_mutex");
+    vQueueAddToRegistry((QueueHandle_t)jpeg_decode_ctrl_task_queue, "jpeg_decode_ctrl_task_queue");
+    vQueueAddToRegistry((QueueHandle_t)jpeg_decode_input_data_req, "jpeg_decode_input_data_req");
+    vQueueAddToRegistry((QueueHandle_t)jpeg_decode_output_buffer_req, "jpeg_decode_output_buffer_req");
+    vQueueAddToRegistry((QueueHandle_t)picture_show_loading, "picture_show_loading");
+    vQueueAddToRegistry((QueueHandle_t)jpeg_decode_complete, "jpeg_decode_complete");
+    vQueueAddToRegistry((QueueHandle_t)jpeg_decode_input_output_queueset, "jpeg_decode_input_output_queueset");
+
     xTaskCreate(jpeg_decode_ctrl_task, "JPEG Decode Ctrl Task", 2048, nullptr, 3, &jpeg_decode_ctrl_task_handle);
+    xTaskCreate(picture_show_task, "Picture Show Task", 1024, nullptr, 4, &picture_show_task_handle);
 }
 
 static void jpeg_rgb_exchange_init() {
     file_exchange_buffer   = (uint8_t *)pvPortMalloc(64 * 1024);
-    jpeg_after_buffer      = (uint8_t *)pvPortMalloc(64 * 1024);        
-    jpeg_before_buffer_rgb = (uint8_t *)sdram_Malloc(15 * 1024 * 1024); // 15MB
+    jpeg_after_buffer      = (uint8_t *)pvPortMalloc(64 * 1024);
+    jpeg_before_buffer_rgb = (uint8_t *)sdram_Malloc(16 * 1024 * 1024); // 16MB
 }
 
 static void jpeg_decode_task(void *args) {
 
     xSemaphoreTake(jpeg_decode_task_interrupt_mutex, portMAX_DELAY);
-    auto *jpeg_file_path = (std::string *)(args);
+    auto *jpeg_file_path = (jpeg_decode_command *)(args);
     do {
-        FRESULT f_res = FR_OK;
+        FRESULT f_res                        = FR_OK;
 
-        // DIR     x_dir;
-        // f_res = f_opendir(&x_dir, "0:/.temp");
-        // if (f_res == FR_OK) {
-        //     f_closedir(&x_dir);
-        // }
-        // else {
-        //     f_res = f_mkdir("0:/.temp");
-        //     if (f_res != FR_OK) {
-        //         break;
-        //     }
-        // }
-        // xSemaphoreGive(jpeg_decode_task_interrupt_mutex);
-        // xSemaphoreTake(jpeg_decode_task_interrupt_mutex, portMAX_DELAY);
-
-        // jpeg_decode_temp_file_should_close = false;
-        // //
-        // f_res = f_open(&jpeg_decode_temp_file, "0:/.temp/jpeg_pict_temp", FA_READ | FA_WRITE | FA_CREATE_ALWAYS);
-        // if (f_res != FR_OK)
-        //     break;
-        // jpeg_decode_temp_file_should_close   = true;
-
-        vTaskSuspendAll();
-        {
-            jpeg_decode_target_file_should_close = false;
-        }
-        xTaskResumeAll();
+        jpeg_decode_target_file_should_close = false;
         //
-        f_res = f_open(&jpeg_decode_target_file, jpeg_file_path->c_str(), FA_READ);
-        if (f_res != FR_OK)
+        f_res = f_open(&jpeg_decode_target_file, jpeg_file_path->path->c_str(), FA_READ);
+        if (f_res != FR_OK) {
             break;
-        vTaskSuspendAll();
-        {
-            jpeg_decode_target_file_should_close = true;
         }
-        xTaskResumeAll();
+        jpeg_decode_target_file_should_close = true;
 
         UINT          real_read_num;
         FSIZE_t       jpeg_decode_target_file_size = f_size(&jpeg_decode_target_file);
         QueueHandle_t the_queue                    = nullptr;
         //
         f_res = f_read(&jpeg_decode_target_file, file_exchange_buffer, 65536, &real_read_num);
-        if (f_res != FR_OK)
+        if (f_res != FR_OK) {
             break;
+        }
         jpeg_decode_target_file_size -= real_read_num;
 
+        real_read_num = ((real_read_num / 32) + !!(real_read_num % 32)) * 32;
         HAL_JPEG_Decode_DMA(&hjpeg, (uint8_t *)file_exchange_buffer, real_read_num,
                             (uint8_t *)jpeg_after_buffer, 65536);
         jpeg_decode_should_abort                           = true;
@@ -536,8 +535,13 @@ static void jpeg_decode_task(void *args) {
                 if (f_res != FR_OK)
                     goto error;
                 jpeg_decode_target_file_size -= real_read_num;
-                HAL_JPEG_ConfigInputBuffer(&hjpeg, file_exchange_buffer, real_read_num);
-                HAL_JPEG_Resume(&hjpeg, JPEG_PAUSE_RESUME_INPUT);
+                real_read_num = ((real_read_num / 32) + !!(real_read_num % 32)) * 32;
+                taskENTER_CRITICAL();
+                {
+                    HAL_JPEG_ConfigInputBuffer(&hjpeg, file_exchange_buffer, real_read_num);
+                    HAL_JPEG_Resume(&hjpeg, JPEG_PAUSE_RESUME_INPUT);
+                }
+                taskEXIT_CRITICAL();
             }
             else if (the_queue == jpeg_decode_output_buffer_req) {
                 xQueueReceive(the_queue, &data_ready_decode, 0);
@@ -546,6 +550,7 @@ static void jpeg_decode_task(void *args) {
                 xSemaphoreGive(jpeg_decode_task_interrupt_mutex);
                 {
                     data_valid += data_ready_decode.length;
+                    MYSCB_CleanInvalidateDCache_by_AddrRange((const uint32_t *)jpeg_after_buffer, (const uint32_t *)((uintptr_t)jpeg_after_buffer + data_valid));
                     uint32_t use_mcu = decode_function(jpeg_after_buffer, jpeg_before_buffer_rgb, curr_mcu, data_valid, &data_consume);
                     curr_mcu += use_mcu;
                     uint32_t data_used = 0;
@@ -559,18 +564,29 @@ static void jpeg_decode_task(void *args) {
                         data_used = use_mcu * 192;
                     }
                     data_valid -= data_used;
-                    memcpy(jpeg_after_buffer, jpeg_after_buffer + data_used, data_valid - data_used);
-                    HAL_JPEG_ConfigOutputBuffer(&hjpeg, jpeg_after_buffer + data_valid - data_used, 65536 - (data_valid - data_used));
+                    memcpy(jpeg_after_buffer, jpeg_after_buffer + data_used, data_valid);
                 }
                 xSemaphoreTake(jpeg_decode_task_interrupt_mutex, portMAX_DELAY);
-                HAL_JPEG_Resume(&hjpeg, JPEG_PAUSE_RESUME_OUTPUT);
+                taskENTER_CRITICAL();
+                {
+                    HAL_JPEG_ConfigOutputBuffer(&hjpeg, jpeg_after_buffer + data_valid, 65536 - data_valid);
+                    HAL_JPEG_Resume(&hjpeg, JPEG_PAUSE_RESUME_OUTPUT);
+                }
+                taskEXIT_CRITICAL();
             }
             else if (the_queue == jpeg_decode_complete) {
+                jpeg_decode_should_abort = false;
+
                 vTaskSuspendAll();
                 {
-                    jpeg_decode_should_abort = false;
+                    if (jpeg_file_path->decode_time.xOverflowCount > lastest_decode_time.xOverflowCount ||
+                        jpeg_file_path->decode_time.xTimeOnEntering >= lastest_decode_time.xTimeOnEntering) {
+                        pict_show_command cm {0, jpeg_file_path->decode_time};
+                        xQueueOverwrite(picture_show_loading, &cm);
+                    }
                 }
                 xTaskResumeAll();
+
                 break;
             }
         }
@@ -583,11 +599,7 @@ static void jpeg_decode_task(void *args) {
     { // JPEG Abort
         if (jpeg_decode_should_abort) {
             HAL_JPEG_Abort(&hjpeg);
-            vTaskSuspendAll();
-            {
-                jpeg_decode_should_abort = false;
-            }
-            xTaskResumeAll();
+            jpeg_decode_should_abort = false;
         }
     }
 
@@ -598,11 +610,7 @@ static void jpeg_decode_task(void *args) {
     { // Close File
         if (jpeg_decode_target_file_should_close) {
             f_close(&jpeg_decode_target_file);
-            vTaskSuspendAll();
-            {
-                jpeg_decode_target_file_should_close = false;
-            }
-            xTaskResumeAll();
+            jpeg_decode_target_file_should_close = false;
         }
     }
 
@@ -618,11 +626,13 @@ static void jpeg_decode_task(void *args) {
 }
 
 static void jpeg_decode_ctrl_task(void *args) {
-    std::string *message     = nullptr;
-    std::string *old_message = nullptr;
+    jpeg_decode_command        message {};
+    jpeg_decode_command        old_message {};
+    static jpeg_decode_command s_message;
     while (true) {
         xQueuePeek(jpeg_decode_ctrl_task_queue, &message, portMAX_DELAY);
-        if (old_message && message && *old_message == *message) {
+        if (old_message.path && message.path && *old_message.path == *message.path) {
+            jprintf(0, "%s\n", old_message.path->c_str());
             xQueueReceive(jpeg_decode_ctrl_task_queue, &message, portMAX_DELAY);
             continue;
         }
@@ -630,7 +640,8 @@ static void jpeg_decode_ctrl_task(void *args) {
         xSemaphoreTake(jpeg_decode_task_interrupt_mutex, portMAX_DELAY);
         xQueueReceive(jpeg_decode_ctrl_task_queue, &message, portMAX_DELAY);
 
-        if (old_message && message && *old_message == *message) {
+        if (old_message.path && message.path && *old_message.path == *message.path) {
+            jprintf(0, "%s\n", old_message.path->c_str());
             xSemaphoreGive(jpeg_decode_task_interrupt_mutex);
             continue;
         }
@@ -638,11 +649,9 @@ static void jpeg_decode_ctrl_task(void *args) {
         if (jpeg_decode_task_handle) {
             vTaskDelete(jpeg_decode_task_handle);
             jpeg_decode_task_handle = nullptr;
-            delete old_message;
-            // if (jpeg_decode_temp_file_should_close) {
-            //     f_close(&jpeg_decode_temp_file);
-            //     jpeg_decode_temp_file_should_close = false;
-            // }
+            jprintf(0, "%s\n", old_message.path->c_str());
+            delete old_message.path;
+
             if (jpeg_decode_target_file_should_close) {
                 f_close(&jpeg_decode_target_file);
                 jpeg_decode_target_file_should_close = false;
@@ -655,28 +664,75 @@ static void jpeg_decode_ctrl_task(void *args) {
             xQueueReset(jpeg_decode_output_buffer_req);
             xQueueReset(jpeg_decode_complete);
             xQueueReset(jpeg_decode_input_output_queueset);
-            old_message = nullptr;
+            old_message.path = nullptr;
         }
-        if (message) {
+        if (message.path) {
             old_message                          = message;
+            s_message                            = old_message;
             jpeg_decode_target_file_should_close = false;
-            xTaskCreate(jpeg_decode_task, "JPEG Decode Task", 2048, old_message, 3, &jpeg_decode_task_handle);
+            pict_show_command cm {1, message.decode_time};
+            xQueueOverwrite(picture_show_loading, &cm);
+            xTaskCreate(jpeg_decode_task, "JPEG Decode Task", 2048, &s_message, 2, &jpeg_decode_task_handle);
         }
         xSemaphoreGive(jpeg_decode_task_interrupt_mutex);
     }
 }
 
-static void click_one_file(lv_event_t *e, const char *path) {
-    auto        *the_file_path = new std::string(path);
-    std::string *peek_message  = nullptr;
-    vTaskSuspendAll();
-    {
-        if (xQueuePeek(jpeg_decode_ctrl_task_queue, peek_message, 0) == pdPASS) {
-            delete peek_message;
+static void picture_show_task(void *arg) {
+    static lv_image_dsc_t img_dsc;
+    img_dsc.header.magic      = LV_IMAGE_HEADER_MAGIC;
+    img_dsc.header.cf         = LV_COLOR_FORMAT_RGB888;
+    img_dsc.header.flags      = 0;
+    img_dsc.header.reserved_2 = 0;
+    pict_show_command cm {};
+    while (true) {
+        xQueuePeek(picture_show_loading, &cm, portMAX_DELAY);
+
+        lv_lock();
+        xQueueReceive(picture_show_loading, &cm, 0);
+        if (cm.type == 1) {
+            lv_image_set_src(image, LV_SYMBOL_LOOP "\nLoading...");
         }
-        xQueueOverwrite(jpeg_decode_ctrl_task_queue, &the_file_path);
+        else if (cm.type == 0) {
+            img_dsc.header.stride = 0;
+            img_dsc.header.w      = jpeg_decode_conf.ImageWidth;
+            img_dsc.header.h      = jpeg_decode_conf.ImageHeight;
+            img_dsc.data          = jpeg_before_buffer_rgb;
+            img_dsc.data_size     = img_dsc.header.w * img_dsc.header.h * 3;
+            lv_image_set_src(image, &img_dsc);
+            uint32_t x_scale = 256ull * lv_obj_get_width(image) / img_dsc.header.w;
+            uint32_t y_scale = 256ull * lv_obj_get_height(image) / img_dsc.header.h;
+            lv_image_set_scale(image, std::min(x_scale, y_scale));
+        }
+        lv_unlock();
     }
-    xTaskResumeAll();
+}
+
+static void click_one_file(lv_event_t *e, const char *path) {
+    char                extension[8]  = {};
+    auto               *the_file_path = new std::string(path);
+    jpeg_decode_command peek_message  = {};
+    jpeg_decode_command send_command  = {};
+    TimeOut_t           new_time_flag {};
+    path_get_file_extension(path, extension);
+    if (!strcmp(extension, ".jpeg") || !strcmp(extension, ".jpg") ||
+        !strcmp(extension, ".JPEG") || !strcmp(extension, ".JPG")) {
+        vTaskSuspendAll();
+        {
+            if (xQueuePeek(jpeg_decode_ctrl_task_queue, &peek_message, 0) == pdPASS) {
+                delete peek_message.path;
+            }
+
+            vTaskSetTimeOutState(&new_time_flag);
+
+            send_command.path        = the_file_path;
+            send_command.decode_time = new_time_flag;
+            xQueueOverwrite(jpeg_decode_ctrl_task_queue, &send_command);
+
+            lastest_decode_time = new_time_flag;
+        }
+        xTaskResumeAll();
+    }
 }
 
 void HAL_JPEG_InfoReadyCallback(JPEG_HandleTypeDef *hjpeg, JPEG_ConfTypeDef *pInfo) {

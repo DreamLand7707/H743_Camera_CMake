@@ -177,6 +177,8 @@ extern "C"
 #define WARP_BITS_GET(TARGET, MASK)    ((TARGET) & (MASK))
 #define EXTRACT_BITS_GET(TARGET, MASK) ((TARGET) & (MASK))
 
+#define USE_CACHE_ID                   1
+
 #ifdef DEBUG
     #define ADD_SEMAQUEUE(SEMAQUEUE, NAME) vQueueAddToRegistry(SEMAQUEUE, #NAME)
     #define DEL_SEMAQUEUE(SEMAQUEUE)       vQueueUnregisterQueue(SEMAQUEUE)
@@ -185,6 +187,7 @@ extern "C"
     #define DEL_SEMAQUEUE(SEMAQUEUE)
 #endif
 
+#if USE_CACHE_ID == 1
     static inline void MYSCB_CleanInvalidateDCache_by_AddrRange(const uint32_t *pData_begin, const uint32_t *pData_end) {
         uint32_t address_start = (uint32_t)pData_begin;
         uint32_t address_end   = (uint32_t)pData_end + 31;
@@ -193,6 +196,12 @@ extern "C"
         int32_t real_size = (int32_t)(address_end - address_start);
         SCB_CleanInvalidateDCache_by_Addr((uint32_t *)address_start, real_size);
     }
+#else
+static inline void MYSCB_CleanInvalidateDCache_by_AddrRange(const uint32_t *pData_begin, const uint32_t *pData_end) {
+    UNUSED(pData_begin);
+    UNUSED(pData_end);
+}
+#endif
 
     static inline int rgba_equal(BGR *a, BGR *b) {
         return (a->B == b->B) && (a->G == b->G) && (a->R == b->R);
