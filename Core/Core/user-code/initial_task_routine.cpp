@@ -210,7 +210,6 @@ static void lvgl_create_main_interface() {
     lv_obj_set_flex_grow(image, 4);
     lv_obj_set_style_width(image, LV_PCT(100), LV_STATE_DEFAULT);
     lv_obj_set_style_margin_right(image, 10, LV_STATE_DEFAULT);
-    lv_obj_set_style_border_width(image, 1, LV_STATE_DEFAULT);
 
     lv_obj_add_event_cb(shot_btn, change_to_camera, LV_EVENT_PRESSED, nullptr);
     file_explorer_set_callback(file_explorer_obj, click_one_file);
@@ -361,17 +360,18 @@ static void pop_card_call() {
 static void change_to_camera(lv_event_t *event) {
 }
 
-uint8_t *file_exchange_buffer   = nullptr;
-uint8_t *jpeg_after_buffer      = nullptr; // YCbCr
-uint8_t *jpeg_before_buffer_rgb = nullptr; // YCbCr -> RGB
-uint8_t *pict_show_buffer       = nullptr;
+uint8_t *file_exchange_buffer         = nullptr;
+uint8_t *jpeg_after_buffer            = nullptr; // YCbCr
+uint8_t *jpeg_before_buffer_rgb       = nullptr; // YCbCr -> RGB
+uint8_t *full_screen_pict_show_buffer = nullptr;
+uint8_t *widget_pict_show_buffer      = nullptr;
 
 namespace
 {
 
     JPEG_ConfTypeDef jpeg_decode_conf = {};
     // use sd card as storage of all rgb
-    FIL               jpeg_decode_target_file;
+    FIL              *jpeg_decode_target_file;
     bool              jpeg_decode_target_file_should_close = false;
     bool              jpeg_decode_should_abort             = false;
 
@@ -428,21 +428,23 @@ static void click_file_init() {
     vQueueAddToRegistry((QueueHandle_t)jpeg_decode_complete, "jpeg_decode_complete");
     vQueueAddToRegistry((QueueHandle_t)jpeg_decode_input_output_queueset, "jpeg_decode_input_output_queueset");
 
-    xTaskCreate(jpeg_decode_ctrl_task, "JPEG Decode Ctrl Task", 2048, nullptr, 3, &jpeg_decode_ctrl_task_handle);
+    xTaskCreate(jpeg_decode_ctrl_task, "JPEG Decode Ctrl Task", 2048, nullptr, 4, &jpeg_decode_ctrl_task_handle);
     xTaskCreate(picture_show_task, "Picture Show Task", 1024, nullptr, 4, &picture_show_task_handle);
 }
 
 static void jpeg_rgb_exchange_init() {
-    file_exchange_buffer   = (uint8_t *)pvPortMalloc(64 * 1024);
-    jpeg_after_buffer      = (uint8_t *)pvPortMalloc(64 * 1024);
-    jpeg_before_buffer_rgb = (uint8_t *)sdram_Malloc(16 * 1024 * 1024); // 16MB
-    pict_show_buffer       = (uint8_t *)sdram_Malloc(3 * 272 * 480);
+    file_exchange_buffer         = (uint8_t *)pvPortMalloc(64 * 1024);        // 64KB
+    jpeg_after_buffer            = (uint8_t *)pvPortMalloc(64 * 1024);        // 64KB
+    jpeg_before_buffer_rgb       = (uint8_t *)sdram_Malloc(16 * 1024 * 1024); // 16MB
+    full_screen_pict_show_buffer = (uint8_t *)sdram_Malloc(3 * 272 * 480);    // 382.5KB
+    widget_pict_show_buffer      = (uint8_t *)sdram_Malloc(3 * 272 * 480);    // 382.5KB
+
+    jpeg_decode_target_file      = (FIL *)sdram_Malloc(sizeof(FIL));
 
     HeapStats_t stats;
+    char        buffer[128] = {};
+
     sdram_GetHeapStats(&stats);
-
-    char buffer[128] = {};
-
     sprintf(buffer, "SDRAM All      Avail: %f KBytes\n", float(stats.xAvailableHeapSpaceInBytes) / 1024.0f);
     jprintf(0, "%s", buffer);
     sprintf(buffer, "SDRAM Largest  Avail: %f KBytes\n", float(stats.xSizeOfLargestFreeBlockInBytes) / 1024.0f);
@@ -468,28 +470,28 @@ static void jpeg_decode_task(void *args) {
     xSemaphoreTake(jpeg_decode_task_interrupt_mutex, portMAX_DELAY);
     auto *jpeg_file_path = (jpeg_decode_command *)(args);
     do {
-        FRESULT f_res                        = FR_OK;
+        FRESULT f_res = FR_OK;
 
-        jpeg_decode_target_file_should_close = false;
         //
-        f_res = f_open(&jpeg_decode_target_file, jpeg_file_path->path->c_str(), FA_READ);
+        jpeg_decode_target_file_should_close = false;
+        f_res                                = f_open(jpeg_decode_target_file, jpeg_file_path->path->c_str(), FA_READ);
         if (f_res != FR_OK) {
             break;
         }
         jpeg_decode_target_file_should_close = true;
 
         UINT          real_read_num;
-        FSIZE_t       jpeg_decode_target_file_size = f_size(&jpeg_decode_target_file);
+        FSIZE_t       jpeg_decode_target_file_size = f_size(jpeg_decode_target_file);
         QueueHandle_t the_queue                    = nullptr;
         //
-        f_res = f_read(&jpeg_decode_target_file, file_exchange_buffer, 65536, &real_read_num);
+        f_res = f_read(jpeg_decode_target_file, file_exchange_buffer, 65536, &real_read_num);
         if (f_res != FR_OK) {
             break;
         }
         jpeg_decode_target_file_size -= real_read_num;
 
         real_read_num = ((real_read_num / 32) + !!(real_read_num % 32)) * 32;
-        MYSCB_CleanInvalidateDCache_by_AddrRange((uint32_t *)file_exchange_buffer, (uint32_t *)((uintptr_t)file_exchange_buffer + real_read_num));
+        MYSCB_CleanInvalidateDCache_by_AddrRange(file_exchange_buffer, (void *)((uintptr_t)file_exchange_buffer + real_read_num));
         HAL_JPEG_Decode_DMA(&hjpeg, (uint8_t *)file_exchange_buffer, real_read_num,
                             (uint8_t *)jpeg_after_buffer, 65536);
         jpeg_decode_should_abort                           = true;
@@ -511,10 +513,10 @@ static void jpeg_decode_task(void *args) {
             if (the_queue == jpeg_decode_input_data_req) {
                 xQueueReceive(the_queue, &decoded_data, 0);
                 if (jpeg_decode_target_file_size > 65536) {
-                    f_res = f_read(&jpeg_decode_target_file, file_exchange_buffer, 65536, &real_read_num);
+                    f_res = f_read(jpeg_decode_target_file, file_exchange_buffer, 65536, &real_read_num);
                 }
                 else {
-                    f_res = f_read(&jpeg_decode_target_file, file_exchange_buffer, jpeg_decode_target_file_size, &real_read_num);
+                    f_res = f_read(jpeg_decode_target_file, file_exchange_buffer, jpeg_decode_target_file_size, &real_read_num);
                 }
                 if (f_res != FR_OK)
                     goto error;
@@ -523,7 +525,7 @@ static void jpeg_decode_task(void *args) {
                 taskENTER_CRITICAL();
                 {
                     HAL_JPEG_ConfigInputBuffer(&hjpeg, file_exchange_buffer, real_read_num);
-                    MYSCB_CleanInvalidateDCache_by_AddrRange((uint32_t *)file_exchange_buffer, (uint32_t *)((uintptr_t)file_exchange_buffer + real_read_num));
+                    MYSCB_CleanDCache_by_AddrRange(file_exchange_buffer, (void *)((uintptr_t)file_exchange_buffer + real_read_num));
                     HAL_JPEG_Resume(&hjpeg, JPEG_PAUSE_RESUME_INPUT);
                 }
                 taskEXIT_CRITICAL();
@@ -535,7 +537,7 @@ static void jpeg_decode_task(void *args) {
                 xSemaphoreGive(jpeg_decode_task_interrupt_mutex);
                 {
                     data_valid += data_ready_decode.length;
-                    MYSCB_CleanInvalidateDCache_by_AddrRange((const uint32_t *)jpeg_after_buffer, (const uint32_t *)((uintptr_t)jpeg_after_buffer + data_valid));
+                    MYSCB_InvalidateDCache_by_AddrRange(jpeg_after_buffer, (void *)((uintptr_t)jpeg_after_buffer + data_valid));
                     uint32_t use_mcu = decode_function(jpeg_after_buffer, jpeg_before_buffer_rgb, curr_mcu, data_valid, &data_consume);
                     curr_mcu += use_mcu;
                     uint32_t data_used = 0;
@@ -550,6 +552,7 @@ static void jpeg_decode_task(void *args) {
                     }
                     data_valid -= data_used;
                     memcpy(jpeg_after_buffer, jpeg_after_buffer + data_used, data_valid);
+                    MYSCB_CleanDCache_by_AddrRange(jpeg_after_buffer, (void *)((uintptr_t)jpeg_after_buffer + data_valid));
                 }
                 xSemaphoreTake(jpeg_decode_task_interrupt_mutex, portMAX_DELAY);
                 taskENTER_CRITICAL();
@@ -589,7 +592,7 @@ static void jpeg_decode_task(void *args) {
     }
     { // Close File
         if (jpeg_decode_target_file_should_close) {
-            f_close(&jpeg_decode_target_file);
+            f_close(jpeg_decode_target_file);
             jpeg_decode_target_file_should_close = false;
         }
     }
@@ -630,7 +633,7 @@ static void jpeg_decode_ctrl_task(void *args) {
             delete old_message.path;
 
             if (jpeg_decode_target_file_should_close) {
-                f_close(&jpeg_decode_target_file);
+                f_close(jpeg_decode_target_file);
                 jpeg_decode_target_file_should_close = false;
             }
             if (jpeg_decode_should_abort) {
@@ -647,9 +650,10 @@ static void jpeg_decode_ctrl_task(void *args) {
             old_message                          = message;
             s_message                            = old_message;
             jpeg_decode_target_file_should_close = false;
-            pict_show_command cm {1, message.decode_time};
+            lastest_decode_time                  = message.decode_time;
+            pict_show_command cm                 = {1, message.decode_time};
             xQueueOverwrite(picture_show_loading, &cm);
-            xTaskCreate(jpeg_decode_task, "JPEG Decode Task", 2048, &s_message, 2, &jpeg_decode_task_handle);
+            xTaskCreate(jpeg_decode_task, "JPEG Decode Task", 2048, &s_message, 3, &jpeg_decode_task_handle);
         }
         xSemaphoreGive(jpeg_decode_task_interrupt_mutex);
     }
@@ -705,8 +709,6 @@ static void click_one_file(lv_event_t *e, const char *path) {
             send_command.path        = the_file_path;
             send_command.decode_time = new_time_flag;
             xQueueOverwrite(jpeg_decode_ctrl_task_queue, &send_command);
-
-            lastest_decode_time = new_time_flag;
         }
         xTaskResumeAll();
     }

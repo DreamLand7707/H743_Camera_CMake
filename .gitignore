@@ -4,3 +4,4 @@ build/
 .clangd
 .clang-format
 backup/
+*.log

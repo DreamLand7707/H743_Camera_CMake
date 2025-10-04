@@ -95,7 +95,7 @@ extern "C"
     extern uint8_t          *file_exchange_buffer;
     extern uint8_t          *jpeg_after_buffer;      // YCbCr
     extern uint8_t          *jpeg_before_buffer_rgb; // YCbCr -> RGB
-    extern uint8_t          *pict_show_buffer;
+    extern uint8_t          *full_screen_pict_show_buffer;
 
     // extern traceString       trace_analyzer_channel1;
     // extern traceString       trace_analyzer_channel2;
@@ -190,7 +190,7 @@ extern "C"
 #endif
 
 #if USE_CACHE_ID == 1
-    static inline void MYSCB_CleanInvalidateDCache_by_AddrRange(const uint32_t *pData_begin, const uint32_t *pData_end) {
+    static inline void MYSCB_CleanInvalidateDCache_by_AddrRange(const void *pData_begin, const void *pData_end) {
         uint32_t address_start = (uint32_t)pData_begin;
         uint32_t address_end   = (uint32_t)pData_end + 31;
         address_start &= 0xffffffe0;
@@ -198,8 +198,36 @@ extern "C"
         int32_t real_size = (int32_t)(address_end - address_start);
         SCB_CleanInvalidateDCache_by_Addr((uint32_t *)address_start, real_size);
     }
+
+    static inline void MYSCB_CleanDCache_by_AddrRange(const void *pData_begin, const void *pData_end) {
+        uint32_t address_start = (uint32_t)pData_begin;
+        uint32_t address_end   = (uint32_t)pData_end + 31;
+        address_start &= 0xffffffe0;
+        address_end &= 0xffffffe0;
+        int32_t real_size = (int32_t)(address_end - address_start);
+        SCB_CleanDCache_by_Addr((uint32_t *)address_start, real_size);
+    }
+
+    static inline void MYSCB_InvalidateDCache_by_AddrRange(const void *pData_begin, const void *pData_end) {
+        uint32_t address_start = (uint32_t)pData_begin;
+        uint32_t address_end   = (uint32_t)pData_end + 31;
+        address_start &= 0xffffffe0;
+        address_end &= 0xffffffe0;
+        int32_t real_size = (int32_t)(address_end - address_start);
+        SCB_InvalidateDCache_by_Addr((uint32_t *)address_start, real_size);
+    }
 #else
-static inline void MYSCB_CleanInvalidateDCache_by_AddrRange(const uint32_t *pData_begin, const uint32_t *pData_end) {
+static inline void MYSCB_CleanInvalidateDCache_by_AddrRange(const void *pData_begin, const void *pData_end) {
+    UNUSED(pData_begin);
+    UNUSED(pData_end);
+}
+
+static inline void MYSCB_CleanDCache_by_AddrRange(const void *pData_begin, const void *pData_end) {
+    UNUSED(pData_begin);
+    UNUSED(pData_end);
+}
+
+static inline void MYSCB_InvalidateDCache_by_AddrRange(const void *pData_begin, const void *pData_end) {
     UNUSED(pData_begin);
     UNUSED(pData_end);
 }
