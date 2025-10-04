@@ -2,14 +2,9 @@
 #include "jpeg_utils.h"
 #include "file_explorer.hpp"
 
-#include <ranges>
-
 // extern Variable Definition
-void *SDRAM_GRAM1;
-void *SDRAM_GRAM2;
-// void             *JPEG_ENCODE_DEST;
-// void             *JEPG_YCbCr;
-// void             *JPEG_ENCODE_SOURCE;
+void             *SDRAM_GRAM1;
+void             *SDRAM_GRAM2;
 
 uint8_t           mkfs_buffer[4096] __attribute__((section(".fatfs_buffer")));
 uint32_t          sdcard_link_driver = 0;
@@ -29,17 +24,7 @@ SemaphoreHandle_t sema_swap_buffer_handle;
 // static variable Definition
 namespace
 {
-    // TaskHandle_t      take_screenshot;
-    // SemaphoreHandle_t sema_take_screenshot;
-
-    // JPEG_ConfTypeDef jpeg_conf;
-    // uint8_t         *curr_encode_ptr;
-    // uint8_t         *target_encode_ptr;
-    // uint8_t         *curr_dest_ptr;
-    // FIL              jpeg1;
-
-    SemaphoreHandle_t mutex_gram_read;
-    void             *curr_screen_buffer;
+    void *curr_screen_buffer;
 
 } // namespace
 
@@ -50,9 +35,6 @@ LV_FONT_DECLARE(Camera_1_bit)
 #define MY_CAMERA_SYMBOL "\xEF\x80\xB0"
 #define sd_enable        ((sdcard_is_mounted) & (sdcard_link_driver))
 
-// type decl
-enum class scr_mess;
-
 // static function decl
 static void    lvgl_initialize_port1();
 static void    lvgl_initialize_port2();
@@ -61,23 +43,15 @@ static int     routine(int argc, char **argv);
 static void    initial_before_routine();
 extern "C" int _getentropy(void *buffer, size_t length);
 
-// static void    hdma2dCompleteCallback(DMA2D_HandleTypeDef *hdma2d);
-static void insbtn_call(lv_event_t *event);
-static void popbtn_call(lv_event_t *event);
-static void ins_card_call();
-static void pop_card_call();
-static void lvgl_create_main_interface();
-static void change_to_camera(lv_event_t *event);
-static void click_one_file(lv_event_t *e, const char *path);
-static void click_file_init();
-static void jpeg_rgb_exchange_init();
-
-enum class scr_mess {
-    INFO = 0,
-    WARN = 1,
-    ERRO = 2,
-    ALL  = 3
-};
+static void    insbtn_call(lv_event_t *event);
+static void    popbtn_call(lv_event_t *event);
+static void    ins_card_call();
+static void    pop_card_call();
+static void    lvgl_create_main_interface();
+static void    change_to_camera(lv_event_t *event);
+static void    click_one_file(lv_event_t *e, const char *path);
+static void    click_file_init();
+static void    jpeg_rgb_exchange_init();
 
 
 /*
@@ -96,11 +70,6 @@ void initial_task_routine(void const *argument) {
 */
 
 static void initial_before_routine() {
-    mutex_gram_read = xSemaphoreCreateMutex();
-    vQueueAddToRegistry((QueueHandle_t)mutex_gram_read, "mutex_gram_read");
-    // sema_take_screenshot = xSemaphoreCreateBinary();
-    // sema_update_local    = xSemaphoreCreateBinary();
-
     SDRAM_GRAM1 = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
     SDRAM_GRAM2 = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
 
@@ -120,29 +89,21 @@ static int routine(int argc, char **argv) {
     sdcard_initialize();
     lvgl_initialize_port2();
 
-    jpeg_rgb_exchange_init();
-
     xSemaphoreGive(sema_flash_screen_routine_start);
     xSemaphoreGive(sema_camera_routine_start);
 
     vTaskPrioritySet(Initial_TaskHandle, 3);
-
-    // vQueueAddToRegistry((QueueHandle_t)sema_take_screenshot, "sema_take_screenshot");
-
     // trace_analyzer_channel1 = xTraceRegisterString("User_Channel_1");
     // trace_analyzer_channel2 = xTraceRegisterString("User_Channel_2");
     // trace_analyzer_channel3 = xTraceRegisterString("User_Channel_3");
     // trace_analyzer_channel4 = xTraceRegisterString("User_Channel_4");
 
-    // xTaskCreate(take_screenshot_task, "thread_take_screen_shot", 512, nullptr, 5, &take_screenshot);
-
+    jpeg_rgb_exchange_init();
     lvgl_create_main_interface();
     click_file_init();
 
     while (1) {
-        // xTracePrint(trace_analyzer_channel2, "=Main Thread= Begin lv_timer_handler");
         lv_timer_handler();
-        // xTracePrint(trace_analyzer_channel2, "=Main Thread= End   lv_timer_handler");
         vTaskDelay(1);
     }
 }
@@ -295,8 +256,6 @@ static void sdcard_initialize() {
     UINT        get    = 0;
     f_write(&SDFile, str, expect, &get);
     f_close(&SDFile);
-    // f_mount(nullptr, SDPath, 1);
-    // sdcard_is_mounted = 0;
 }
 
 void print_sdcard_info(void) {
@@ -405,14 +364,13 @@ static void change_to_camera(lv_event_t *event) {
 uint8_t *file_exchange_buffer   = nullptr;
 uint8_t *jpeg_after_buffer      = nullptr; // YCbCr
 uint8_t *jpeg_before_buffer_rgb = nullptr; // YCbCr -> RGB
+uint8_t *pict_show_buffer       = nullptr;
+
 namespace
 {
 
     JPEG_ConfTypeDef jpeg_decode_conf = {};
     // use sd card as storage of all rgb
-
-    // FIL               jpeg_decode_temp_file;
-    // bool              jpeg_decode_temp_file_should_close = false;
     FIL               jpeg_decode_target_file;
     bool              jpeg_decode_target_file_should_close = false;
     bool              jpeg_decode_should_abort             = false;
@@ -478,6 +436,31 @@ static void jpeg_rgb_exchange_init() {
     file_exchange_buffer   = (uint8_t *)pvPortMalloc(64 * 1024);
     jpeg_after_buffer      = (uint8_t *)pvPortMalloc(64 * 1024);
     jpeg_before_buffer_rgb = (uint8_t *)sdram_Malloc(16 * 1024 * 1024); // 16MB
+    pict_show_buffer       = (uint8_t *)sdram_Malloc(3 * 272 * 480);
+
+    HeapStats_t stats;
+    sdram_GetHeapStats(&stats);
+
+    char buffer[128] = {};
+
+    sprintf(buffer, "SDRAM All      Avail: %f KBytes\n", float(stats.xAvailableHeapSpaceInBytes) / 1024.0f);
+    jprintf(0, "%s", buffer);
+    sprintf(buffer, "SDRAM Largest  Avail: %f KBytes\n", float(stats.xSizeOfLargestFreeBlockInBytes) / 1024.0f);
+    jprintf(0, "%s", buffer);
+    sprintf(buffer, "SDRAM Smallest Avail: %f KBytes\n", float(stats.xSizeOfSmallestFreeBlockInBytes) / 1024.0f);
+    jprintf(0, "%s", buffer);
+    sprintf(buffer, "SDRAM Blocks   Avail: %u Blocks\n", stats.xNumberOfFreeBlocks);
+    jprintf(0, "%s", buffer);
+
+    vPortGetHeapStats(&stats);
+    sprintf(buffer, "Internal SRAM All      Avail: %f KBytes\n", float(stats.xAvailableHeapSpaceInBytes) / 1024.0f);
+    jprintf(0, "%s", buffer);
+    sprintf(buffer, "Internal SRAM Largest  Avail: %f KBytes\n", float(stats.xSizeOfLargestFreeBlockInBytes) / 1024.0f);
+    jprintf(0, "%s", buffer);
+    sprintf(buffer, "Internal SRAM Smallest Avail: %f KBytes\n", float(stats.xSizeOfSmallestFreeBlockInBytes) / 1024.0f);
+    jprintf(0, "%s", buffer);
+    sprintf(buffer, "Internal SRAM Blocks   Avail: %u Blocks\n", stats.xNumberOfFreeBlocks);
+    jprintf(0, "%s", buffer);
 }
 
 static void jpeg_decode_task(void *args) {
@@ -506,6 +489,7 @@ static void jpeg_decode_task(void *args) {
         jpeg_decode_target_file_size -= real_read_num;
 
         real_read_num = ((real_read_num / 32) + !!(real_read_num % 32)) * 32;
+        MYSCB_CleanInvalidateDCache_by_AddrRange((uint32_t *)file_exchange_buffer, (uint32_t *)((uintptr_t)file_exchange_buffer + real_read_num));
         HAL_JPEG_Decode_DMA(&hjpeg, (uint8_t *)file_exchange_buffer, real_read_num,
                             (uint8_t *)jpeg_after_buffer, 65536);
         jpeg_decode_should_abort                           = true;
@@ -539,6 +523,7 @@ static void jpeg_decode_task(void *args) {
                 taskENTER_CRITICAL();
                 {
                     HAL_JPEG_ConfigInputBuffer(&hjpeg, file_exchange_buffer, real_read_num);
+                    MYSCB_CleanInvalidateDCache_by_AddrRange((uint32_t *)file_exchange_buffer, (uint32_t *)((uintptr_t)file_exchange_buffer + real_read_num));
                     HAL_JPEG_Resume(&hjpeg, JPEG_PAUSE_RESUME_INPUT);
                 }
                 taskEXIT_CRITICAL();
@@ -602,11 +587,6 @@ static void jpeg_decode_task(void *args) {
             jpeg_decode_should_abort = false;
         }
     }
-
-    // if (jpeg_decode_temp_file_should_close) {
-    //     f_close(&jpeg_decode_temp_file);
-    //     jpeg_decode_temp_file_should_close = false;
-    // }
     { // Close File
         if (jpeg_decode_target_file_should_close) {
             f_close(&jpeg_decode_target_file);
@@ -632,7 +612,6 @@ static void jpeg_decode_ctrl_task(void *args) {
     while (true) {
         xQueuePeek(jpeg_decode_ctrl_task_queue, &message, portMAX_DELAY);
         if (old_message.path && message.path && *old_message.path == *message.path) {
-            jprintf(0, "%s\n", old_message.path->c_str());
             xQueueReceive(jpeg_decode_ctrl_task_queue, &message, portMAX_DELAY);
             continue;
         }
@@ -641,7 +620,6 @@ static void jpeg_decode_ctrl_task(void *args) {
         xQueueReceive(jpeg_decode_ctrl_task_queue, &message, portMAX_DELAY);
 
         if (old_message.path && message.path && *old_message.path == *message.path) {
-            jprintf(0, "%s\n", old_message.path->c_str());
             xSemaphoreGive(jpeg_decode_task_interrupt_mutex);
             continue;
         }
@@ -649,7 +627,6 @@ static void jpeg_decode_ctrl_task(void *args) {
         if (jpeg_decode_task_handle) {
             vTaskDelete(jpeg_decode_task_handle);
             jpeg_decode_task_handle = nullptr;
-            jprintf(0, "%s\n", old_message.path->c_str());
             delete old_message.path;
 
             if (jpeg_decode_target_file_should_close) {

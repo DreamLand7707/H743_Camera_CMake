@@ -75,7 +75,7 @@ See BSP_SD_ErrorCallback() and BSP_SD_AbortCallback() below
  * Notice: This is applicable only for cortex M7 based platform.
  */
 /* USER CODE BEGIN enableSDDmaCacheMaintenance */
-/* #define ENABLE_SD_DMA_CACHE_MAINTENANCE  1 */
+#define ENABLE_SD_DMA_CACHE_MAINTENANCE  1
 /* USER CODE END enableSDDmaCacheMaintenance */
 
 /*
@@ -84,7 +84,7 @@ See BSP_SD_ErrorCallback() and BSP_SD_AbortCallback() below
  * transfer data
  */
 /* USER CODE BEGIN enableScratchBuffer */
-/* #define ENABLE_SCRATCH_BUFFER */
+#define ENABLE_SCRATCH_BUFFER
 /* USER CODE END enableScratchBuffer */
 
 /* Private variables ---------------------------------------------------------*/
@@ -259,7 +259,7 @@ DRESULT SD_read(BYTE lun, BYTE *buff, DWORD sector, UINT count) {
     }
 
 #if defined(ENABLE_SCRATCH_BUFFER)
-    if (!((uint32_t)buff & 0x3)) {
+    if (!((uint32_t)buff & 0x1f)) {
 #endif
         /* Fast path cause destination buffer is correctly aligned */
         ret = BSP_SD_ReadBlocks_DMA((uint32_t *)buff, (uint32_t)(sector), count);
@@ -406,7 +406,7 @@ DRESULT SD_write(BYTE lun, const BYTE *buff, DWORD sector, UINT count) {
     }
 
     #if defined(ENABLE_SCRATCH_BUFFER)
-    if (!((uint32_t)buff & 0x3)) {
+    if (!((uint32_t)buff & 0x1f)) {
     #endif
     #if (ENABLE_SD_DMA_CACHE_MAINTENANCE == 1)
         uint32_t alignedAddr;

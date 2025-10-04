@@ -123,7 +123,7 @@ typedef DWORD FSIZE_t;
         DWORD dirbase;      /* Root directory base sector/cluster */
         DWORD database;     /* Data base sector */
         DWORD winsect;      /* Current sector appearing in the win[] */
-        BYTE  win[_MAX_SS]; /* Disk access window for Directory, FAT (and file data at tiny cfg) */
+        _Alignas(32) BYTE  win[_MAX_SS]; /* Disk access window for Directory, FAT (and file data at tiny cfg) */
     } FATFS;
 
 
@@ -168,7 +168,7 @@ typedef DWORD FSIZE_t;
         DWORD *cltbl; /* Pointer to the cluster link map table (nulled on open, set by application) */
 #endif
 #if !_FS_TINY
-        BYTE buf[_MAX_SS]; /* File private data read/write window */
+        _Alignas(32) BYTE buf[_MAX_SS]; /* File private data read/write window */
 #endif
     } FIL;
 

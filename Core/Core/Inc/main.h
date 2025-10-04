@@ -91,9 +91,11 @@ extern "C"
     extern uint32_t          sdcard_initialized;
     extern uint32_t          sdcard_link_driver;
     extern uint32_t          sdcard_is_mounted;
+
     extern uint8_t          *file_exchange_buffer;
-    extern uint8_t          *jpeg_after_buffer;
-    extern uint8_t          *jpeg_before_buffer_rgb;
+    extern uint8_t          *jpeg_after_buffer;      // YCbCr
+    extern uint8_t          *jpeg_before_buffer_rgb; // YCbCr -> RGB
+    extern uint8_t          *pict_show_buffer;
 
     // extern traceString       trace_analyzer_channel1;
     // extern traceString       trace_analyzer_channel2;
