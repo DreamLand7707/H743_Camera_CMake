@@ -147,13 +147,6 @@ static void sdcard_initialize() {
     }
     print_sdcard_info();
     sdcard_is_mounted = 1;
-
-    f_open(&SDFile, "0:/a.txt", (uint32_t)FA_WRITE | (uint32_t)FA_CREATE_ALWAYS);
-    const char *str    = "Hello world!";
-    UINT        expect = strlen(str);
-    UINT        get    = 0;
-    f_write(&SDFile, str, expect, &get);
-    f_close(&SDFile);
 }
 
 void print_sdcard_info(void) {
