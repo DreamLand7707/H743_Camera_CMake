@@ -48,6 +48,7 @@ static void    insbtn_call(lv_event_t *event);
 static void    popbtn_call(lv_event_t *event);
 static void    ins_card_call();
 static void    pop_card_call();
+static void    click_picture_indicator_call(lv_event_t *e);
 static void    lvgl_create_main_interface();
 static void    change_to_camera(lv_event_t *event);
 static void    click_one_file(lv_event_t *e, const char *path, bool change_dir);
@@ -206,6 +207,9 @@ static void lvgl_create_main_interface() {
     lv_obj_set_style_margin_all(image_indicator, 0, LV_STATE_DEFAULT);
     lv_obj_set_style_margin_right(image_indicator, 10, LV_STATE_DEFAULT);
 
+    lv_obj_set_style_border_color(image_indicator, lv_color_hex(0xce1764), LV_STATE_PRESSED);
+    lv_obj_set_style_bg_color(image_indicator, lv_color_hex(0xdddddd), LV_STATE_PRESSED);
+
     image_indicator_label = lv_label_create(image_indicator);
     lv_obj_set_style_align(image_indicator_label, LV_ALIGN_LEFT_MID, LV_STATE_DEFAULT);
     lv_label_set_text_static(image_indicator_label, "");
@@ -219,6 +223,7 @@ static void lvgl_create_main_interface() {
     file_explorer_set_callback(file_explorer_obj, click_one_file);
     lv_obj_add_event_cb(ins_sd, insbtn_call, LV_EVENT_PRESSED, nullptr);
     lv_obj_add_event_cb(pop_sd, popbtn_call, LV_EVENT_PRESSED, nullptr);
+    lv_obj_add_event_cb(image_indicator, click_picture_indicator_call, LV_EVENT_CLICKED, nullptr);
     if (sdcard_is_mounted)
         ins_card_call();
     else
@@ -785,6 +790,26 @@ static void picture_scaling(const void *src, void *dst,
             }
         }
     }
+}
+
+static void click_picture_indicator_call(lv_event_t *e) {
+    jpeg_decode_command peek_message = {};
+    jpeg_decode_command send_command = {};
+    TimeOut_t           new_time_flag {};
+    lv_label_set_text_static(image_indicator_label, "");
+    vTaskSuspendAll();
+    {
+        if (xQueuePeek(jpeg_decode_ctrl_task_queue, &peek_message, 0) == pdPASS) {
+            delete peek_message.path;
+        }
+
+        vTaskSetTimeOutState(&new_time_flag);
+
+        send_command.path        = nullptr;
+        send_command.decode_time = new_time_flag;
+        xQueueOverwrite(jpeg_decode_ctrl_task_queue, &send_command);
+    }
+    xTaskResumeAll();
 }
 
 void HAL_JPEG_InfoReadyCallback(JPEG_HandleTypeDef *hjpeg, JPEG_ConfTypeDef *pInfo) {
