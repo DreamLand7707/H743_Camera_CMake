@@ -613,10 +613,11 @@ static void file_explorer_item_callback(lv_event_t *e) {
         f_closedir(&dir);
         std::swap(user_data->current_path, user_data->path_buffer);
         file_explorer_reload_force(fe_obj);
+        user_data->open_callback(e, user_data->current_path, true);
     }
     else {
         if (user_data->open_callback) {
-            user_data->open_callback(e, user_data->path_buffer);
+            user_data->open_callback(e, user_data->path_buffer, false);
         }
     }
 }
@@ -645,4 +646,5 @@ static void file_explorer_indicator_callback(lv_event_t *e) {
     }
 
     file_explorer_reload_force(fe_obj);
+    user_data->open_callback(e, user_data->current_path, true);
 }

@@ -50,7 +50,7 @@ static void    ins_card_call();
 static void    pop_card_call();
 static void    lvgl_create_main_interface();
 static void    change_to_camera(lv_event_t *event);
-static void    click_one_file(lv_event_t *e, const char *path);
+static void    click_one_file(lv_event_t *e, const char *path, bool change_dir);
 static void    click_file_init();
 static void    jpeg_rgb_exchange_init();
 
@@ -208,6 +208,7 @@ static void lvgl_create_main_interface() {
 
     image_indicator_label = lv_label_create(image_indicator);
     lv_obj_set_style_align(image_indicator_label, LV_ALIGN_LEFT_MID, LV_STATE_DEFAULT);
+    lv_label_set_text_static(image_indicator_label, "");
 
     image = lv_image_create(image_container);
     lv_obj_set_flex_grow(image, 4);
@@ -367,7 +368,9 @@ uint8_t *file_exchange_buffer         = nullptr;
 uint8_t *jpeg_after_buffer            = nullptr; // YCbCr
 uint8_t *jpeg_before_buffer_rgb       = nullptr; // YCbCr -> RGB
 uint8_t *full_screen_pict_show_buffer = nullptr;
+uint32_t full_pict_show_size[2]       = {};
 uint8_t *widget_pict_show_buffer      = nullptr;
+uint32_t widget_pict_show_size[2]     = {};
 
 namespace
 {
@@ -410,6 +413,7 @@ namespace
 static void jpeg_decode_task(void *args);
 static void jpeg_decode_ctrl_task(void *args);
 static void picture_show_task(void *arg);
+static void picture_scaling(const void *src, void *dst, uint32_t src_w, uint32_t src_h, uint32_t &dst_w, uint32_t &dst_h);
 
 static void click_file_init() {
     jpeg_decode_task_interrupt_mutex  = xSemaphoreCreateMutex();
@@ -567,7 +571,18 @@ static void jpeg_decode_task(void *args) {
             }
             else if (the_queue == jpeg_decode_complete) {
                 jpeg_decode_should_abort = false;
-
+                xSemaphoreGive(jpeg_decode_task_interrupt_mutex);
+                full_pict_show_size[0]   = MY_DISP_HOR_RES;
+                full_pict_show_size[1]   = MY_DISP_VER_RES;
+                widget_pict_show_size[0] = lv_obj_get_width(image);
+                widget_pict_show_size[1] = lv_obj_get_height(image);
+                picture_scaling(jpeg_before_buffer_rgb, full_screen_pict_show_buffer,
+                                jpeg_decode_conf.ImageWidth, jpeg_decode_conf.ImageHeight,
+                                full_pict_show_size[0], full_pict_show_size[1]);
+                picture_scaling(jpeg_before_buffer_rgb, widget_pict_show_buffer,
+                                jpeg_decode_conf.ImageWidth, jpeg_decode_conf.ImageHeight,
+                                widget_pict_show_size[0], widget_pict_show_size[1]);
+                xSemaphoreTake(jpeg_decode_task_interrupt_mutex, portMAX_DELAY);
                 vTaskSuspendAll();
                 {
                     if (jpeg_file_path->decode_time.xOverflowCount > lastest_decode_time.xOverflowCount ||
@@ -617,18 +632,18 @@ static void jpeg_decode_ctrl_task(void *args) {
     static jpeg_decode_command s_message;
     while (true) {
         xQueuePeek(jpeg_decode_ctrl_task_queue, &message, portMAX_DELAY);
-        // if (old_message.path && message.path && *old_message.path == *message.path) {
-        //     xQueueReceive(jpeg_decode_ctrl_task_queue, &message, portMAX_DELAY);
-        //     continue;
-        // }
+        if (old_message.path && message.path && *old_message.path == *message.path) {
+            xQueueReceive(jpeg_decode_ctrl_task_queue, &message, portMAX_DELAY);
+            continue;
+        }
 
         xSemaphoreTake(jpeg_decode_task_interrupt_mutex, portMAX_DELAY);
         xQueueReceive(jpeg_decode_ctrl_task_queue, &message, portMAX_DELAY);
 
-        // if (old_message.path && message.path && *old_message.path == *message.path) {
-        //     xSemaphoreGive(jpeg_decode_task_interrupt_mutex);
-        //     continue;
-        // }
+        if (old_message.path && message.path && *old_message.path == *message.path) {
+            xSemaphoreGive(jpeg_decode_task_interrupt_mutex);
+            continue;
+        }
 
         if (jpeg_decode_task_handle) {
             vTaskDelete(jpeg_decode_task_handle);
@@ -649,15 +664,22 @@ static void jpeg_decode_ctrl_task(void *args) {
             xQueueReset(jpeg_decode_input_output_queueset);
             old_message.path = nullptr;
         }
+        old_message                          = message;
+        jpeg_decode_target_file_should_close = false;
+        lastest_decode_time                  = message.decode_time;
         if (message.path) {
-            old_message                          = message;
-            s_message                            = old_message;
-            jpeg_decode_target_file_should_close = false;
-            lastest_decode_time                  = message.decode_time;
-            pict_show_command cm                 = {1, message.decode_time};
+            s_message            = old_message;
+            lastest_decode_time  = message.decode_time;
+            pict_show_command cm = {1, message.decode_time};
             xQueueOverwrite(picture_show_loading, &cm);
             xTaskCreate(jpeg_decode_task, "JPEG Decode Task", 2048, &s_message, 3, &jpeg_decode_task_handle);
         }
+        else {
+            old_message          = message;
+            pict_show_command cm = {2, message.decode_time};
+            xQueueOverwrite(picture_show_loading, &cm);
+        }
+
         xSemaphoreGive(jpeg_decode_task_interrupt_mutex);
     }
 }
@@ -665,7 +687,7 @@ static void jpeg_decode_ctrl_task(void *args) {
 static void picture_show_task(void *arg) {
     static lv_image_dsc_t img_dsc;
     img_dsc.header.magic      = LV_IMAGE_HEADER_MAGIC;
-    img_dsc.header.cf         = LV_COLOR_FORMAT_RGB888;
+    img_dsc.header.cf         = LV_COLOR_FORMAT_RGB565;
     img_dsc.header.flags      = 0;
     img_dsc.header.reserved_2 = 0;
     pict_show_command cm {};
@@ -674,33 +696,55 @@ static void picture_show_task(void *arg) {
 
         lv_lock();
         xQueueReceive(picture_show_loading, &cm, 0);
-        if (cm.type == 1) {
+        if (cm.type == 0) {
+            img_dsc.header.stride = 0;
+            img_dsc.header.w      = widget_pict_show_size[0];
+            img_dsc.header.h      = widget_pict_show_size[1];
+            img_dsc.data          = widget_pict_show_buffer;
+            img_dsc.data_size     = widget_pict_show_size[0] * widget_pict_show_size[1] * 2;
+            lv_image_set_src(image, &img_dsc);
+            lv_image_set_align(image, LV_IMAGE_ALIGN_CENTER);
+        }
+        else if (cm.type == 1) {
             lv_image_set_src(image, LV_SYMBOL_LOOP "\nLoading...");
         }
-        else if (cm.type == 0) {
-            img_dsc.header.stride = 0;
-            img_dsc.header.w      = jpeg_decode_conf.ImageWidth;
-            img_dsc.header.h      = jpeg_decode_conf.ImageHeight;
-            img_dsc.data          = jpeg_before_buffer_rgb;
-            img_dsc.data_size     = img_dsc.header.w * img_dsc.header.h * 3;
-            lv_image_set_src(image, &img_dsc);
-            uint32_t x_scale = 256ull * lv_obj_get_width(image) / img_dsc.header.w;
-            uint32_t y_scale = 256ull * lv_obj_get_height(image) / img_dsc.header.h;
-            lv_image_set_scale(image, std::min(x_scale, y_scale));
+        else if (cm.type == 2) {
+            lv_image_set_src(image, nullptr);
         }
         lv_unlock();
     }
 }
 
-static void click_one_file(lv_event_t *e, const char *path) {
+static void click_one_file(lv_event_t *e, const char *path, bool change_dir) {
     char                extension[8]  = {};
     auto               *the_file_path = new std::string(path);
     jpeg_decode_command peek_message  = {};
     jpeg_decode_command send_command  = {};
     TimeOut_t           new_time_flag {};
-    path_get_file_extension(path, extension);
-    if (!strcmp(extension, ".jpeg") || !strcmp(extension, ".jpg") ||
-        !strcmp(extension, ".JPEG") || !strcmp(extension, ".JPG")) {
+    if (!change_dir) {
+        path_get_file_extension(path, extension);
+        if (!strcmp(extension, ".jpeg") || !strcmp(extension, ".jpg") ||
+            !strcmp(extension, ".JPEG") || !strcmp(extension, ".JPG")) {
+            const char *name = path_get_file_name_static(path);
+            lv_label_set_text(image_indicator_label, name);
+
+            vTaskSuspendAll();
+            {
+                if (xQueuePeek(jpeg_decode_ctrl_task_queue, &peek_message, 0) == pdPASS) {
+                    delete peek_message.path;
+                }
+
+                vTaskSetTimeOutState(&new_time_flag);
+
+                send_command.path        = the_file_path;
+                send_command.decode_time = new_time_flag;
+                xQueueOverwrite(jpeg_decode_ctrl_task_queue, &send_command);
+            }
+            xTaskResumeAll();
+        }
+    }
+    else {
+        lv_label_set_text_static(image_indicator_label, "");
         vTaskSuspendAll();
         {
             if (xQueuePeek(jpeg_decode_ctrl_task_queue, &peek_message, 0) == pdPASS) {
@@ -709,11 +753,37 @@ static void click_one_file(lv_event_t *e, const char *path) {
 
             vTaskSetTimeOutState(&new_time_flag);
 
-            send_command.path        = the_file_path;
+            send_command.path        = nullptr;
             send_command.decode_time = new_time_flag;
             xQueueOverwrite(jpeg_decode_ctrl_task_queue, &send_command);
         }
         xTaskResumeAll();
+    }
+}
+
+static void picture_scaling(const void *src, void *dst,
+                            uint32_t src_w, uint32_t src_h, uint32_t &dst_w, uint32_t &dst_h) {
+    float    ratio_w   = (float)src_w / (float)dst_w;
+    float    ratio_h   = (float)src_h / (float)dst_h;
+    float    all_ratio = std::max(ratio_w, ratio_h);
+
+    uint32_t temp      = dst_w;
+    dst_w              = std::min(temp, uint32_t((float)src_w / all_ratio));
+    temp               = dst_h;
+    dst_h              = std::min(temp, uint32_t((float)src_h / all_ratio));
+
+    for (uint32_t x = 0; x < dst_w; x++) {
+        for (uint32_t y = 0; y < dst_h; y++) {
+            auto sx = (uint32_t)((float)x * all_ratio);
+            auto sy = (uint32_t)((float)y * all_ratio);
+            if (sx >= src_w || sy >= src_h) {
+                *(uint16_t *)(&((uint8_t *)dst)[2 * dst_w * y + 2 * x]) = 0xffff;
+            }
+            else {
+                ((uint8_t *)dst)[2 * dst_w * y + 2 * x + 0] = ((uint8_t *)src)[2 * src_w * sy + 2 * sx + 0];
+                ((uint8_t *)dst)[2 * dst_w * y + 2 * x + 1] = ((uint8_t *)src)[2 * src_w * sy + 2 * sx + 1];
+            }
+        }
     }
 }
 
