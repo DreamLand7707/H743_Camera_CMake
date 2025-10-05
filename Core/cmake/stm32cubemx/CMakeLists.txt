@@ -26,10 +26,10 @@ set(MX_Include_Dirs
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/CMSIS/Include
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Conflict-Code/Core/Inc
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Conflict-Code/Driver/Inc
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/trace/Inc
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/trace/Config
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/trace/streamport/config
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/trace/streamport/include
+    # ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/trace/Inc
+    # ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/trace/Config
+    # ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/trace/streamport/config
+    # ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/trace/streamport/include
     ${CMAKE_CURRENT_SOURCE_DIR}/../../SEGGER-RTT
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/lvgl/examples/porting
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../LVGL

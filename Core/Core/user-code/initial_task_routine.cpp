@@ -20,6 +20,7 @@ SemaphoreHandle_t sema_swap_buffer_handle;
 // traceString       trace_analyzer_channel3;
 // traceString       trace_analyzer_channel4;
 
+uint8_t segger_data_upload[64 * 1024] __attribute((section(".dtcmicm")));
 
 // static variable Definition
 namespace
@@ -98,6 +99,8 @@ static int routine(int argc, char **argv) {
     // trace_analyzer_channel3 = xTraceRegisterString("User_Channel_3");
     // trace_analyzer_channel4 = xTraceRegisterString("User_Channel_4");
 
+    SEGGER_RTT_ConfigUpBuffer(1, "DataLog", segger_data_upload, sizeof(segger_data_upload),
+                              SEGGER_RTT_MODE_NO_BLOCK_SKIP);
     jpeg_rgb_exchange_init();
     lvgl_create_main_interface();
     click_file_init();
@@ -371,7 +374,7 @@ namespace
 
     JPEG_ConfTypeDef jpeg_decode_conf = {};
     // use sd card as storage of all rgb
-    FIL              *jpeg_decode_target_file;
+    FIL               jpeg_decode_target_file;
     bool              jpeg_decode_target_file_should_close = false;
     bool              jpeg_decode_should_abort             = false;
 
@@ -439,7 +442,7 @@ static void jpeg_rgb_exchange_init() {
     full_screen_pict_show_buffer = (uint8_t *)sdram_Malloc(3 * 272 * 480);    // 382.5KB
     widget_pict_show_buffer      = (uint8_t *)sdram_Malloc(3 * 272 * 480);    // 382.5KB
 
-    jpeg_decode_target_file      = (FIL *)sdram_Malloc(sizeof(FIL));
+    // jpeg_decode_target_file      = (FIL *)sdram_Malloc(sizeof(FIL));
 
     HeapStats_t stats;
     char        buffer[128] = {};
@@ -474,24 +477,24 @@ static void jpeg_decode_task(void *args) {
 
         //
         jpeg_decode_target_file_should_close = false;
-        f_res                                = f_open(jpeg_decode_target_file, jpeg_file_path->path->c_str(), FA_READ);
+        f_res                                = f_open(&jpeg_decode_target_file, jpeg_file_path->path->c_str(), FA_READ);
         if (f_res != FR_OK) {
             break;
         }
         jpeg_decode_target_file_should_close = true;
 
         UINT          real_read_num;
-        FSIZE_t       jpeg_decode_target_file_size = f_size(jpeg_decode_target_file);
+        FSIZE_t       jpeg_decode_target_file_size = f_size(&jpeg_decode_target_file);
         QueueHandle_t the_queue                    = nullptr;
         //
-        f_res = f_read(jpeg_decode_target_file, file_exchange_buffer, 65536, &real_read_num);
+        f_res = f_read(&jpeg_decode_target_file, file_exchange_buffer, 65536, &real_read_num);
         if (f_res != FR_OK) {
             break;
         }
         jpeg_decode_target_file_size -= real_read_num;
 
         real_read_num = ((real_read_num / 32) + !!(real_read_num % 32)) * 32;
-        MYSCB_CleanInvalidateDCache_by_AddrRange(file_exchange_buffer, (void *)((uintptr_t)file_exchange_buffer + real_read_num));
+        MYSCB_CleanInvalidateDCache_by_AddrRange(file_exchange_buffer, (void *)((uintptr_t)file_exchange_buffer + 65536));
         HAL_JPEG_Decode_DMA(&hjpeg, (uint8_t *)file_exchange_buffer, real_read_num,
                             (uint8_t *)jpeg_after_buffer, 65536);
         jpeg_decode_should_abort                           = true;
@@ -513,10 +516,10 @@ static void jpeg_decode_task(void *args) {
             if (the_queue == jpeg_decode_input_data_req) {
                 xQueueReceive(the_queue, &decoded_data, 0);
                 if (jpeg_decode_target_file_size > 65536) {
-                    f_res = f_read(jpeg_decode_target_file, file_exchange_buffer, 65536, &real_read_num);
+                    f_res = f_read(&jpeg_decode_target_file, file_exchange_buffer, 65536, &real_read_num);
                 }
                 else {
-                    f_res = f_read(jpeg_decode_target_file, file_exchange_buffer, jpeg_decode_target_file_size, &real_read_num);
+                    f_res = f_read(&jpeg_decode_target_file, file_exchange_buffer, jpeg_decode_target_file_size, &real_read_num);
                 }
                 if (f_res != FR_OK)
                     goto error;
@@ -525,7 +528,7 @@ static void jpeg_decode_task(void *args) {
                 taskENTER_CRITICAL();
                 {
                     HAL_JPEG_ConfigInputBuffer(&hjpeg, file_exchange_buffer, real_read_num);
-                    MYSCB_CleanDCache_by_AddrRange(file_exchange_buffer, (void *)((uintptr_t)file_exchange_buffer + real_read_num));
+                    MYSCB_CleanDCache_by_AddrRange(file_exchange_buffer, (void *)((uintptr_t)file_exchange_buffer + 65536));
                     HAL_JPEG_Resume(&hjpeg, JPEG_PAUSE_RESUME_INPUT);
                 }
                 taskEXIT_CRITICAL();
@@ -592,7 +595,7 @@ static void jpeg_decode_task(void *args) {
     }
     { // Close File
         if (jpeg_decode_target_file_should_close) {
-            f_close(jpeg_decode_target_file);
+            f_close(&jpeg_decode_target_file);
             jpeg_decode_target_file_should_close = false;
         }
     }
@@ -614,18 +617,18 @@ static void jpeg_decode_ctrl_task(void *args) {
     static jpeg_decode_command s_message;
     while (true) {
         xQueuePeek(jpeg_decode_ctrl_task_queue, &message, portMAX_DELAY);
-        if (old_message.path && message.path && *old_message.path == *message.path) {
-            xQueueReceive(jpeg_decode_ctrl_task_queue, &message, portMAX_DELAY);
-            continue;
-        }
+        // if (old_message.path && message.path && *old_message.path == *message.path) {
+        //     xQueueReceive(jpeg_decode_ctrl_task_queue, &message, portMAX_DELAY);
+        //     continue;
+        // }
 
         xSemaphoreTake(jpeg_decode_task_interrupt_mutex, portMAX_DELAY);
         xQueueReceive(jpeg_decode_ctrl_task_queue, &message, portMAX_DELAY);
 
-        if (old_message.path && message.path && *old_message.path == *message.path) {
-            xSemaphoreGive(jpeg_decode_task_interrupt_mutex);
-            continue;
-        }
+        // if (old_message.path && message.path && *old_message.path == *message.path) {
+        //     xSemaphoreGive(jpeg_decode_task_interrupt_mutex);
+        //     continue;
+        // }
 
         if (jpeg_decode_task_handle) {
             vTaskDelete(jpeg_decode_task_handle);
@@ -633,7 +636,7 @@ static void jpeg_decode_ctrl_task(void *args) {
             delete old_message.path;
 
             if (jpeg_decode_target_file_should_close) {
-                f_close(jpeg_decode_target_file);
+                f_close(&jpeg_decode_target_file);
                 jpeg_decode_target_file_should_close = false;
             }
             if (jpeg_decode_should_abort) {

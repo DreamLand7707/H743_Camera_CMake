@@ -86,10 +86,10 @@ target_include_directories(${Core_Name} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/Conflict-Code/Core/Inc
     ${CMAKE_CURRENT_SOURCE_DIR}/Conflict-Code/Driver/Inc
 
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Inc
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Config
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/streamport/config
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/streamport/include
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Inc
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Config
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/streamport/config
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/streamport/include
 
     ${CMAKE_CURRENT_SOURCE_DIR}/SEGGER-RTT
 

@@ -1,7 +1,11 @@
 build/
 .vscode/
 
+config_default/
 .clangd
 .clang-format
 backup/
 *.log
+*.jpg
+
+*.py

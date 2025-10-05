@@ -219,6 +219,11 @@ SECTIONS
     *(.sdram)
   	sdram_end = .;
   } >SDRAM
+  
+  .dtcmicm :
+  {
+    *(.dtcmicm)
+  } >DTCMRAM
 }
 
 

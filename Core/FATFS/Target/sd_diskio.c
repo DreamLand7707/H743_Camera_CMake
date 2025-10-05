@@ -34,9 +34,9 @@
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
 
-#define QUEUE_SIZE            (uint32_t)10
-#define READ_CPLT_MSG         (uint32_t)1
-#define WRITE_CPLT_MSG        (uint32_t)2
+#define QUEUE_SIZE                      (uint32_t)10
+#define READ_CPLT_MSG                   (uint32_t)1
+#define WRITE_CPLT_MSG                  (uint32_t)2
 /*
 ==================================================================
 enable the defines below to send custom rtos messages
@@ -54,9 +54,9 @@ See BSP_SD_ErrorCallback() and BSP_SD_AbortCallback() below
  * in case of errors in either BSP_SD_ReadCpltCallback() or BSP_SD_WriteCpltCallback()
  * the value by default is as defined in the BSP platform driver otherwise 30 secs
  */
-#define SD_TIMEOUT            30 * 1000
+#define SD_TIMEOUT                      30 * 1000
 
-#define SD_DEFAULT_BLOCK_SIZE 512
+#define SD_DEFAULT_BLOCK_SIZE           512
 
 /*
  * Depending on the use case, the SD card initialization could be done at the
@@ -75,7 +75,7 @@ See BSP_SD_ErrorCallback() and BSP_SD_AbortCallback() below
  * Notice: This is applicable only for cortex M7 based platform.
  */
 /* USER CODE BEGIN enableSDDmaCacheMaintenance */
-#define ENABLE_SD_DMA_CACHE_MAINTENANCE  1
+#define ENABLE_SD_DMA_CACHE_MAINTENANCE 1
 /* USER CODE END enableSDDmaCacheMaintenance */
 
 /*
