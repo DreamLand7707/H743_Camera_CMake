@@ -128,9 +128,6 @@ lv_obj_t   *file_explorer_create(lv_obj_t *parent, int32_t item_height, const ch
     P_BUF_IDX = 0; // 0 -> before
     C_BUF_IDX = 1; // 1 -> current
     N_BUF_IDX = 2; // 2 -> next
-    P_BUF_BEG = -1;
-    C_BUF_BEG = 0;
-    N_BUF_BEG = 32;
     if (!file_explorer_opendir(fe_obj)) {
         user_data->invalid = true;
         lv_label_set_text_static(lv_obj_get_child(user_data->indicator, 0), "Can't Open Directory!");
@@ -147,199 +144,6 @@ lv_obj_t   *file_explorer_create(lv_obj_t *parent, int32_t item_height, const ch
     lv_obj_add_event_cb(user_data->indicator, file_explorer_indicator_callback, LV_EVENT_CLICKED, fe_obj);
 
     return fe_obj;
-}
-
-static bool file_explorer_opendir(lv_obj_t *fe_obj) {
-    auto *user_data = static_cast<file_explorer_data *>(lv_obj_get_user_data(fe_obj));
-    if (user_data->invalid)
-        return false;
-
-    int32_t count = 0;
-    DIR     current_dir;
-    FILINFO file_info;
-    FRESULT fres = f_opendir(&current_dir, user_data->current_path);
-    if (fres != FR_OK) {
-        f_closedir(&current_dir);
-        return false;
-    }
-
-    // reset all length
-    P_BUF_LEN              = 0;
-    C_BUF_LEN              = 0;
-    N_BUF_LEN              = 0;
-
-    bool add_parent_folder = true;
-
-    add_parent_folder      = path_norm(user_data->current_path, nullptr) & PATH_HAVE_PARENT;
-
-    while (true) {
-        if (add_parent_folder) {
-            file_info.fattrib    = AM_DIR;
-            file_info.fdate      = 0;
-            file_info.fsize      = 0;
-            file_info.altname[0] = '\0';
-            file_info.ftime      = 0;
-            file_info.fname[0]   = '.';
-            file_info.fname[1]   = '.';
-            file_info.fname[2]   = '\0';
-            add_parent_folder    = false;
-        }
-        else {
-            fres = f_readdir(&current_dir, &file_info);
-            if (fres != FR_OK || (file_info.fname[0] == 0)) {
-                break;
-            }
-        }
-        count++;
-        if (C_BUF_LEN < 32) {
-            lv_memcpy(&(C_BUF[C_BUF_LEN]), &file_info, sizeof(FILINFO));
-            C_BUF_LEN++;
-        }
-        else if (N_BUF_LEN < 32) {
-            lv_memcpy(&(N_BUF[N_BUF_LEN]), &file_info, sizeof(FILINFO));
-            N_BUF_LEN++;
-        }
-    }
-    f_closedir(&current_dir);
-
-    user_data->total_count = count;
-    if (count > (user_data->item_count))
-        user_data->vis_count = (user_data->item_count);
-    else
-        user_data->vis_count = count;
-
-    user_data->last_idx = user_data->vis_count - 1;
-
-    lv_label_set_text_static(lv_obj_get_child(user_data->indicator, 0), user_data->current_path);
-    lv_obj_set_size(user_data->container, lv_pct(100), user_data->total_count * user_data->item_height);
-
-    return true;
-}
-
-static bool file_explorer_load_next_page(lv_obj_t *fe_obj) {
-    auto *user_data = static_cast<file_explorer_data *>(lv_obj_get_user_data(fe_obj));
-    if (N_BUF_BEG < 0)
-        return false;
-    DIR     curr_dir;
-    FRESULT fres;
-    FILINFO file_info;
-
-    fres = f_opendir(&curr_dir, user_data->current_path);
-    if (fres != FR_OK) {
-        f_closedir(&curr_dir);
-        return false;
-    }
-
-    for (int32_t i = 0; i < N_BUF_BEG; i++) {
-        fres = f_readdir(&curr_dir, &file_info);
-        if (fres != FR_OK) {
-            f_closedir(&curr_dir);
-            return false;
-        }
-    }
-
-    while (true) {
-        if (N_BUF_LEN < 32) {
-            fres = f_readdir(&curr_dir, &file_info);
-            if (fres != FR_OK) {
-                f_closedir(&curr_dir);
-                return false;
-            }
-            lv_memcpy(&(N_BUF[N_BUF_LEN]), &file_info, sizeof(FILINFO));
-            N_BUF_LEN++;
-        }
-        else {
-            f_closedir(&curr_dir);
-            break;
-        }
-    }
-
-    return true;
-}
-
-static bool file_explorer_load_prev_page(lv_obj_t *fe_obj) {
-    auto *user_data = static_cast<file_explorer_data *>(lv_obj_get_user_data(fe_obj));
-    if (P_BUF_BEG < 0)
-        return false;
-    DIR     curr_dir;
-    FRESULT fres;
-    FILINFO file_info;
-
-    fres = f_opendir(&curr_dir, user_data->current_path);
-    if (fres != FR_OK) {
-        f_closedir(&curr_dir);
-        return false;
-    }
-
-    for (int32_t i = 0; i < P_BUF_BEG; i++) {
-        fres = f_readdir(&curr_dir, &file_info);
-        if (fres != FR_OK) {
-            f_closedir(&curr_dir);
-            return false;
-        }
-    }
-
-    while (true) {
-        if (P_BUF_LEN < 32) {
-            fres = f_readdir(&curr_dir, &file_info);
-            if (fres != FR_OK) {
-                f_closedir(&curr_dir);
-                return false;
-            }
-            lv_memcpy(&(P_BUF[P_BUF_LEN]), &file_info, sizeof(FILINFO));
-            P_BUF_LEN++;
-        }
-        else {
-            f_closedir(&curr_dir);
-            break;
-        }
-    }
-
-    return true;
-}
-
-static bool file_explorer_switch_to_next_page(lv_obj_t *fe_obj) {
-    auto *user_data = static_cast<file_explorer_data *>(lv_obj_get_user_data(fe_obj));
-    if (N_BUF_BEG < -1)
-        return false;
-    //
-    int32_t temp = P_BUF_IDX;
-    P_BUF_IDX    = C_BUF_IDX;
-    C_BUF_IDX    = N_BUF_IDX;
-    N_BUF_IDX    = temp;
-    //
-    // P_BUF_BEG = C_BUF_BEG;
-    // C_BUF_BEG = N_BUF_BEG;
-    N_BUF_BEG = C_BUF_BEG + 32;
-    if (N_BUF_BEG >= user_data->total_count) {
-        N_BUF_BEG = -1;
-    }
-    //
-    user_data->buffer_length[N_BUF_IDX] = 0;
-    user_data->virt_curr_idx -= 32;
-    return true;
-}
-
-static bool file_explorer_switch_to_prev_page(lv_obj_t *fe_obj) {
-    auto *user_data = static_cast<file_explorer_data *>(lv_obj_get_user_data(fe_obj));
-    if (P_BUF_IDX < -1)
-        return false;
-    //
-    int32_t temp = N_BUF_IDX;
-    N_BUF_IDX    = C_BUF_IDX;
-    C_BUF_IDX    = P_BUF_IDX;
-    P_BUF_IDX    = temp;
-    //
-    // N_BUF_IDX = C_BUF_BEG;
-    // C_BUF_BEG = P_BUF_IDX;
-    P_BUF_BEG = C_BUF_BEG - 32;
-    if (P_BUF_BEG < 0) {
-        P_BUF_BEG = -1;
-    }
-    //
-    user_data->buffer_length[P_BUF_IDX] = 0;
-    user_data->virt_curr_idx += 32;
-    return true;
 }
 
 static void file_explorer_init_style(lv_obj_t *fe_obj) {
@@ -478,6 +282,205 @@ static void file_explorer_rename_items(lv_obj_t *fe_obj) {
     }
 }
 
+static bool file_explorer_opendir(lv_obj_t *fe_obj) {
+    auto *user_data = static_cast<file_explorer_data *>(lv_obj_get_user_data(fe_obj));
+    if (user_data->invalid)
+        return false;
+
+    int32_t count = 0;
+    DIR     current_dir;
+    FILINFO file_info;
+    FRESULT fres = f_opendir(&current_dir, user_data->current_path);
+    if (fres != FR_OK) {
+        f_closedir(&current_dir);
+        return false;
+    }
+
+    // reset all length
+    P_BUF_LEN = 0;
+    C_BUF_LEN = 0;
+    N_BUF_LEN = 0;
+    P_BUF_BEG = -1;
+    C_BUF_BEG = -1;
+    N_BUF_BEG = -1;
+    //
+
+    bool add_parent_folder = true;
+
+    add_parent_folder      = path_norm(user_data->current_path, nullptr) & PATH_HAVE_PARENT;
+
+    while (true) {
+        if (add_parent_folder) {
+            file_info.fattrib    = AM_DIR;
+            file_info.fdate      = 0;
+            file_info.fsize      = 0;
+            file_info.altname[0] = '\0';
+            file_info.ftime      = 0;
+            file_info.fname[0]   = '.';
+            file_info.fname[1]   = '.';
+            file_info.fname[2]   = '\0';
+            add_parent_folder    = false;
+        }
+        else {
+            fres = f_readdir(&current_dir, &file_info);
+            if (fres != FR_OK || (file_info.fname[0] == 0)) {
+                break;
+            }
+        }
+        count++;
+        if (C_BUF_LEN < 32) {
+            C_BUF_BEG = 0;
+            lv_memcpy(&(C_BUF[C_BUF_LEN]), &file_info, sizeof(FILINFO));
+            C_BUF_LEN++;
+        }
+        else if (N_BUF_LEN < 32) {
+            N_BUF_BEG = 32;
+            lv_memcpy(&(N_BUF[N_BUF_LEN]), &file_info, sizeof(FILINFO));
+            N_BUF_LEN++;
+        }
+    }
+    f_closedir(&current_dir);
+
+    user_data->total_count = count;
+    if (count > (user_data->item_count))
+        user_data->vis_count = (user_data->item_count);
+    else
+        user_data->vis_count = count;
+
+    user_data->last_idx = user_data->vis_count - 1;
+
+    lv_label_set_text_static(lv_obj_get_child(user_data->indicator, 0), user_data->current_path);
+    lv_obj_set_size(user_data->container, lv_pct(100), user_data->total_count * user_data->item_height);
+
+    return true;
+}
+
+static bool file_explorer_load_next_page(lv_obj_t *fe_obj) {
+    auto *user_data = static_cast<file_explorer_data *>(lv_obj_get_user_data(fe_obj));
+    if (N_BUF_BEG < 0)
+        return false;
+    DIR     curr_dir;
+    FRESULT fres;
+    FILINFO file_info;
+
+    fres = f_opendir(&curr_dir, user_data->current_path);
+    if (fres != FR_OK) {
+        f_closedir(&curr_dir);
+        return false;
+    }
+
+    for (int32_t i = 0; i < N_BUF_BEG; i++) {
+        fres = f_readdir(&curr_dir, &file_info);
+        if (fres != FR_OK) {
+            f_closedir(&curr_dir);
+            return false;
+        }
+    }
+
+    while (true) {
+        if (N_BUF_LEN < 32) {
+            fres = f_readdir(&curr_dir, &file_info);
+            if (fres != FR_OK) {
+                f_closedir(&curr_dir);
+                return false;
+            }
+            lv_memcpy(&(N_BUF[N_BUF_LEN]), &file_info, sizeof(FILINFO));
+            N_BUF_LEN++;
+        }
+        else {
+            f_closedir(&curr_dir);
+            break;
+        }
+    }
+
+    return true;
+}
+
+static bool file_explorer_load_prev_page(lv_obj_t *fe_obj) {
+    auto *user_data = static_cast<file_explorer_data *>(lv_obj_get_user_data(fe_obj));
+    if (P_BUF_BEG < 0)
+        return false;
+    DIR     curr_dir;
+    FRESULT fres;
+    FILINFO file_info;
+
+    fres = f_opendir(&curr_dir, user_data->current_path);
+    if (fres != FR_OK) {
+        f_closedir(&curr_dir);
+        return false;
+    }
+
+    for (int32_t i = 0; i < P_BUF_BEG; i++) {
+        fres = f_readdir(&curr_dir, &file_info);
+        if (fres != FR_OK) {
+            f_closedir(&curr_dir);
+            return false;
+        }
+    }
+
+    while (true) {
+        if (P_BUF_LEN < 32) {
+            fres = f_readdir(&curr_dir, &file_info);
+            if (fres != FR_OK) {
+                f_closedir(&curr_dir);
+                return false;
+            }
+            lv_memcpy(&(P_BUF[P_BUF_LEN]), &file_info, sizeof(FILINFO));
+            P_BUF_LEN++;
+        }
+        else {
+            f_closedir(&curr_dir);
+            break;
+        }
+    }
+
+    return true;
+}
+
+static bool file_explorer_switch_to_next_page(lv_obj_t *fe_obj) {
+    auto *user_data = static_cast<file_explorer_data *>(lv_obj_get_user_data(fe_obj));
+    if (N_BUF_BEG < 0)
+        return false;
+    //
+    int32_t temp = P_BUF_IDX;
+    P_BUF_IDX    = C_BUF_IDX;
+    C_BUF_IDX    = N_BUF_IDX;
+    N_BUF_IDX    = temp;
+    //
+    // P_BUF_BEG = C_BUF_BEG;
+    // C_BUF_BEG = N_BUF_BEG;
+    N_BUF_BEG = C_BUF_BEG + 32;
+    if (N_BUF_BEG >= user_data->total_count) {
+        N_BUF_BEG = -1;
+    }
+    //
+    N_BUF_LEN = 0;
+    user_data->virt_curr_idx -= 32;
+    return true;
+}
+
+static bool file_explorer_switch_to_prev_page(lv_obj_t *fe_obj) {
+    auto *user_data = static_cast<file_explorer_data *>(lv_obj_get_user_data(fe_obj));
+    if (P_BUF_IDX < 0)
+        return false;
+    //
+    int32_t temp = N_BUF_IDX;
+    N_BUF_IDX    = C_BUF_IDX;
+    C_BUF_IDX    = P_BUF_IDX;
+    P_BUF_IDX    = temp;
+    //
+    // N_BUF_IDX = C_BUF_BEG;
+    // C_BUF_BEG = P_BUF_IDX;
+    P_BUF_BEG = C_BUF_BEG - 32;
+    if (P_BUF_BEG < 0) {
+        P_BUF_BEG = -1;
+    }
+    //
+    P_BUF_LEN = 0;
+    user_data->virt_curr_idx += 32;
+    return true;
+}
+
 void file_explorer_reload_force(lv_obj_t *fe_obj) {
     auto *user_data = static_cast<file_explorer_data *>(lv_obj_get_user_data(fe_obj));
     if (file_explorer_opendir(fe_obj)) {
@@ -561,24 +564,19 @@ static void file_explorer_callback(lv_event_t *e) {
             int n = user_data->virt_curr_idx + user_data->vis_count;
             int m = user_data->virt_curr_idx;
 
-            if (P_BUF_BEG >= 0) {
-                if (m < -(P_BUF_LEN / 2)) {
+            if (P_BUF_BEG != -1) {
+                if (P_BUF_LEN > 0 && m < -(P_BUF_LEN / 2)) {
                     file_explorer_switch_to_prev_page(fe_obj);
                     file_explorer_load_prev_page(fe_obj);
+                    break;
                 }
             }
-            else {
-                if (N_BUF_BEG == -1) {
-                    if (n > (C_BUF_LEN / 2)) {
-                        file_explorer_switch_to_next_page(fe_obj);
-                        file_explorer_load_next_page(fe_obj);
-                    }
-                }
-                else {
-                    if (n > (C_BUF_LEN + (N_BUF_LEN / 2))) {
-                        file_explorer_switch_to_next_page(fe_obj);
-                        file_explorer_load_next_page(fe_obj);
-                    }
+
+            if (N_BUF_BEG != -1) {
+                if (N_BUF_LEN > 0 && n > (C_BUF_LEN + (N_BUF_LEN / 2))) {
+                    file_explorer_switch_to_next_page(fe_obj);
+                    file_explorer_load_next_page(fe_obj);
+                    break;
                 }
             }
         }
