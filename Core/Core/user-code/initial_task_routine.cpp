@@ -20,7 +20,11 @@ SemaphoreHandle_t sema_swap_buffer_handle;
 // traceString       trace_analyzer_channel3;
 // traceString       trace_analyzer_channel4;
 
-uint8_t segger_data_upload[64 * 1024] __attribute((section(".dtcmicm")));
+uint8_t   segger_data_upload[64 * 1024] __attribute((section(".dtcmicm")));
+
+lv_obj_t *file_explorer_main_screen;
+lv_obj_t *full_screen_pict_screen;
+lv_obj_t *camera_screen;
 
 // static variable Definition
 namespace
@@ -49,7 +53,9 @@ static void    popbtn_call(lv_event_t *event);
 static void    ins_card_call();
 static void    pop_card_call();
 static void    click_picture_indicator_call(lv_event_t *e);
+static void    click_picture_call(lv_event_t *e);
 static void    lvgl_create_main_interface();
+static void    lvgl_create_full_screen_pict_interface();
 static void    change_to_camera(lv_event_t *event);
 static void    click_one_file(lv_event_t *e, const char *path, bool change_dir);
 static void    click_file_init();
@@ -100,16 +106,89 @@ static int routine(int argc, char **argv) {
     // trace_analyzer_channel3 = xTraceRegisterString("User_Channel_3");
     // trace_analyzer_channel4 = xTraceRegisterString("User_Channel_4");
 
-    SEGGER_RTT_ConfigUpBuffer(1, "DataLog", segger_data_upload, sizeof(segger_data_upload),
-                              SEGGER_RTT_MODE_NO_BLOCK_SKIP);
+    SEGGER_RTT_ConfigUpBuffer(1, "DataLog", segger_data_upload, sizeof(segger_data_upload), SEGGER_RTT_MODE_NO_BLOCK_SKIP);
+
     jpeg_rgb_exchange_init();
     lvgl_create_main_interface();
+    lvgl_create_full_screen_pict_interface();
     click_file_init();
 
     while (1) {
         lv_timer_handler();
         vTaskDelay(1);
     }
+}
+
+static void lvgl_initialize_port1() {
+    touch_sence_init();
+
+    lv_init();
+    lv_port_disp_init();
+    lv_port_indev_init();
+}
+
+static void lvgl_initialize_port2() {
+    if (sdcard_is_mounted)
+        lv_port_fs_init();
+
+    camera_screen = lv_obj_create(nullptr);
+}
+
+static void sdcard_initialize() {
+    FRESULT file_system_res;
+    file_system_res = f_mount(&SDFatFS, SDPath, 1);
+    if (file_system_res == FR_NO_FILESYSTEM) {
+        file_system_res = f_mkfs(SDPath, FM_FAT32, 4096, (void *)mkfs_buffer, 4096);
+        if (file_system_res == FR_OK) {
+            file_system_res = f_mount(&SDFatFS, SDPath, 1);
+        }
+    }
+    else if (file_system_res != FR_OK) {
+    }
+    print_sdcard_info();
+    sdcard_is_mounted = 1;
+
+    f_open(&SDFile, "0:/a.txt", (uint32_t)FA_WRITE | (uint32_t)FA_CREATE_ALWAYS);
+    const char *str    = "Hello world!";
+    UINT        expect = strlen(str);
+    UINT        get    = 0;
+    f_write(&SDFile, str, expect, &get);
+    f_close(&SDFile);
+}
+
+void print_sdcard_info(void) {
+    uint64_t               CardCap; // SD卡容量
+    HAL_SD_CardCIDTypeDef  SDCard_CID;
+    HAL_SD_CardInfoTypeDef SDCardInfo;
+
+    HAL_SD_GetCardCID(&hsd1, &SDCard_CID);                                              // 获取CID
+    HAL_SD_GetCardInfo(&hsd1, &SDCardInfo);                                             // 获取SD卡信息
+    CardCap = (uint64_t)(SDCardInfo.LogBlockNbr) * (uint64_t)(SDCardInfo.LogBlockSize); // 计算SD卡容量
+    switch (SDCardInfo.CardType) {
+    case CARD_SDSC: {
+        if (SDCardInfo.CardVersion == CARD_V1_X)
+            jprintf(0, "Card Type:SDSC V1\r\n");
+        else if (SDCardInfo.CardVersion == CARD_V2_X)
+            jprintf(0, "Card Type:SDSC V2\r\n");
+        break;
+    }
+    case CARD_SDHC_SDXC: {
+        jprintf(0, "Card Type:SDHC\r\n");
+        break;
+    }
+    default:
+        break;
+    }
+
+    jprintf(0, "Card ManufacturerID: %d \r\n", SDCard_CID.ManufacturerID);            // 制造商ID
+    jprintf(0, "CardVersion:         %lu \r\n", (uint32_t)(SDCardInfo.CardVersion));  // 卡版本号
+    jprintf(0, "Class:               %lu \r\n", (uint32_t)(SDCardInfo.Class));        //
+    jprintf(0, "Card RCA(RelCardAdd):%lu \r\n", SDCardInfo.RelCardAdd);               // 卡相对地址
+    jprintf(0, "Card BlockNbr:       %lu \r\n", SDCardInfo.BlockNbr);                 // 块数量
+    jprintf(0, "Card BlockSize:      %lu \r\n", SDCardInfo.BlockSize);                // 块大小
+    jprintf(0, "LogBlockNbr:         %lu \r\n", (uint32_t)(SDCardInfo.LogBlockNbr));  // 逻辑块数量
+    jprintf(0, "LogBlockSize:        %lu \r\n", (uint32_t)(SDCardInfo.LogBlockSize)); // 逻辑块大小
+    jprintf(0, "Card Capacity:       %lu MB\r\n", (uint32_t)(CardCap >> 20u));        // 卡容量
 }
 
 namespace
@@ -122,6 +201,7 @@ namespace
     lv_obj_t *image_container;
     lv_obj_t *button_container;
 
+    lv_obj_t *image_eventor;
     lv_obj_t *image;
     lv_obj_t *image_indicator;
     lv_obj_t *image_indicator_label;
@@ -135,7 +215,8 @@ namespace
 } // namespace
 
 static void lvgl_create_main_interface() {
-    screen_container = lv_obj_create(lv_scr_act());
+    file_explorer_main_screen = lv_scr_act();
+    screen_container          = lv_obj_create(file_explorer_main_screen);
     lv_obj_set_size(screen_container, LV_PCT(100), LV_PCT(100));
     lv_obj_set_layout(screen_container, LV_LAYOUT_FLEX);
     lv_obj_set_flex_flow(screen_container, LV_FLEX_FLOW_ROW);
@@ -219,87 +300,52 @@ static void lvgl_create_main_interface() {
     lv_obj_set_style_width(image, LV_PCT(100), LV_STATE_DEFAULT);
     lv_obj_set_style_margin_right(image, 10, LV_STATE_DEFAULT);
 
+    image_eventor = lv_obj_create(image);
+    lv_obj_set_style_pad_all(image_eventor, 0, LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(image_eventor, 0, LV_STATE_DEFAULT);
+    lv_obj_set_style_size(image_eventor, LV_PCT(100), LV_PCT(100), LV_STATE_DEFAULT);
+    lv_obj_set_style_opa(image_eventor, 0, LV_STATE_DEFAULT);
+
     lv_obj_add_event_cb(shot_btn, change_to_camera, LV_EVENT_PRESSED, nullptr);
     file_explorer_set_callback(file_explorer_obj, click_one_file);
     lv_obj_add_event_cb(ins_sd, insbtn_call, LV_EVENT_PRESSED, nullptr);
     lv_obj_add_event_cb(pop_sd, popbtn_call, LV_EVENT_PRESSED, nullptr);
     lv_obj_add_event_cb(image_indicator, click_picture_indicator_call, LV_EVENT_CLICKED, nullptr);
+    lv_obj_add_event_cb(image_eventor, click_picture_call, LV_EVENT_CLICKED, nullptr);
+
     if (sdcard_is_mounted)
         ins_card_call();
     else
         pop_card_call();
 }
 
-static void lvgl_initialize_port1() {
-    touch_sence_init();
+namespace
+{
+    lv_obj_t *full_pict_screen_container;
+    lv_obj_t *full_pict_image;
 
-    lv_init();
-    lv_port_disp_init();
-    lv_port_indev_init();
+    bool      can_click_pict = false;
+} // namespace
+
+static void click_full_screen_picture_call(lv_event_t *e);
+
+static void lvgl_create_full_screen_pict_interface() {
+    full_screen_pict_screen    = lv_obj_create(nullptr);
+
+    full_pict_screen_container = lv_obj_create(full_screen_pict_screen);
+    lv_obj_set_size(full_pict_screen_container, LV_PCT(100), LV_PCT(100));
+    lv_obj_set_style_pad_all(full_pict_screen_container, 0, LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(full_pict_screen_container, 0, LV_STATE_DEFAULT);
+    lv_obj_set_style_radius(full_pict_screen_container, 0, LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(full_pict_screen_container, lv_color_black(), LV_STATE_DEFAULT);
+
+    full_pict_image = lv_image_create(full_pict_screen_container);
+    lv_obj_set_size(full_pict_image, LV_PCT(100), LV_PCT(100));
+    lv_obj_set_align(full_pict_image, LV_ALIGN_CENTER);
+
+    lv_obj_add_event_cb(full_pict_screen_container, click_full_screen_picture_call, LV_EVENT_CLICKED, nullptr);
 }
 
-static void lvgl_initialize_port2() {
-    if (sdcard_is_mounted)
-        lv_port_fs_init();
-}
-
-
-static void sdcard_initialize() {
-    FRESULT file_system_res;
-    file_system_res = f_mount(&SDFatFS, SDPath, 1);
-    if (file_system_res == FR_NO_FILESYSTEM) {
-        file_system_res = f_mkfs(SDPath, FM_FAT32, 4096, (void *)mkfs_buffer, 4096);
-        if (file_system_res == FR_OK) {
-            file_system_res = f_mount(&SDFatFS, SDPath, 1);
-        }
-    }
-    else if (file_system_res != FR_OK) {
-    }
-    print_sdcard_info();
-    sdcard_is_mounted = 1;
-
-    f_open(&SDFile, "0:/a.txt", (uint32_t)FA_WRITE | (uint32_t)FA_CREATE_ALWAYS);
-    const char *str    = "Hello world!";
-    UINT        expect = strlen(str);
-    UINT        get    = 0;
-    f_write(&SDFile, str, expect, &get);
-    f_close(&SDFile);
-}
-
-void print_sdcard_info(void) {
-    uint64_t               CardCap; // SD卡容量
-    HAL_SD_CardCIDTypeDef  SDCard_CID;
-    HAL_SD_CardInfoTypeDef SDCardInfo;
-
-    HAL_SD_GetCardCID(&hsd1, &SDCard_CID);                                              // 获取CID
-    HAL_SD_GetCardInfo(&hsd1, &SDCardInfo);                                             // 获取SD卡信息
-    CardCap = (uint64_t)(SDCardInfo.LogBlockNbr) * (uint64_t)(SDCardInfo.LogBlockSize); // 计算SD卡容量
-    switch (SDCardInfo.CardType) {
-    case CARD_SDSC: {
-        if (SDCardInfo.CardVersion == CARD_V1_X)
-            jprintf(0, "Card Type:SDSC V1\r\n");
-        else if (SDCardInfo.CardVersion == CARD_V2_X)
-            jprintf(0, "Card Type:SDSC V2\r\n");
-        break;
-    }
-    case CARD_SDHC_SDXC: {
-        jprintf(0, "Card Type:SDHC\r\n");
-        break;
-    }
-    default:
-        break;
-    }
-
-    jprintf(0, "Card ManufacturerID: %d \r\n", SDCard_CID.ManufacturerID);            // 制造商ID
-    jprintf(0, "CardVersion:         %lu \r\n", (uint32_t)(SDCardInfo.CardVersion));  // 卡版本号
-    jprintf(0, "Class:               %lu \r\n", (uint32_t)(SDCardInfo.Class));        //
-    jprintf(0, "Card RCA(RelCardAdd):%lu \r\n", SDCardInfo.RelCardAdd);               // 卡相对地址
-    jprintf(0, "Card BlockNbr:       %lu \r\n", SDCardInfo.BlockNbr);                 // 块数量
-    jprintf(0, "Card BlockSize:      %lu \r\n", SDCardInfo.BlockSize);                // 块大小
-    jprintf(0, "LogBlockNbr:         %lu \r\n", (uint32_t)(SDCardInfo.LogBlockNbr));  // 逻辑块数量
-    jprintf(0, "LogBlockSize:        %lu \r\n", (uint32_t)(SDCardInfo.LogBlockSize)); // 逻辑块大小
-    jprintf(0, "Card Capacity:       %lu MB\r\n", (uint32_t)(CardCap >> 20u));        // 卡容量
-}
 
 // ISR Callback
 void HAL_LTDC_ReloadEventCallback(LTDC_HandleTypeDef *hltdc) {
@@ -387,6 +433,7 @@ namespace
     bool              jpeg_decode_should_abort             = false;
 
     SemaphoreHandle_t jpeg_decode_task_interrupt_mutex     = nullptr;
+    SemaphoreHandle_t pict_show_begin_loading              = nullptr;
     QueueHandle_t     jpeg_decode_ctrl_task_queue          = nullptr;
     TaskHandle_t      jpeg_decode_task_handle              = nullptr;
     TaskHandle_t      jpeg_decode_ctrl_task_handle         = nullptr;
@@ -427,6 +474,7 @@ static void click_file_init() {
     jpeg_decode_output_buffer_req     = xQueueCreate(1, sizeof(jpeg_output_buffer_req));
     picture_show_loading              = xQueueCreate(1, sizeof(pict_show_command));
     jpeg_decode_complete              = xSemaphoreCreateBinary();
+    pict_show_begin_loading           = xSemaphoreCreateBinary();
     jpeg_decode_input_output_queueset = xQueueCreateSet(3);
     xQueueAddToSet(jpeg_decode_input_data_req, jpeg_decode_input_output_queueset);
     xQueueAddToSet(jpeg_decode_output_buffer_req, jpeg_decode_input_output_queueset);
@@ -479,6 +527,7 @@ static void jpeg_rgb_exchange_init() {
 
 static void jpeg_decode_task(void *args) {
 
+    xSemaphoreTake(pict_show_begin_loading, portMAX_DELAY);
     xSemaphoreTake(jpeg_decode_task_interrupt_mutex, portMAX_DELAY);
     auto *jpeg_file_path = (jpeg_decode_command *)(args);
     do {
@@ -709,8 +758,14 @@ static void picture_show_task(void *arg) {
             img_dsc.data_size     = widget_pict_show_size[0] * widget_pict_show_size[1] * 2;
             lv_image_set_src(image, &img_dsc);
             lv_image_set_align(image, LV_IMAGE_ALIGN_CENTER);
+            vTaskSuspendAll();
+            {
+                can_click_pict = true;
+            }
+            xTaskResumeAll();
         }
         else if (cm.type == 1) {
+            xSemaphoreGive(pict_show_begin_loading);
             lv_image_set_src(image, LV_SYMBOL_LOOP "\nLoading...");
         }
         else if (cm.type == 2) {
@@ -735,6 +790,7 @@ static void click_one_file(lv_event_t *e, const char *path, bool change_dir) {
 
             vTaskSuspendAll();
             {
+                can_click_pict = false;
                 if (xQueuePeek(jpeg_decode_ctrl_task_queue, &peek_message, 0) == pdPASS) {
                     delete peek_message.path;
                 }
@@ -752,6 +808,7 @@ static void click_one_file(lv_event_t *e, const char *path, bool change_dir) {
         lv_label_set_text_static(image_indicator_label, "");
         vTaskSuspendAll();
         {
+            can_click_pict = false;
             if (xQueuePeek(jpeg_decode_ctrl_task_queue, &peek_message, 0) == pdPASS) {
                 delete peek_message.path;
             }
@@ -799,6 +856,7 @@ static void click_picture_indicator_call(lv_event_t *e) {
     lv_label_set_text_static(image_indicator_label, "");
     vTaskSuspendAll();
     {
+        can_click_pict = false;
         if (xQueuePeek(jpeg_decode_ctrl_task_queue, &peek_message, 0) == pdPASS) {
             delete peek_message.path;
         }
@@ -810,6 +868,36 @@ static void click_picture_indicator_call(lv_event_t *e) {
         xQueueOverwrite(jpeg_decode_ctrl_task_queue, &send_command);
     }
     xTaskResumeAll();
+}
+
+static void click_picture_call(lv_event_t *e) {
+    static lv_image_dsc_t img_dsc;
+    img_dsc.header.magic      = LV_IMAGE_HEADER_MAGIC;
+    img_dsc.header.cf         = LV_COLOR_FORMAT_RGB565;
+    img_dsc.header.flags      = 0;
+    img_dsc.header.reserved_2 = 0;
+
+    bool read_result;
+    vTaskSuspendAll();
+    {
+        read_result = can_click_pict;
+    }
+    xTaskResumeAll();
+
+    if (read_result) {
+        img_dsc.header.stride = 0;
+        img_dsc.header.w      = full_pict_show_size[0];
+        img_dsc.header.h      = full_pict_show_size[1];
+        img_dsc.data          = full_screen_pict_show_buffer;
+        img_dsc.data_size     = full_pict_show_size[0] * full_pict_show_size[1] * 2;
+        lv_image_set_src(full_pict_image, &img_dsc);
+        lv_image_set_align(full_pict_image, LV_IMAGE_ALIGN_CENTER);
+        lv_screen_load(full_screen_pict_screen);
+    }
+}
+
+static void click_full_screen_picture_call(lv_event_t *e) {
+    lv_screen_load(file_explorer_main_screen);
 }
 
 void HAL_JPEG_InfoReadyCallback(JPEG_HandleTypeDef *hjpeg, JPEG_ConfTypeDef *pInfo) {

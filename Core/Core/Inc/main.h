@@ -100,6 +100,10 @@ extern "C"
     extern uint8_t          *widget_pict_show_buffer;
     extern uint32_t          widget_pict_show_size[2];
 
+    extern lv_obj_t         *file_explorer_main_screen;
+    extern lv_obj_t         *full_screen_pict_screen;
+    extern lv_obj_t         *camera_screen;
+
     // extern traceString       trace_analyzer_channel1;
     // extern traceString       trace_analyzer_channel2;
     // extern traceString       trace_analyzer_channel3;
