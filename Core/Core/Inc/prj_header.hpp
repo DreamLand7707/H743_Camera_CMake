@@ -1,12 +1,4 @@
-/*
- * prj_header.hpp
- *
- *  Created on: Nov 23, 2024
- *      Author: DrL潇湘
- */
-
-#ifndef INC_PRJ_HEADER_HPP_
-#define INC_PRJ_HEADER_HPP_
+#pragma once
 
 #include <timer_delay.hpp>
 #include "main.h"
@@ -35,6 +27,48 @@
 #include <cstring>
 #include <cassert>
 #include <memory>
+#include <string>
 #include "cpp_public.hpp"
 
-#endif /* INC_PRJ_HEADER_HPP_ */
+enum class manage_command_type : uint32_t {
+    reload,
+    decode_complete,
+    terminate,
+    full_picture,
+    small_picture,
+    ins_card,
+    pop_card,
+    to_camera,
+    to_file_explorer
+};
+
+enum class lvgl_command_type : uint32_t {
+    reload,
+    nothing,
+    full_picture,
+    small_picture,
+    ins_card,
+    pop_card,
+    to_camera,
+    to_camera_failed,
+    to_camera_failed_sd_card_ruin,
+    to_file_explorer
+};
+
+struct jpeg_output_buffer_req {
+    uint8_t *data_out;
+    uint32_t length;
+};
+
+struct main_manage_command {
+    size_t              ref;
+    std::string        *path;
+    TimeOut_t           decode_time;
+    manage_command_type type;
+};
+
+struct lvgl_manage_command {
+    lvgl_command_type type;
+};
+
+BaseType_t send_command_to_main_manage(std::string *path, size_t ref_cnt, manage_command_type type, BaseType_t time);

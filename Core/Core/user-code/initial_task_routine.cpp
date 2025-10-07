@@ -14,6 +14,8 @@ SemaphoreHandle_t sema_flash_screen_routine_start;
 SemaphoreHandle_t sema_camera_routine_start;
 SemaphoreHandle_t sema_swap_buffer_handle;
 
+SemaphoreHandle_t sema_camera_routine_init_done;
+
 // traceString       trace_analyzer_channel1;
 // traceString       trace_analyzer_channel2;
 // traceString       trace_analyzer_channel3;
@@ -29,41 +31,6 @@ lv_obj_t *camera_screen;
 namespace
 {
     void *curr_screen_buffer;
-
-    enum class manage_command_type : uint32_t {
-        reload,
-        decode_complete,
-        terminate,
-        full_picture,
-        small_picture,
-        ins_card,
-        pop_card
-    };
-
-    enum class lvgl_command_type : uint32_t {
-        reload,
-        nothing,
-        full_picture,
-        small_picture,
-        ins_card,
-        pop_card
-    };
-
-    struct jpeg_output_buffer_req {
-        uint8_t *data_out;
-        uint32_t length;
-    };
-
-    struct main_manage_command {
-        size_t              ref;
-        std::string        *path;
-        TimeOut_t           decode_time;
-        manage_command_type type;
-    };
-
-    struct lvgl_manage_command {
-        lvgl_command_type type;
-    };
 } // namespace
 
 // extern Variable Decl
@@ -92,7 +59,6 @@ static void       lvgl_create_full_screen_pict_interface();
 static void       change_to_camera(lv_event_t *event);
 static void       click_one_file(lv_event_t *e, const char *path, bool change_dir);
 static void       main_manage_init();
-static BaseType_t send_command_to_main_manage(std::string *path, size_t ref_cnt, manage_command_type type, BaseType_t time);
 static void       jpeg_rgb_exchange_init();
 
 
@@ -112,6 +78,9 @@ void initial_task_routine(void const *argument) {
 */
 
 static void initial_before_routine() {
+
+    sema_camera_routine_init_done = xSemaphoreCreateBinary();
+
     SDRAM_GRAM1 = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
     SDRAM_GRAM2 = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
 
@@ -154,6 +123,8 @@ static int routine(int argc, char **argv) {
         send_command_to_main_manage(nullptr, 0, manage_command_type::pop_card, 0);
     }
 
+    xSemaphoreTake(sema_camera_routine_init_done, portMAX_DELAY);
+
     while (1) {
         lv_timer_handler();
         vTaskDelay(1);
@@ -171,8 +142,6 @@ static void lvgl_initialize_port1() {
 static void lvgl_initialize_port2() {
     if (sdcard_is_mounted)
         lv_port_fs_init();
-
-    camera_screen = lv_obj_create(nullptr);
 }
 
 static void sdcard_initialize() {
@@ -461,9 +430,12 @@ static void main_manage_task(void *args) {
     static main_manage_command message_to_send {};
     main_manage_command        old_message {};
     main_manage_command        new_message {};
-
-    bool                       can_click_pict = false;
-    bool                       card_ok        = false;
+    //
+    bool can_click_pict   = false;
+    bool card_ok          = false;
+    bool before_sdcard_ok = false;
+    bool dcmi_ok          = false;
+    bool just_use_dcmi    = false;
     // lambda expression
     static auto recycle_resource = [&]()
     {
@@ -573,13 +545,21 @@ static void main_manage_task(void *args) {
         }
         case manage_command_type::ins_card: {
             if (!card_ok) {
-                old_message = new_message;
+                if (!sdcard_link_driver && FATFS_LinkDriver(&SD_Driver, SDPath) != 0) {
+                    continue;
+                }
+                sdcard_link_driver = 1;
+                if (!sdcard_is_mounted && f_mount(&SDFatFS, SDPath, 1) != FR_OK) {
+                    continue;
+                }
+                sdcard_is_mounted = 1;
+
+                old_message       = new_message;
                 lvgl_manage_command cm {};
                 cm.type = lvgl_command_type::ins_card;
+
                 if (xQueueSend(lvgl_manage_task_queue, &cm, pdMS_TO_TICKS(20)) == pdPASS)
                     card_ok = true;
-                else
-                    card_ok = false;
             }
             break;
         }
@@ -597,13 +577,111 @@ static void main_manage_task(void *args) {
                 }
                 xSemaphoreGive(jpeg_decode_task_interrupt_mutex);
 
-                card_ok = false;
-
                 lvgl_manage_command cm {};
                 cm.type = lvgl_command_type::pop_card;
-                xQueueSend(lvgl_manage_task_queue, &cm, pdMS_TO_TICKS(20));
+                if (xQueueSend(lvgl_manage_task_queue, &cm, pdMS_TO_TICKS(20)) == pdPASS) {
+                    if (sdcard_is_mounted && f_mount(nullptr, SDPath, 1) != FR_OK) {
+                        continue;
+                    }
+                    card_ok           = false;
+                    sdcard_is_mounted = 0;
+                    (void)HAL_SD_DeInit(&hsd1);
+                    if (sdcard_link_driver && FATFS_UnLinkDriver(SDPath) != 0) {
+                        continue;
+                    }
+                    sdcard_link_driver = 0;
+                }
             }
             break;
+        }
+        case manage_command_type::to_camera: {
+            lvgl_manage_command cm {};
+            xSemaphoreTake(jpeg_decode_task_interrupt_mutex, portMAX_DELAY);
+            {
+                if (jpeg_decode_task_handle) {
+                    recycle_resource();
+                    delete message_to_send.path;
+                    message_to_send.path = nullptr;
+                    old_message.path     = nullptr;
+                }
+                old_message = new_message;
+            }
+            xSemaphoreGive(jpeg_decode_task_interrupt_mutex);
+
+            before_sdcard_ok = card_ok;
+            if (card_ok) {
+                (void)HAL_SD_DeInit(&hsd1);
+                card_ok       = false;
+                just_use_dcmi = true;
+            }
+
+            if (HAL_DCMI_Init(&hdcmi) == HAL_OK) {
+                dcmi_ok = true;
+                lvgl_manage_command cm {};
+                cm.type = lvgl_command_type::to_camera;
+                xQueueSend(lvgl_manage_task_queue, &cm, portMAX_DELAY);
+            }
+            else {
+                if (before_sdcard_ok) {
+                    if (HAL_SD_Init(&hsd1) != HAL_OK) {
+                        if (sdcard_is_mounted) {
+                            f_mount(nullptr, SDPath, 1);
+                            sdcard_is_mounted = 0;
+                        }
+                        if (sdcard_link_driver) {
+                            FATFS_UnLinkDriver(SDPath);
+                            sdcard_link_driver = 0;
+                        }
+
+                        just_use_dcmi = false;
+                        dcmi_ok       = false;
+                        cm.type       = lvgl_command_type::pop_card;
+                        xQueueSend(lvgl_manage_task_queue, &cm, portMAX_DELAY);
+                        cm.type = lvgl_command_type::to_camera_failed_sd_card_ruin;
+                        xQueueSend(lvgl_manage_task_queue, &cm, portMAX_DELAY);
+                    }
+                    else {
+                        card_ok       = true;
+                        just_use_dcmi = false;
+                    }
+                }
+                else {
+                    cm.type = lvgl_command_type::to_camera_failed;
+                    xQueueSend(lvgl_manage_task_queue, &cm, portMAX_DELAY);
+                }
+            }
+            break;
+        }
+        case manage_command_type::to_file_explorer: {
+            lvgl_manage_command cm {};
+            if (dcmi_ok) {
+                (void)HAL_DCMI_DeInit(&hdcmi);
+                dcmi_ok = false;
+            }
+
+            cm.type = lvgl_command_type::to_file_explorer;
+            xQueueSend(lvgl_manage_task_queue, &cm, portMAX_DELAY);
+
+            if (before_sdcard_ok) {
+                if (HAL_SD_Init(&hsd1) != HAL_OK) {
+                    if (sdcard_is_mounted) {
+                        f_mount(nullptr, SDPath, 1);
+                        sdcard_is_mounted = 0;
+                    }
+                    if (sdcard_link_driver) {
+                        FATFS_UnLinkDriver(SDPath);
+                        sdcard_link_driver = 0;
+                    }
+
+                    just_use_dcmi = false;
+                    cm.type       = lvgl_command_type::pop_card;
+                    xQueueSend(lvgl_manage_task_queue, &cm, portMAX_DELAY);
+                }
+                else {
+                    card_ok       = true;
+                    just_use_dcmi = false;
+                }
+            }
         }
         }
     }
@@ -667,15 +745,6 @@ static void lvgl_manage_task(void *arg) {
             break;
         }
         case lvgl_command_type::ins_card: {
-            if (!sdcard_link_driver && FATFS_LinkDriver(&SD_Driver, SDPath) != 0) {
-                return;
-            }
-            sdcard_link_driver = 1;
-            if (!sdcard_is_mounted && f_mount(&SDFatFS, SDPath, 1) != FR_OK) {
-                return;
-            }
-            sdcard_is_mounted = 1;
-
             lv_lock();
             {
                 file_explorer_media_valid(file_explorer_obj);
@@ -685,16 +754,6 @@ static void lvgl_manage_task(void *arg) {
             break;
         }
         case lvgl_command_type::pop_card: {
-            if (sdcard_is_mounted && f_mount(nullptr, SDPath, 1) != FR_OK) {
-                return;
-            }
-            sdcard_is_mounted = 0;
-            (void)HAL_SD_DeInit(&hsd1);
-            if (sdcard_link_driver && FATFS_UnLinkDriver(SDPath) != 0) {
-                return;
-            }
-            sdcard_link_driver = 0;
-
             lv_lock();
             {
                 file_explorer_media_invalid(file_explorer_obj);
@@ -702,6 +761,35 @@ static void lvgl_manage_task(void *arg) {
             }
             lv_unlock();
             break;
+        }
+        case lvgl_command_type::to_camera: {
+            lv_lock();
+            {
+                lv_screen_load(camera_screen);
+            }
+            lv_unlock();
+            break;
+        }
+        case lvgl_command_type::to_camera_failed: {
+            lv_lock();
+            {
+                lv_image_set_src(image, LV_SYMBOL_CLOSE "\nOpen Camera Failed!");
+            }
+            lv_unlock();
+        }
+        case lvgl_command_type::to_camera_failed_sd_card_ruin: {
+            lv_lock();
+            {
+                lv_image_set_src(image, LV_SYMBOL_CLOSE "\nOpen Camera Failed!\nThen your sd card is destoried!");
+            }
+            lv_unlock();
+        }
+        case lvgl_command_type::to_file_explorer: {
+            lv_lock();
+            {
+                lv_screen_load(file_explorer_main_screen);
+            }
+            lv_unlock();
         }
         }
     }
@@ -910,6 +998,9 @@ int _getentropy(void *buffer, size_t length) {
 }
 
 static void change_to_camera(lv_event_t *event) {
+    if (send_command_to_main_manage(nullptr, 0, manage_command_type::to_camera, 0) != pdPASS) {
+        jprintf(0, "The Queue is Full!\n");
+    }
 }
 
 ////////////////////////////
@@ -980,7 +1071,7 @@ static void picture_scaling(const void *src, void *dst,
     }
 }
 
-static BaseType_t send_command_to_main_manage(std::string *path, size_t ref_cnt, manage_command_type type, BaseType_t time) {
+BaseType_t send_command_to_main_manage(std::string *path, size_t ref_cnt, manage_command_type type, BaseType_t time) {
     TimeOut_t           new_time_flag {};
     main_manage_command send_command = {};
 

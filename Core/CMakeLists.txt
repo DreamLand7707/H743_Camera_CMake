@@ -40,8 +40,10 @@ target_sources(${Core_Name} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/file_explorer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/bsp_fatfs_callback.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/path_func.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/photo_folder_setting.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/memory_pool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/std_new_delete.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/camera_task_routine.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/ov5640/ov5640_reg.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/ov5640/ov5640.c
 
