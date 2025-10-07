@@ -697,7 +697,6 @@ static void lvgl_manage_task(void *arg) {
 
             lv_lock();
             {
-                lv_image_set_src(image, nullptr);
                 file_explorer_media_invalid(file_explorer_obj);
                 pop_card_call();
             }
