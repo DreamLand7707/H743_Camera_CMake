@@ -1,6 +1,7 @@
 #pragma once
 
 #include <timer_delay.hpp>
+#include <timer2_delay.hpp>
 #include "main.h"
 #include "dma2d.h"
 #include "jpeg.h"
@@ -29,6 +30,10 @@
 #include <memory>
 #include <string>
 #include "cpp_public.hpp"
+#include "ov5640.h"
+#include "ov5640_reg.h"
+#include "soft_sccb.hpp"
+#include "pcf8574.hpp"
 
 enum class manage_command_type : uint32_t {
     reload,

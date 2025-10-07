@@ -31,11 +31,14 @@ target_sources(${Core_Name} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/lvgl/examples/porting/lv_port_indev.c
 
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/soft_iic/soft_iic.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/soft_iic/soft_sccb.cpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/initial_task_routine.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/lcd_touch.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/my_heap_manage.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/timer_delay.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/timer2_delay.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/pcf8574.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/touch_sence_routine.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/file_explorer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/bsp_fatfs_callback.cpp
