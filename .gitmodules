@@ -1,0 +1,3 @@
+[submodule "Core/Core/user-code/ov5640"]
+	path = Core/Core/user-code/ov5640
+	url = git@github.com:DreamLand7707/stm32-ov5640.git
