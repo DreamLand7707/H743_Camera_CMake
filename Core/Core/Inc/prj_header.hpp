@@ -34,6 +34,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <cassert>
+#include <memory>
 #include "cpp_public.hpp"
 
 #endif /* INC_PRJ_HEADER_HPP_ */

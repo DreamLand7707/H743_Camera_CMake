@@ -35,6 +35,12 @@ void MX_FATFS_Init(void)
 
   /* USER CODE BEGIN Init */
   /* additional user code for init */
+  if (retSD == 0) {
+    sdcard_link_driver = 1;
+  }
+  else {
+    sdcard_link_driver = 0;
+  }
   /* USER CODE END Init */
 }
 

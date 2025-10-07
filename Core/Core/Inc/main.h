@@ -88,7 +88,6 @@ extern "C"
 
     extern touch_point       record_touch[10];
     extern lv_display_t     *rgb_screen_disp;
-    extern uint32_t          sdcard_initialized;
     extern uint32_t          sdcard_link_driver;
     extern uint32_t          sdcard_is_mounted;
 
