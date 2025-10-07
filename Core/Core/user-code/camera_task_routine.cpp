@@ -4,7 +4,7 @@
 #define ALINTEK_BOARD
 
 static void    lvgl_create_camera_interface();
-static void    dcmi_init();
+static void    dcmi_data_structure_init();
 
 static void    change_to_file_explorer_callback(lv_event_t *e);
 static void    take_photo_callback(lv_event_t *e);
@@ -34,7 +34,7 @@ namespace
 void camera_task_routine(void const *argument) {
     xSemaphoreTake(sema_camera_routine_start, portMAX_DELAY);
 
-    dcmi_init();
+    dcmi_data_structure_init();
     lvgl_create_camera_interface();
 
     xSemaphoreGive(sema_camera_routine_init_done);
@@ -59,7 +59,7 @@ namespace
 
 } // namespace
 
-static void dcmi_init() {
+static void dcmi_data_structure_init() {
     hdcmi.Instance              = DCMI;
     hdcmi.Init.SynchroMode      = DCMI_SYNCHRO_HARDWARE;
     hdcmi.Init.PCKPolarity      = DCMI_PCKPOLARITY_FALLING;
