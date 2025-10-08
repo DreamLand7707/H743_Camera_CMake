@@ -32,6 +32,7 @@ uint8_t PCF8574_Init(void) {
     pcf8574_handle.port_setting.SCL_pin    = IIC_SCL_Pin;
     pcf8574_handle.port_setting.SDA_port   = IIC_SDA_GPIO_Port;
     pcf8574_handle.port_setting.SDA_pin    = IIC_SDA_Pin;
+    pcf8574_handle.mutex                   = xSemaphoreCreateMutex();
 
     pcf8574_handle.parameters.frequency    = 200000;
     pcf8574_handle.parameters.delay_handle = delay_handle;

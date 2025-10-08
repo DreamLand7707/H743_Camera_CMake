@@ -325,10 +325,10 @@ static void lvgl_create_main_interface() {
     lv_obj_set_style_size(image_eventor, LV_PCT(100), LV_PCT(100), LV_STATE_DEFAULT);
     lv_obj_set_style_opa(image_eventor, 0, LV_STATE_DEFAULT);
 
-    lv_obj_add_event_cb(shot_btn, change_to_camera, LV_EVENT_PRESSED, nullptr);
     file_explorer_set_callback(file_explorer_obj, click_one_file);
-    lv_obj_add_event_cb(ins_sd, insbtn_call, LV_EVENT_PRESSED, nullptr);
-    lv_obj_add_event_cb(pop_sd, popbtn_call, LV_EVENT_PRESSED, nullptr);
+    lv_obj_add_event_cb(ins_sd, insbtn_call, LV_EVENT_CLICKED, nullptr);
+    lv_obj_add_event_cb(pop_sd, popbtn_call, LV_EVENT_CLICKED, nullptr);
+    lv_obj_add_event_cb(shot_btn, change_to_camera, LV_EVENT_CLICKED, nullptr);
     lv_obj_add_event_cb(image_indicator, click_picture_indicator_call, LV_EVENT_CLICKED, nullptr);
     lv_obj_add_event_cb(image_eventor, click_picture_call, LV_EVENT_CLICKED, nullptr);
 }
