@@ -22,6 +22,7 @@
 #include "dma2d.h"
 #include "fatfs.h"
 #include "jpeg.h"
+#include "libjpeg.h"
 #include "ltdc.h"
 #include "mdma.h"
 #include "memorymap.h"
@@ -130,6 +131,7 @@ int main(void) {
     MX_TIM3_Init();
     MX_TIM12_Init();
     MX_RTC_Init();
+    MX_LIBJPEG_Init();
     /* USER CODE BEGIN 2 */
     sdcard_link_driver = 1;
     SEGGER_RTT_Init();
@@ -315,7 +317,7 @@ void MPU_Config(void) {
     MPU_InitStruct.IsBufferable     = MPU_ACCESS_BUFFERABLE;
     MPU_InitStruct.IsShareable      = MPU_ACCESS_NOT_SHAREABLE;
     HAL_MPU_ConfigRegion(&MPU_InitStruct);
-    
+
     MPU_InitStruct.Number           = MPU_REGION_NUMBER3;
     MPU_InitStruct.BaseAddress      = 0x20000000;
     MPU_InitStruct.Size             = MPU_REGION_SIZE_128KB;
