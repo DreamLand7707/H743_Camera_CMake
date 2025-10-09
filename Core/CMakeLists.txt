@@ -20,6 +20,7 @@ target_link_directories(${Core_Name} PRIVATE
 target_sources(${Core_Name} PRIVATE
 
     # Add user sources here
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/dma.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/Camera_1_bit.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/sdram_drl.c
 

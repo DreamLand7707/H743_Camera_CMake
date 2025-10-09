@@ -30,6 +30,7 @@
 #include "sdmmc.h"
 #include "tim.h"
 #include "usart.h"
+#include "dma.h"
 #include "gpio.h"
 #include "fmc.h"
 
@@ -123,6 +124,7 @@ int main(void) {
     MX_TIM2_Init();
     MX_FMC_Init();
     MX_LTDC_Init();
+    MX_DMA_Init();
     MX_DMA2D_Init();
     MX_JPEG_Init();
     MX_SDMMC1_SD_Init();

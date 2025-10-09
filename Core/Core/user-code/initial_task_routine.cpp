@@ -41,25 +41,25 @@ LV_FONT_DECLARE(Camera_1_bit)
 #define sd_enable        ((sdcard_is_mounted) & (sdcard_link_driver))
 
 // static function decl
-static void       lvgl_initialize_port1();
-static void       lvgl_initialize_port2();
-static void       sdcard_initialize();
-static int        routine(int argc, char **argv);
-static void       initial_before_routine();
-extern "C" int    _getentropy(void *buffer, size_t length);
+static void    lvgl_initialize_port1();
+static void    lvgl_initialize_port2();
+static void    sdcard_initialize();
+static int     routine(int argc, char **argv);
+static void    initial_before_routine();
+extern "C" int _getentropy(void *buffer, size_t length);
 
-static void       insbtn_call(lv_event_t *event);
-static void       popbtn_call(lv_event_t *event);
-static void       ins_card_call();
-static void       pop_card_call();
-static void       click_picture_indicator_call(lv_event_t *e);
-static void       click_picture_call(lv_event_t *e);
-static void       lvgl_create_main_interface();
-static void       lvgl_create_full_screen_pict_interface();
-static void       change_to_camera(lv_event_t *event);
-static void       click_one_file(lv_event_t *e, const char *path, bool change_dir);
-static void       main_manage_init();
-static void       jpeg_rgb_exchange_init();
+static void    insbtn_call(lv_event_t *event);
+static void    popbtn_call(lv_event_t *event);
+static void    ins_card_call();
+static void    pop_card_call();
+static void    click_picture_indicator_call(lv_event_t *e);
+static void    click_picture_call(lv_event_t *e);
+static void    lvgl_create_main_interface();
+static void    lvgl_create_full_screen_pict_interface();
+static void    change_to_camera(lv_event_t *event);
+static void    click_one_file(lv_event_t *e, const char *path, bool change_dir);
+static void    main_manage_init();
+static void    jpeg_rgb_exchange_init();
 
 
 /*
@@ -81,8 +81,8 @@ static void initial_before_routine() {
 
     sema_camera_routine_init_done = xSemaphoreCreateBinary();
 
-    SDRAM_GRAM1 = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
-    SDRAM_GRAM2 = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
+    SDRAM_GRAM1                   = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
+    SDRAM_GRAM2                   = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
 
     HAL_LTDC_SetAddress(&hltdc, (uint32_t)SDRAM_GRAM1, LTDC_LAYER_1);
 
@@ -391,7 +391,6 @@ namespace
 static void jpeg_decode_task(void *args);
 static void main_manage_task(void *args);
 static void lvgl_manage_task(void *arg);
-static void picture_scaling(const void *src, void *dst, uint32_t src_w, uint32_t src_h, uint32_t &dst_w, uint32_t &dst_h);
 
 static void main_manage_init() {
     jpeg_decode_task_interrupt_mutex  = xSemaphoreCreateMutex();
@@ -615,7 +614,7 @@ static void main_manage_task(void *args) {
                 just_use_dcmi = true;
             }
 
-            if (HAL_DCMI_Init(&hdcmi) == HAL_OK) {
+            if (HAL_DCMI_Init(&RGB_hdcmi) == HAL_OK) {
                 dcmi_ok = true;
                 lvgl_manage_command cm {};
                 cm.type = lvgl_command_type::to_camera;
@@ -655,7 +654,15 @@ static void main_manage_task(void *args) {
         case manage_command_type::to_file_explorer: {
             lvgl_manage_command cm {};
             if (dcmi_ok) {
-                (void)HAL_DCMI_DeInit(&hdcmi);
+                if (RGB_hdcmi.State == HAL_DCMI_STATE_READY) {
+                    (void)HAL_DCMI_DeInit(&RGB_hdcmi);
+                }
+                else if (YCbCr_hdcmi.State == HAL_DCMI_STATE_READY) {
+                    (void)HAL_DCMI_DeInit(&YCbCr_hdcmi);
+                }
+                else if (JPEG_hdcmi.State == HAL_DCMI_STATE_READY) {
+                    (void)HAL_DCMI_DeInit(&JPEG_hdcmi);
+                }
                 dcmi_ok = false;
             }
 
@@ -766,6 +773,7 @@ static void lvgl_manage_task(void *arg) {
             lv_lock();
             {
                 lv_screen_load(camera_screen);
+                xSemaphoreGive(camera_interface_changed);
             }
             lv_unlock();
             break;
@@ -1045,7 +1053,7 @@ void HAL_LTDC_ReloadEventCallback(LTDC_HandleTypeDef *hltdc) {
 // Private Functions
 ////////////////////////////
 
-static void picture_scaling(const void *src, void *dst,
+void picture_scaling(const void *src, void *dst,
                             uint32_t src_w, uint32_t src_h, uint32_t &dst_w, uint32_t &dst_h) {
     float    ratio_w   = (float)src_w / (float)dst_w;
     float    ratio_h   = (float)src_h / (float)dst_h;

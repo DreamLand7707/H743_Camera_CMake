@@ -76,4 +76,9 @@ struct lvgl_manage_command {
     lvgl_command_type type;
 };
 
-BaseType_t send_command_to_main_manage(std::string *path, size_t ref_cnt, manage_command_type type, BaseType_t time);
+BaseType_t                send_command_to_main_manage(std::string *path, size_t ref_cnt, manage_command_type type, BaseType_t time);
+void                      picture_scaling(const void *src, void *dst, uint32_t src_w, uint32_t src_h, uint32_t &dst_w, uint32_t &dst_h);
+extern DCMI_HandleTypeDef RGB_hdcmi;
+extern DCMI_HandleTypeDef YCbCr_hdcmi;
+extern DCMI_HandleTypeDef JPEG_hdcmi;
+extern SemaphoreHandle_t  camera_interface_changed;
