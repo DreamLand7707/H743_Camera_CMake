@@ -121,6 +121,7 @@ extern "C"
     extern SemaphoreHandle_t sema_camera_routine_start;
     extern SemaphoreHandle_t sema_swap_buffer_handle;
     extern SemaphoreHandle_t sema_camera_routine_init_done;
+    extern SemaphoreHandle_t sema_camera_ov5640_unable_done;
     extern uint8_t           mkfs_buffer[4096] __attribute__((section(".fatfs_buffer")));
 
     extern touch_point       record_touch[10];

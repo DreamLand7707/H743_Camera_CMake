@@ -16,6 +16,7 @@ SemaphoreHandle_t sema_flash_screen_routine_start;
 SemaphoreHandle_t sema_camera_routine_start;
 SemaphoreHandle_t sema_swap_buffer_handle;
 
+SemaphoreHandle_t sema_camera_ov5640_unable_done;
 SemaphoreHandle_t sema_camera_routine_init_done;
 
 // traceString       trace_analyzer_channel1;
@@ -81,10 +82,11 @@ void initial_task_routine(void const *argument) {
 
 static void initial_before_routine() {
 
-    sema_camera_routine_init_done = xSemaphoreCreateBinary();
+    sema_camera_routine_init_done  = xSemaphoreCreateBinary();
+    sema_camera_ov5640_unable_done = xSemaphoreCreateBinary();
 
-    SDRAM_GRAM1                   = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
-    SDRAM_GRAM2                   = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
+    SDRAM_GRAM1                    = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
+    SDRAM_GRAM2                    = sdram_Malloc(sizeof(SDRAM_SCREEN_BUFFER));
 
     HAL_LTDC_SetAddress(&hltdc, (uint32_t)SDRAM_GRAM1, LTDC_LAYER_1);
 
@@ -99,11 +101,14 @@ static void initial_before_routine() {
 
 static int routine(int argc, char **argv) {
     lvgl_initialize_port1();
+
+    xSemaphoreGive(sema_camera_routine_start);
+    xSemaphoreTake(sema_camera_ov5640_unable_done, portMAX_DELAY);
+
     sdcard_initialize();
     lvgl_initialize_port2();
 
     xSemaphoreGive(sema_flash_screen_routine_start);
-    xSemaphoreGive(sema_camera_routine_start);
 
     vTaskPrioritySet(Initial_TaskHandle, 3);
     // trace_analyzer_channel1 = xTraceRegisterString("User_Channel_1");
@@ -607,14 +612,25 @@ static void main_manage_task(void *args) {
             xSemaphoreGive(jpeg_decode_task_interrupt_mutex);
 
             before_sdcard_ok = card_ok;
-            if (card_ok) {
+            lvgl_manage_command cm {};
+
+            cm.type = lvgl_command_type::pop_card;
+            if (xQueueSend(lvgl_manage_task_queue, &cm, pdMS_TO_TICKS(20)) == pdPASS) {
+                if (sdcard_is_mounted && f_mount(nullptr, SDPath, 1) != FR_OK) {
+                    continue;
+                }
+                card_ok           = false;
+                sdcard_is_mounted = 0;
                 (void)HAL_SD_DeInit(&hsd1);
-                card_ok = false;
+                if (sdcard_link_driver && FATFS_UnLinkDriver(SDPath) != 0) {
+                    continue;
+                }
+                sdcard_link_driver = 0;
+
+                cm.type            = lvgl_command_type::to_camera;
+                xQueueSend(lvgl_manage_task_queue, &cm, portMAX_DELAY);
             }
 
-            lvgl_manage_command cm {};
-            cm.type = lvgl_command_type::to_camera;
-            xQueueSend(lvgl_manage_task_queue, &cm, portMAX_DELAY);
             break;
         }
         case manage_command_type::to_file_explorer: {
@@ -622,23 +638,22 @@ static void main_manage_task(void *args) {
             cm.type = lvgl_command_type::to_file_explorer;
             xQueueSend(lvgl_manage_task_queue, &cm, portMAX_DELAY);
 
-            if (before_sdcard_ok) {
-                if (HAL_SD_Init(&hsd1) != HAL_OK) {
-                    if (sdcard_is_mounted) {
-                        f_mount(nullptr, SDPath, 1);
-                        sdcard_is_mounted = 0;
-                    }
-                    if (sdcard_link_driver) {
-                        FATFS_UnLinkDriver(SDPath);
-                        sdcard_link_driver = 0;
-                    }
+            if (before_sdcard_ok && !card_ok) {
+                if (!sdcard_link_driver && FATFS_LinkDriver(&SD_Driver, SDPath) != 0) {
+                    continue;
+                }
+                sdcard_link_driver = 1;
+                if (!sdcard_is_mounted && f_mount(&SDFatFS, SDPath, 1) != FR_OK) {
+                    continue;
+                }
+                sdcard_is_mounted = 1;
 
-                    cm.type       = lvgl_command_type::pop_card;
-                    xQueueSend(lvgl_manage_task_queue, &cm, portMAX_DELAY);
-                }
-                else {
-                    card_ok       = true;
-                }
+                old_message       = new_message;
+                lvgl_manage_command cm {};
+                cm.type = lvgl_command_type::ins_card;
+
+                if (xQueueSend(lvgl_manage_task_queue, &cm, pdMS_TO_TICKS(20)) == pdPASS)
+                    card_ok = true;
             }
         }
         }

@@ -16,11 +16,13 @@ static int32_t  ov5640_read_series_reg(uint16_t address, uint16_t reg, uint8_t *
 static int32_t  ov5640_write_series_reg(uint16_t address, uint16_t reg, uint8_t *data, uint16_t length);
 static int32_t  ov5640_init();
 static int32_t  ov5640_deinit();
+static void     OV5640_PWDN_Set(uint8_t sta);
 
 static void     dcmi_rgb_mspinit(DCMI_HandleTypeDef *dcmiHandle);
 static void     dcmi_ycbcr_mspinit(DCMI_HandleTypeDef *dcmiHandle);
 static void     dcmi_jpeg_mspinit(DCMI_HandleTypeDef *dcmiHandle);
 static void     dcmi_msp_deinit(DCMI_HandleTypeDef *dcmiHandle);
+static void     dcmi_io_deinit_ov5640();
 
 extern "C" void DMA1_Stream0_IRQHandler(void);
 extern "C" void DCMI_IRQHandler(void);
@@ -96,6 +98,10 @@ void camera_task_routine(void const *argument) {
     xSemaphoreTake(sema_camera_routine_start, portMAX_DELAY);
 
     dcmi_data_structure_init();
+    dcmi_io_deinit_ov5640();
+
+    xSemaphoreGive(sema_camera_ov5640_unable_done);
+
     lvgl_create_camera_interface();
     dcmi_resource_init();
 
@@ -158,6 +164,7 @@ void camera_task_routine(void const *argument) {
         }
         }
 
+        // DCMI Init -> IO Init -> OV5640 Init -> OV5640 Start -> DCMI DMA
         lv_lock();
         {
             lv_obj_remove_flag(indicator_label, LV_OBJ_FLAG_HIDDEN);
@@ -179,6 +186,8 @@ void camera_task_routine(void const *argument) {
             lv_label_set_text_static(indicator_label, "Initialize Camera...");
         }
         lv_unlock();
+
+        (void)OV5640_RegisterBusIO(&ov5640, &ov5640_io);
         if (OV5640_Init(&ov5640, resolution, format) != OV5640_OK) {
             lv_lock();
             {
@@ -254,10 +263,15 @@ void camera_task_routine(void const *argument) {
                     lv_image_set_src(camera_capture_image, nullptr);
                 }
                 lv_unlock();
-                
-                OV5640_Stop(&ov5640);
+                // Init:   DCMI Init   -> IO Init   -> OV5640 Init   -> OV5640 Start -> DCMI DMA
+                // DeInit: DCMI DeInit <- IO DeInit <- OV5640 Deinit <- OV5640 Stop  <- DCMI DMA Stop
                 HAL_DCMI_Stop(target_dcmi);
+                OV5640_Stop(&ov5640);
+                OV5640_DeInit(&ov5640);
+                dcmi_io_deinit_ov5640();
                 HAL_DCMI_DeInit(target_dcmi);
+
+                vTaskDelay(pdMS_TO_TICKS(20));
 
                 send_command_to_main_manage(nullptr, 0, manage_command_type::to_file_explorer, portMAX_DELAY);
                 break;
@@ -341,10 +355,20 @@ static void dcmi_data_structure_init() {
     ov5640_io.ReadReg  = ov5640_read_series_reg;
     ov5640_io.WriteReg = ov5640_write_series_reg;
 
-    OV5640_RegisterBusIO(&ov5640, &ov5640_io);
-
     current_resolution = camera_resolution::reso_vga;
     current_format     = camera_format::format_RGB;
+}
+
+static void dcmi_io_deinit_ov5640() {
+#ifdef ALINTEK_BOARD
+    static bool PCF8574_init = false;
+    if (!PCF8574_init) {
+        PCF8574_Init();
+        PCF8574_init = true;
+    }
+#endif
+    OV5640_PWDN_Set(1);
+    OV5640_RST(0);
 }
 
 static void lvgl_create_camera_interface() {
@@ -466,9 +490,7 @@ static void OV5640_PWDN_Set(uint8_t sta) {
 static int32_t ov5640_init() {
     uint8_t  reg1, reg2;
     uint16_t reg;
-#ifdef ALINTEK_BOARD
-    PCF8574_Init();
-#endif
+
     OV5640_RST(0);
     timer_delay_ms(20);
     OV5640_PWDN_Set(0);

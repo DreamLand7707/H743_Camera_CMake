@@ -55,8 +55,6 @@ enum class lvgl_command_type : uint32_t {
     ins_card,
     pop_card,
     to_camera,
-    to_camera_failed,
-    to_camera_failed_sd_card_ruin,
     to_file_explorer
 };
 
