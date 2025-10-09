@@ -1,3 +1,4 @@
+#define FILE_DEBUG 1
 
 #include "prj_header.hpp"
 
@@ -160,10 +161,24 @@ void camera_task_routine(void const *argument) {
         lv_lock();
         {
             lv_obj_remove_flag(indicator_label, LV_OBJ_FLAG_HIDDEN);
-            lv_label_set_text_static(indicator_label, "Initialize camera...");
+            lv_label_set_text_static(indicator_label, "Initialize DCMI Interface...");
         }
         lv_unlock();
+        if (HAL_DCMI_Init(target_dcmi) != HAL_OK) {
+            lv_lock();
+            {
+                lv_label_set_text_static(indicator_label, "Initialize DCMI Interface Failed!");
+            }
+            lv_unlock();
+            continue;
+        }
 
+        lv_lock();
+        {
+            lv_obj_remove_flag(indicator_label, LV_OBJ_FLAG_HIDDEN);
+            lv_label_set_text_static(indicator_label, "Initialize Camera...");
+        }
+        lv_unlock();
         if (OV5640_Init(&ov5640, resolution, format) != OV5640_OK) {
             lv_lock();
             {
@@ -176,10 +191,9 @@ void camera_task_routine(void const *argument) {
         lv_lock();
         {
             lv_obj_remove_flag(indicator_label, LV_OBJ_FLAG_HIDDEN);
-            lv_label_set_text_static(indicator_label, "Pull Screen...");
+            lv_label_set_text_static(indicator_label, "Start Camera...");
         }
         lv_unlock();
-
         OV5640_Start(&ov5640);
 
         lv_lock();
@@ -199,10 +213,10 @@ void camera_task_routine(void const *argument) {
                 xSemaphoreTake(camera_new_scene, 0);
 
                 if (HAL_DCMI_Stop(target_dcmi) != HAL_OK) {
-                    jprintf(0, "Can't Stop DCMI!\n");
+                    debug("Can't Stop DCMI!\n");
                 }
                 else {
-                    jprintf(0, "Stop DCMI!\n");
+                    debug("Stop DCMI!\n");
                 }
 
                 full_pict_show_size[0] = MY_DISP_HOR_RES;
@@ -225,14 +239,27 @@ void camera_task_routine(void const *argument) {
 
                 __HAL_DCMI_ENABLE_IT(target_dcmi, DCMI_IT_FRAME);
                 if (HAL_DCMI_Start_DMA(target_dcmi, DCMI_MODE_SNAPSHOT, (uint32_t)jpeg_before_buffer_rgb, data_length / 4) != HAL_OK) {
-                    jprintf(0, "Can't Start DCMI!\n");
+                    debug("Can't Start DCMI!\n");
                 }
                 else {
-                    jprintf(0, "Start DCMI!\n");
+                    debug("Start DCMI!\n");
                 }
             }
             else if (the_queue == camera_exit) {
                 xSemaphoreTake(camera_exit, 0);
+                lv_lock();
+                {
+                    lv_label_set_text_static(indicator_label, "");
+                    lv_obj_add_flag(indicator_label, LV_OBJ_FLAG_HIDDEN);
+                    lv_image_set_src(camera_capture_image, nullptr);
+                }
+                lv_unlock();
+                
+                OV5640_Stop(&ov5640);
+                HAL_DCMI_Stop(target_dcmi);
+                HAL_DCMI_DeInit(target_dcmi);
+
+                send_command_to_main_manage(nullptr, 0, manage_command_type::to_file_explorer, portMAX_DELAY);
                 break;
             }
         }
@@ -404,14 +431,7 @@ static void dcmi_resource_init() {
 }
 
 static void change_to_file_explorer_callback(lv_event_t *e) {
-    if (send_command_to_main_manage(nullptr, 0, manage_command_type::to_file_explorer, 0) == pdPASS) {
-        lv_label_set_text_static(indicator_label, "");
-        lv_obj_add_flag(indicator_label, LV_OBJ_FLAG_HIDDEN);
-        lv_image_set_src(camera_capture_image, nullptr);
-    }
-    else {
-        jprintf(0, "Can't Change to file explorer");
-    }
+    xSemaphoreGive(camera_exit);
 }
 
 static void    take_photo_callback(lv_event_t *e) {}
@@ -630,9 +650,9 @@ void HAL_DCMI_FrameEventCallback(DCMI_HandleTypeDef *hdcmi) {
 }
 
 void HAL_DCMI_ErrorCallback(DCMI_HandleTypeDef *hdcmi) {
-    // jprintf(0, "[HAL_DCMI_ErrorCallback] ", hdcmi->ErrorCode);
-    // jprintf(0, "DCMI ErrorCode: %u;", hdcmi->ErrorCode);
-    // jprintf(0, "DMA ErrorCode: %u\n", hdcmi->DMA_Handle->ErrorCode);
+    // debug("[HAL_DCMI_ErrorCallback] ", hdcmi->ErrorCode);
+    // debug("DCMI ErrorCode: %u;", hdcmi->ErrorCode);
+    // debug("DMA ErrorCode: %u\n", hdcmi->DMA_Handle->ErrorCode);
 }
 
 void DMA1_Stream0_IRQHandler(void) {

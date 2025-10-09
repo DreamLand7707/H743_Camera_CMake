@@ -43,7 +43,43 @@ extern "C"
     /* Exported types ------------------------------------------------------------*/
     /* USER CODE BEGIN ET */
 
-#define jprintf SEGGER_RTT_printf
+
+#define GLOABL_DEBUG_UNUSED  0 // Disable all debug symbol
+#define GLOABL_DEBUG_DEFAULT 0 // If not disable all debug symbol, what we choose?
+
+#if GLOABL_DEBUG_UNUSED == 0
+    #if FILE_DEBUG == 1
+        #define jprintf(...)                    \
+            do {                                \
+                SEGGER_RTT_printf(__VA_ARGS__); \
+            }                                   \
+            while (0)
+        #define debug(...)                         \
+            do {                                   \
+                SEGGER_RTT_printf(0, __VA_ARGS__); \
+            }                                      \
+            while (0)
+    #else
+        #if GLOABL_DEBUG_DEFAULT == 0
+            #define jprintf(...)
+            #define debug(...)
+        #else
+            #define jprintf(...)                    \
+                do {                                \
+                    SEGGER_RTT_printf(__VA_ARGS__); \
+                }                                   \
+                while (0)
+            #define debug(...)                         \
+                do {                                   \
+                    SEGGER_RTT_printf(0, __VA_ARGS__); \
+                }                                      \
+                while (0)
+        #endif
+    #endif
+#else
+    #define jprintf(...)
+    #define debug(...)
+#endif
 
     typedef struct touch_point_ {
         uint32_t x;
@@ -117,8 +153,7 @@ extern "C"
     /* USER CODE END EM */
 
     /* Exported functions prototypes ---------------------------------------------*/
-    void
-    Error_Handler(void);
+    void Error_Handler(void);
 
     /* USER CODE BEGIN EFP */
     int  __io_putchar(int ch);

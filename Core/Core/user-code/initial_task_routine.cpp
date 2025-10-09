@@ -1,3 +1,5 @@
+#define FILE_DEBUG 1
+
 #include "prj_header.hpp"
 #include "jpeg_utils.h"
 #include "file_explorer.hpp"
@@ -186,28 +188,28 @@ void print_sdcard_info(void) {
     switch (SDCardInfo.CardType) {
     case CARD_SDSC: {
         if (SDCardInfo.CardVersion == CARD_V1_X)
-            jprintf(0, "Card Type:SDSC V1\r\n");
+            debug("Card Type:SDSC V1\r\n");
         else if (SDCardInfo.CardVersion == CARD_V2_X)
-            jprintf(0, "Card Type:SDSC V2\r\n");
+            debug("Card Type:SDSC V2\r\n");
         break;
     }
     case CARD_SDHC_SDXC: {
-        jprintf(0, "Card Type:SDHC\r\n");
+        debug("Card Type:SDHC\r\n");
         break;
     }
     default:
         break;
     }
 
-    jprintf(0, "Card ManufacturerID: %d \r\n", SDCard_CID.ManufacturerID);            // 制造商ID
-    jprintf(0, "CardVersion:         %lu \r\n", (uint32_t)(SDCardInfo.CardVersion));  // 卡版本号
-    jprintf(0, "Class:               %lu \r\n", (uint32_t)(SDCardInfo.Class));        //
-    jprintf(0, "Card RCA(RelCardAdd):%lu \r\n", SDCardInfo.RelCardAdd);               // 卡相对地址
-    jprintf(0, "Card BlockNbr:       %lu \r\n", SDCardInfo.BlockNbr);                 // 块数量
-    jprintf(0, "Card BlockSize:      %lu \r\n", SDCardInfo.BlockSize);                // 块大小
-    jprintf(0, "LogBlockNbr:         %lu \r\n", (uint32_t)(SDCardInfo.LogBlockNbr));  // 逻辑块数量
-    jprintf(0, "LogBlockSize:        %lu \r\n", (uint32_t)(SDCardInfo.LogBlockSize)); // 逻辑块大小
-    jprintf(0, "Card Capacity:       %lu MB\r\n", (uint32_t)(CardCap >> 20u));        // 卡容量
+    debug("Card ManufacturerID: %d \r\n", SDCard_CID.ManufacturerID);            // 制造商ID
+    debug("CardVersion:         %lu \r\n", (uint32_t)(SDCardInfo.CardVersion));  // 卡版本号
+    debug("Class:               %lu \r\n", (uint32_t)(SDCardInfo.Class));        //
+    debug("Card RCA(RelCardAdd):%lu \r\n", SDCardInfo.RelCardAdd);               // 卡相对地址
+    debug("Card BlockNbr:       %lu \r\n", SDCardInfo.BlockNbr);                 // 块数量
+    debug("Card BlockSize:      %lu \r\n", SDCardInfo.BlockSize);                // 块大小
+    debug("LogBlockNbr:         %lu \r\n", (uint32_t)(SDCardInfo.LogBlockNbr));  // 逻辑块数量
+    debug("LogBlockSize:        %lu \r\n", (uint32_t)(SDCardInfo.LogBlockSize)); // 逻辑块大小
+    debug("Card Capacity:       %lu MB\r\n", (uint32_t)(CardCap >> 20u));        // 卡容量
 }
 
 namespace
@@ -433,8 +435,6 @@ static void main_manage_task(void *args) {
     bool can_click_pict   = false;
     bool card_ok          = false;
     bool before_sdcard_ok = false;
-    bool dcmi_ok          = false;
-    bool just_use_dcmi    = false;
     // lambda expression
     static auto recycle_resource = [&]()
     {
@@ -594,7 +594,6 @@ static void main_manage_task(void *args) {
             break;
         }
         case manage_command_type::to_camera: {
-            lvgl_manage_command cm {};
             xSemaphoreTake(jpeg_decode_task_interrupt_mutex, portMAX_DELAY);
             {
                 if (jpeg_decode_task_handle) {
@@ -610,62 +609,16 @@ static void main_manage_task(void *args) {
             before_sdcard_ok = card_ok;
             if (card_ok) {
                 (void)HAL_SD_DeInit(&hsd1);
-                card_ok       = false;
-                just_use_dcmi = true;
+                card_ok = false;
             }
 
-            if (HAL_DCMI_Init(&RGB_hdcmi) == HAL_OK) {
-                dcmi_ok = true;
-                lvgl_manage_command cm {};
-                cm.type = lvgl_command_type::to_camera;
-                xQueueSend(lvgl_manage_task_queue, &cm, portMAX_DELAY);
-            }
-            else {
-                if (before_sdcard_ok) {
-                    if (HAL_SD_Init(&hsd1) != HAL_OK) {
-                        if (sdcard_is_mounted) {
-                            f_mount(nullptr, SDPath, 1);
-                            sdcard_is_mounted = 0;
-                        }
-                        if (sdcard_link_driver) {
-                            FATFS_UnLinkDriver(SDPath);
-                            sdcard_link_driver = 0;
-                        }
-
-                        just_use_dcmi = false;
-                        dcmi_ok       = false;
-                        cm.type       = lvgl_command_type::pop_card;
-                        xQueueSend(lvgl_manage_task_queue, &cm, portMAX_DELAY);
-                        cm.type = lvgl_command_type::to_camera_failed_sd_card_ruin;
-                        xQueueSend(lvgl_manage_task_queue, &cm, portMAX_DELAY);
-                    }
-                    else {
-                        card_ok       = true;
-                        just_use_dcmi = false;
-                    }
-                }
-                else {
-                    cm.type = lvgl_command_type::to_camera_failed;
-                    xQueueSend(lvgl_manage_task_queue, &cm, portMAX_DELAY);
-                }
-            }
+            lvgl_manage_command cm {};
+            cm.type = lvgl_command_type::to_camera;
+            xQueueSend(lvgl_manage_task_queue, &cm, portMAX_DELAY);
             break;
         }
         case manage_command_type::to_file_explorer: {
             lvgl_manage_command cm {};
-            if (dcmi_ok) {
-                if (RGB_hdcmi.State == HAL_DCMI_STATE_READY) {
-                    (void)HAL_DCMI_DeInit(&RGB_hdcmi);
-                }
-                else if (YCbCr_hdcmi.State == HAL_DCMI_STATE_READY) {
-                    (void)HAL_DCMI_DeInit(&YCbCr_hdcmi);
-                }
-                else if (JPEG_hdcmi.State == HAL_DCMI_STATE_READY) {
-                    (void)HAL_DCMI_DeInit(&JPEG_hdcmi);
-                }
-                dcmi_ok = false;
-            }
-
             cm.type = lvgl_command_type::to_file_explorer;
             xQueueSend(lvgl_manage_task_queue, &cm, portMAX_DELAY);
 
@@ -680,13 +633,11 @@ static void main_manage_task(void *args) {
                         sdcard_link_driver = 0;
                     }
 
-                    just_use_dcmi = false;
                     cm.type       = lvgl_command_type::pop_card;
                     xQueueSend(lvgl_manage_task_queue, &cm, portMAX_DELAY);
                 }
                 else {
                     card_ok       = true;
-                    just_use_dcmi = false;
                 }
             }
         }
@@ -777,20 +728,6 @@ static void lvgl_manage_task(void *arg) {
             }
             lv_unlock();
             break;
-        }
-        case lvgl_command_type::to_camera_failed: {
-            lv_lock();
-            {
-                lv_image_set_src(image, LV_SYMBOL_CLOSE "\nOpen Camera Failed!");
-            }
-            lv_unlock();
-        }
-        case lvgl_command_type::to_camera_failed_sd_card_ruin: {
-            lv_lock();
-            {
-                lv_image_set_src(image, LV_SYMBOL_CLOSE "\nOpen Camera Failed!\nThen your sd card is destoried!");
-            }
-            lv_unlock();
         }
         case lvgl_command_type::to_file_explorer: {
             lv_lock();
@@ -943,7 +880,7 @@ static void click_one_file(lv_event_t *e, const char *path, bool change_dir) {
                 lv_label_set_text(image_indicator_label, name);
             }
             else {
-                jprintf(0, "The Queue is Full!\n");
+                debug("The Queue is Full!\n");
             }
         }
     }
@@ -952,14 +889,14 @@ static void click_one_file(lv_event_t *e, const char *path, bool change_dir) {
             lv_label_set_text_static(image_indicator_label, "");
         }
         else {
-            jprintf(0, "The Queue is Full!\n");
+            debug("The Queue is Full!\n");
         }
     }
 }
 
 static void click_picture_indicator_call(lv_event_t *e) {
     if (send_command_to_main_manage(nullptr, 0, manage_command_type::terminate, 0) != pdPASS) {
-        jprintf(0, "The Queue is Full!\n");
+        debug("The Queue is Full!\n");
     }
     else {
         lv_label_set_text_static(image_indicator_label, "");
@@ -968,19 +905,19 @@ static void click_picture_indicator_call(lv_event_t *e) {
 
 static void click_picture_call(lv_event_t *e) {
     if (send_command_to_main_manage(nullptr, 0, manage_command_type::full_picture, 0) != pdPASS) {
-        jprintf(0, "The Queue is Full!\n");
+        debug("The Queue is Full!\n");
     }
 }
 
 static void click_full_screen_picture_call(lv_event_t *e) {
     if (send_command_to_main_manage(nullptr, 0, manage_command_type::small_picture, 0) != pdPASS) {
-        jprintf(0, "The Queue is Full!\n");
+        debug("The Queue is Full!\n");
     }
 }
 
 static void insbtn_call(lv_event_t *event) {
     if (send_command_to_main_manage(nullptr, 0, manage_command_type::ins_card, 0) != pdPASS) {
-        jprintf(0, "The Queue is Full!\n");
+        debug("The Queue is Full!\n");
     }
 }
 
@@ -989,7 +926,7 @@ static void popbtn_call(lv_event_t *event) {
         lv_label_set_text_static(image_indicator_label, "");
     }
     else {
-        jprintf(0, "The Queue is Full!\n");
+        debug("The Queue is Full!\n");
     }
 }
 
@@ -1007,7 +944,7 @@ int _getentropy(void *buffer, size_t length) {
 
 static void change_to_camera(lv_event_t *event) {
     if (send_command_to_main_manage(nullptr, 0, manage_command_type::to_camera, 0) != pdPASS) {
-        jprintf(0, "The Queue is Full!\n");
+        debug("The Queue is Full!\n");
     }
 }
 
@@ -1054,7 +991,7 @@ void HAL_LTDC_ReloadEventCallback(LTDC_HandleTypeDef *hltdc) {
 ////////////////////////////
 
 void picture_scaling(const void *src, void *dst,
-                            uint32_t src_w, uint32_t src_h, uint32_t &dst_w, uint32_t &dst_h) {
+                     uint32_t src_w, uint32_t src_h, uint32_t &dst_w, uint32_t &dst_h) {
     float    ratio_w   = (float)src_w / (float)dst_w;
     float    ratio_h   = (float)src_h / (float)dst_h;
     float    all_ratio = std::max(ratio_w, ratio_h);

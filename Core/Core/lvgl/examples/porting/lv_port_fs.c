@@ -101,17 +101,17 @@ static void fs_init(void) {
             else break;
         }
         if (file_system_res == FR_NO_FILESYSTEM) {
-            jprintf(0, "IN LVGL: The card don't have filesystem, Now Format it\n");
+            debug("IN LVGL: The card don't have filesystem, Now Format it\n");
             file_system_res = f_mkfs(SDPath, FM_FAT32, 4096, (void*) mkfs_buffer, 4096);
             if (file_system_res == FR_OK) {
-                jprintf(0, "IN LVGL: Format success\n");
+                debug("IN LVGL: Format success\n");
                 file_system_res = f_mount(&SDFatFS, SDPath, 1);
-                jprintf(0, "IN LVGL: Mount Message: %d\n", file_system_res);
+                debug("IN LVGL: Mount Message: %d\n", file_system_res);
             }
-            else jprintf(0, "IN LVGL: Format Failed! Message: %d\n", file_system_res);
+            else debug("IN LVGL: Format Failed! Message: %d\n", file_system_res);
         }
         else if (file_system_res != FR_OK) {
-            jprintf(0, "IN LVGL: Mount Failed! Message: %d\n", file_system_res);
+            debug("IN LVGL: Mount Failed! Message: %d\n", file_system_res);
         }
         sdcard_is_mounted  = 1;
     }
