@@ -50,7 +50,7 @@ namespace
     DMA_HandleTypeDef my_hdma_dcmi;
 
     enum class camera_resolution {
-        reso_5000k,
+        reso_max_resolution,
         reso_1080p,
         reso_vga, // 640*480
     };
@@ -116,7 +116,7 @@ void camera_task_routine(void const *argument) {
         uint32_t src_w, src_h;
         bool     can_catch_scene;
         switch (current_resolution) {
-        case camera_resolution::reso_5000k: {
+        case camera_resolution::reso_max_resolution: {
             resolution  = 0;
             data_length = 2592 * 1944;
             src_w       = 2592;
@@ -665,6 +665,108 @@ static void dcmi_msp_deinit(DCMI_HandleTypeDef *dcmiHandle) {
     HAL_NVIC_DisableIRQ(DCMI_IRQn);
 }
 
+
+static HAL_StatusTypeDef hdmi_start_capture(DCMI_HandleTypeDef *hdcmi, camera_format target_format,
+                                            uint8_t *dma_first_buffer, size_t dma_first_buffer_length,
+                                            uint8_t *final_data, size_t data_length) {
+    __HAL_LOCK(hdcmi);
+
+    hdcmi->State = HAL_DCMI_STATE_BUSY;
+
+    __HAL_DCMI_ENABLE(hdcmi);
+
+    hdcmi->Instance->CR &= ~(DCMI_CR_CM);
+    hdcmi->Instance->CR |= (uint32_t)(DCMI_MODE_SNAPSHOT);
+
+    switch (target_format) {
+    case camera_format::format_RGB:
+    case camera_format::format_YCbCr: {
+
+        size_t final_data_item_number     = data_length >> 4;
+        size_t dma_buffer_max_item_number = dma_first_buffer_length >> 4;
+
+        
+        break;
+    }
+    case camera_format::format_JPEG: {
+        break;
+    }
+    }
+
+    /* Set the DMA memory0 conversion complete callback */
+    // hdcmi->DMA_Handle->XferCpltCallback = DCMI_DMAXferCplt;
+
+    /* Set the DMA error callback */
+    // hdcmi->DMA_Handle->XferErrorCallback = DCMI_DMAError;
+
+    /* Set the dma abort callback */
+    // hdcmi->DMA_Handle->XferAbortCallback = NULL;
+
+    /* Reset transfer counters value */
+    // hdcmi->XferCount          = 0;
+    // hdcmi->XferTransferNumber = 0;
+    // hdcmi->XferSize           = 0;
+    // hdcmi->pBuffPtr           = 0;
+
+    // if (Length <= 0xFFFFU) {
+    //     /* Enable the DMA Stream */
+    //     if (HAL_DMA_Start_IT(hdcmi->DMA_Handle, (uint32_t)&hdcmi->Instance->DR, (uint32_t)pData, Length) != HAL_OK) {
+    //         /* Set Error Code */
+    //         hdcmi->ErrorCode = HAL_DCMI_ERROR_DMA;
+    //         /* Change DCMI state */
+    //         hdcmi->State = HAL_DCMI_STATE_READY;
+    //         /* Release Lock */
+    //         __HAL_UNLOCK(hdcmi);
+    //         /* Return function status */
+    //         return HAL_ERROR;
+    //     }
+    // }
+    // else /* DCMI_DOUBLE_BUFFER Mode */
+    // {
+    /* Set the DMA memory1 conversion complete callback */
+    // hdcmi->DMA_Handle->XferM1CpltCallback = DCMI_DMAXferCplt;
+
+    /* Initialize transfer parameters */
+    // hdcmi->XferCount = 1;
+    // hdcmi->XferSize  = Length;
+    // hdcmi->pBuffPtr  = pData;
+
+    // /* Get the number of buffer */
+    // while (hdcmi->XferSize > 0xFFFFU) {
+    //     hdcmi->XferSize  = (hdcmi->XferSize / 2U);
+    //     hdcmi->XferCount = hdcmi->XferCount * 2U;
+    // }
+
+    // /* Update DCMI counter  and transfer number*/
+    // hdcmi->XferCount          = (hdcmi->XferCount - 2U);
+    // hdcmi->XferTransferNumber = hdcmi->XferCount;
+
+    // /* Update second memory address */
+    // SecondMemAddress = (uint32_t)(pData + (4U * hdcmi->XferSize));
+
+    // /* Start DMA multi buffer transfer */
+    // if (HAL_DMAEx_MultiBufferStart_IT(hdcmi->DMA_Handle, (uint32_t)&hdcmi->Instance->DR, (uint32_t)pData, SecondMemAddress, hdcmi->XferSize) != HAL_OK) {
+    //     /* Set Error Code */
+    //     hdcmi->ErrorCode = HAL_DCMI_ERROR_DMA;
+    //     /* Change DCMI state */
+    //     hdcmi->State = HAL_DCMI_STATE_READY;
+    //     /* Release Lock */
+    //     __HAL_UNLOCK(hdcmi);
+    //     /* Return function status */
+    //     return HAL_ERROR;
+    // }
+    // }
+
+    /* Enable Capture */
+    hdcmi->Instance->CR |= DCMI_CR_CAPTURE;
+
+    /* Release Lock */
+    __HAL_UNLOCK(hdcmi);
+
+    /* Return function status */
+    return HAL_OK;
+}
+
 void HAL_DCMI_FrameEventCallback(DCMI_HandleTypeDef *hdcmi) {
     BaseType_t should_yield = pdFALSE;
     xSemaphoreGiveFromISR(camera_new_scene, &should_yield);
@@ -672,9 +774,6 @@ void HAL_DCMI_FrameEventCallback(DCMI_HandleTypeDef *hdcmi) {
 }
 
 void HAL_DCMI_ErrorCallback(DCMI_HandleTypeDef *hdcmi) {
-    // debug("[HAL_DCMI_ErrorCallback] ", hdcmi->ErrorCode);
-    // debug("DCMI ErrorCode: %u;", hdcmi->ErrorCode);
-    // debug("DMA ErrorCode: %u\n", hdcmi->DMA_Handle->ErrorCode);
 }
 
 void DMA1_Stream0_IRQHandler(void) {
