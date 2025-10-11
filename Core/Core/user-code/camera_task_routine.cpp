@@ -1,75 +1,41 @@
 #define FILE_DEBUG 1
 
-#include "prj_header.hpp"
+#include "camera_declare.hpp"
 
 #define ALINTEK_BOARD
 
-static void     lvgl_create_camera_interface();
-static void     dcmi_data_structure_init();
-static void     dcmi_resource_init();
+static void lvgl_create_camera_interface();
+static void dcmi_resource_init();
 
-static void     change_to_file_explorer_callback(lv_event_t *e);
-static void     take_photo_callback(lv_event_t *e);
-static void     open_setting_callback(lv_event_t *e);
+static void change_to_file_explorer_callback(lv_event_t *e);
+static void take_photo_callback(lv_event_t *e);
+static void open_setting_callback(lv_event_t *e);
+//
 
-static int32_t  ov5640_read_series_reg(uint16_t address, uint16_t reg, uint8_t *pdata, uint16_t length);
-static int32_t  ov5640_write_series_reg(uint16_t address, uint16_t reg, uint8_t *data, uint16_t length);
-static int32_t  ov5640_init();
-static int32_t  ov5640_deinit();
-static void     OV5640_PWDN_Set(uint8_t sta);
+extern "C" void     DMA1_Stream0_IRQHandler(void);
 
-static void     dcmi_rgb_mspinit(DCMI_HandleTypeDef *dcmiHandle);
-static void     dcmi_ycbcr_mspinit(DCMI_HandleTypeDef *dcmiHandle);
-static void     dcmi_jpeg_mspinit(DCMI_HandleTypeDef *dcmiHandle);
-static void     dcmi_msp_deinit(DCMI_HandleTypeDef *dcmiHandle);
-static void     dcmi_io_deinit_ov5640();
 
-extern "C" void DMA1_Stream0_IRQHandler(void);
-extern "C" void DCMI_IRQHandler(void);
+DCMI_HandleTypeDef  RGB_hdcmi;   // RGB(565) => Convert(YCbCr 4:4:4) => Encode Inside(JPEG)
+DCMI_HandleTypeDef  YCbCr_hdcmi; // YCbCr(4:2:2) => Encode Inside(JPEG)
+DCMI_HandleTypeDef  JPEG_hdcmi;  // JPEG(4:2:2)
+DCMI_HandleTypeDef *target_dcmi;
+DMA_HandleTypeDef   my_hdma_dcmi;
 
-LV_FONT_DECLARE(photo_folder_setting)
+OV5640_IO_t         ov5640_io {};
+OV5640_Object_t     ov5640 {};
+soft_sccb_handle    my_sccb;
 
-#define MY_TAKE_PHOTO_SYMBOL "\xE2\x97\x89"
-#define MY_FOLDER_SYMBOL     "\xF0\x9F\x93\x81"
-#define MY_SETTING_SYMBOL    "\xE2\x9A\x99"
-#define OV5640_ADDR          0x78
-#define OV5640_RST(n)        (HAL_GPIO_WritePin(DCMI_RESET_GPIO_Port, DCMI_RESET_Pin, (n) ? GPIO_PIN_SET : GPIO_PIN_RESET))
-#define DCMI_PWDN_IO         2
+camera_resolution   current_resolution;
+camera_format       current_format;
 
-DCMI_HandleTypeDef RGB_hdcmi;   // RGB(565) => Convert(YCbCr 4:4:4) => Encode Inside(JPEG)
-DCMI_HandleTypeDef YCbCr_hdcmi; // YCbCr(4:2:2) => Encode Inside(JPEG)
-DCMI_HandleTypeDef JPEG_hdcmi;  // JPEG(4:2:2)
+SemaphoreHandle_t   camera_interface_changed;
+bool                PCF8574_init = false;
 
-SemaphoreHandle_t  camera_interface_changed;
-
-static bool        PCF8574_init = false;
 namespace
 {
-    OV5640_IO_t       ov5640_io {};
-    OV5640_Object_t   ov5640 {};
-    soft_sccb_handle  my_sccb;
-    DMA_HandleTypeDef my_hdma_dcmi;
-
-    enum class camera_resolution {
-        reso_max_resolution,
-        reso_1080p,
-        reso_vga, // 640*480
-    };
-
-    enum class camera_format {
-        format_RGB,
-        format_YCbCr,
-        format_JPEG
-    };
-
-    camera_resolution   current_resolution;
-    camera_format       current_format;
-
-    SemaphoreHandle_t   camera_new_scene;
-    SemaphoreHandle_t   camera_exit;
-
-    QueueSetHandle_t    camera_queue_set;
-    DCMI_HandleTypeDef *target_dcmi;
+    SemaphoreHandle_t camera_new_scene;
+    SemaphoreHandle_t camera_exit;
+    QueueSetHandle_t  camera_queue_set;
 } // namespace
 
 namespace
@@ -108,14 +74,14 @@ void camera_task_routine(void const *argument) {
 
     xSemaphoreGive(sema_camera_routine_init_done);
 
-    QueueHandle_t the_queue;
 
     while (1) {
         xSemaphoreTake(camera_interface_changed, portMAX_DELAY);
-        uint32_t resolution, format;
-        uint32_t data_length;
-        uint32_t src_w, src_h;
-        bool     can_catch_scene;
+
+        uint32_t      resolution, format, data_length, src_w, src_h;
+        bool          can_catch_scene;
+        QueueHandle_t the_queue;
+
         switch (current_resolution) {
         case camera_resolution::reso_max_resolution: {
             resolution  = 0;
@@ -183,7 +149,6 @@ void camera_task_routine(void const *argument) {
 
         lv_lock();
         {
-            lv_obj_remove_flag(indicator_label, LV_OBJ_FLAG_HIDDEN);
             lv_label_set_text_static(indicator_label, "Initialize Camera...");
         }
         lv_unlock();
@@ -200,7 +165,6 @@ void camera_task_routine(void const *argument) {
 
         lv_lock();
         {
-            lv_obj_remove_flag(indicator_label, LV_OBJ_FLAG_HIDDEN);
             lv_label_set_text_static(indicator_label, "Start Camera...");
         }
         lv_unlock();
@@ -281,95 +245,6 @@ void camera_task_routine(void const *argument) {
     }
 }
 
-
-static void dcmi_data_structure_init() {
-    RGB_hdcmi.Instance                = DCMI;
-    RGB_hdcmi.Init.SynchroMode        = DCMI_SYNCHRO_HARDWARE;
-    RGB_hdcmi.Init.PCKPolarity        = DCMI_PCKPOLARITY_RISING;
-    RGB_hdcmi.Init.VSPolarity         = DCMI_VSPOLARITY_HIGH;
-    RGB_hdcmi.Init.HSPolarity         = DCMI_HSPOLARITY_HIGH;
-    RGB_hdcmi.Init.CaptureRate        = DCMI_CR_ALL_FRAME;
-    RGB_hdcmi.Init.ExtendedDataMode   = DCMI_EXTEND_DATA_8B;
-    RGB_hdcmi.Init.JPEGMode           = DCMI_JPEG_DISABLE;
-    RGB_hdcmi.Init.ByteSelectMode     = DCMI_BSM_ALL;
-    RGB_hdcmi.Init.ByteSelectStart    = DCMI_OEBS_ODD;
-    RGB_hdcmi.Init.LineSelectMode     = DCMI_LSM_ALL;
-    RGB_hdcmi.Init.LineSelectStart    = DCMI_OELS_ODD;
-    RGB_hdcmi.MspInitCallback         = dcmi_rgb_mspinit;
-    RGB_hdcmi.MspDeInitCallback       = dcmi_msp_deinit;
-
-    YCbCr_hdcmi.Instance              = DCMI;
-    YCbCr_hdcmi.Init.SynchroMode      = DCMI_SYNCHRO_HARDWARE;
-    YCbCr_hdcmi.Init.PCKPolarity      = DCMI_PCKPOLARITY_RISING;
-    YCbCr_hdcmi.Init.VSPolarity       = DCMI_VSPOLARITY_HIGH;
-    YCbCr_hdcmi.Init.HSPolarity       = DCMI_HSPOLARITY_HIGH;
-    YCbCr_hdcmi.Init.CaptureRate      = DCMI_CR_ALL_FRAME;
-    YCbCr_hdcmi.Init.ExtendedDataMode = DCMI_EXTEND_DATA_8B;
-    YCbCr_hdcmi.Init.JPEGMode         = DCMI_JPEG_DISABLE;
-    YCbCr_hdcmi.Init.ByteSelectMode   = DCMI_BSM_ALL;
-    YCbCr_hdcmi.Init.ByteSelectStart  = DCMI_OEBS_ODD;
-    YCbCr_hdcmi.Init.LineSelectMode   = DCMI_LSM_ALL;
-    YCbCr_hdcmi.Init.LineSelectStart  = DCMI_OELS_ODD;
-    YCbCr_hdcmi.MspInitCallback       = dcmi_ycbcr_mspinit;
-    YCbCr_hdcmi.MspDeInitCallback     = dcmi_msp_deinit;
-
-    JPEG_hdcmi.Instance               = DCMI;
-    JPEG_hdcmi.Init.SynchroMode       = DCMI_SYNCHRO_HARDWARE;
-    JPEG_hdcmi.Init.PCKPolarity       = DCMI_PCKPOLARITY_RISING;
-    JPEG_hdcmi.Init.VSPolarity        = DCMI_VSPOLARITY_HIGH;
-    JPEG_hdcmi.Init.HSPolarity        = DCMI_HSPOLARITY_HIGH;
-    JPEG_hdcmi.Init.CaptureRate       = DCMI_CR_ALL_FRAME;
-    JPEG_hdcmi.Init.ExtendedDataMode  = DCMI_EXTEND_DATA_8B;
-    JPEG_hdcmi.Init.JPEGMode          = DCMI_JPEG_ENABLE;
-    JPEG_hdcmi.Init.ByteSelectMode    = DCMI_BSM_ALL;
-    JPEG_hdcmi.Init.ByteSelectStart   = DCMI_OEBS_ODD;
-    JPEG_hdcmi.Init.LineSelectMode    = DCMI_LSM_ALL;
-    JPEG_hdcmi.Init.LineSelectStart   = DCMI_OELS_ODD;
-    JPEG_hdcmi.MspInitCallback        = dcmi_jpeg_mspinit;
-    JPEG_hdcmi.MspDeInitCallback      = dcmi_msp_deinit;
-
-    static auto delay_handle          = [](uint32_t delay)
-    {
-        uint32_t i;
-        while (delay--) {
-            i = 200;
-            while (i--)
-                ;
-        }
-    };
-    my_sccb.address_withwr          = OV5640_ADDR;
-    my_sccb.parameters.delay_handle = delay_handle;
-    my_sccb.parameters.frequency    = 200000;
-    my_sccb.port_setting.SCL_port   = DCMI_SCL_GPIO_Port;
-    my_sccb.port_setting.SCL_pin    = DCMI_SCL_Pin;
-    my_sccb.port_setting.SDA_port   = DCMI_SDA_GPIO_Port;
-    my_sccb.port_setting.SDA_pin    = DCMI_SDA_Pin;
-
-    static auto get_tick            = []()
-    {
-        return (int32_t)(HAL_GetTick());
-    };
-    ov5640_io.Address  = OV5640_ADDR;
-    ov5640_io.GetTick  = get_tick;
-    ov5640_io.Init     = ov5640_init;
-    ov5640_io.DeInit   = ov5640_deinit;
-    ov5640_io.ReadReg  = ov5640_read_series_reg;
-    ov5640_io.WriteReg = ov5640_write_series_reg;
-
-    current_resolution = camera_resolution::reso_vga;
-    current_format     = camera_format::format_RGB;
-}
-
-static void dcmi_io_deinit_ov5640() {
-#ifdef ALINTEK_BOARD
-    if (!PCF8574_init) {
-        PCF8574_Init();
-        PCF8574_init = true;
-    }
-#endif
-    OV5640_PWDN_Set(1);
-    OV5640_RST(0);
-}
 
 static void lvgl_create_camera_interface() {
     camera_screen    = lv_obj_create(nullptr);
@@ -458,215 +333,11 @@ static void change_to_file_explorer_callback(lv_event_t *e) {
     xSemaphoreGive(camera_exit);
 }
 
-static void    take_photo_callback(lv_event_t *e) {}
-static void    open_setting_callback(lv_event_t *e) {}
-
-static int32_t ov5640_read_series_reg(uint16_t address, uint16_t reg, uint8_t *pdata, uint16_t length) {
-    (void)address;
-    for (uint16_t idx = 0; idx < length; idx++) {
-        if (OV5640_RD_Reg(&my_sccb, reg + idx, pdata + idx))
-            return OV5640_ERROR;
-    }
-    return OV5640_OK;
-}
-
-static int32_t ov5640_write_series_reg(uint16_t address, uint16_t reg, uint8_t *data, uint16_t length) {
-    (void)address;
-    for (uint16_t idx = 0; idx < length; idx++) {
-        if (OV5640_WR_Reg(&my_sccb, reg + idx, data[idx]))
-            return OV5640_ERROR;
-    }
-    return OV5640_OK;
-}
-
-static void OV5640_PWDN_Set(uint8_t sta) {
-#ifdef ALINTEK_BOARD
-    PCF8574_WriteBit(DCMI_PWDN_IO, sta);
-#else
-    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, sta ? GPIO_PIN_SET : GPIO_PIN_RESET);
-#endif
-}
-
-static int32_t ov5640_init() {
-    uint8_t  reg1, reg2;
-    uint16_t reg;
-
-#ifdef ALINTEK_BOARD
-    if (!PCF8574_init) {
-        PCF8574_Init();
-        PCF8574_init = true;
-    }
-#endif
-
-    OV5640_RST(0);
-    timer_delay_ms(20);
-    OV5640_PWDN_Set(0);
-    timer_delay_ms(5);
-    OV5640_RST(1);
-    timer_delay_ms(20);
-
-    timer_delay_ms(5);
-    if (OV5640_RD_Reg(&my_sccb, OV5640_CHIP_ID_HIGH_BYTE, &reg1))
-        return OV5640_ERROR;
-    if (OV5640_RD_Reg(&my_sccb, OV5640_CHIP_ID_LOW_BYTE, &reg2))
-        return OV5640_ERROR;
-    reg = reg1;
-    reg <<= 8u;
-    reg |= reg2;
-    if (reg != OV5640_ID) {
-        return OV5640_ERROR;
-    }
-
-    return OV5640_OK;
-}
-
-static int32_t ov5640_deinit() { return OV5640_OK; }
+static void take_photo_callback(lv_event_t *e) {}
+static void open_setting_callback(lv_event_t *e) {}
 
 
 //
-
-static void dcmi_clk_pin_init() {
-    GPIO_InitTypeDef GPIO_InitStruct = {0};
-    __HAL_RCC_DCMI_CLK_ENABLE();
-    __HAL_RCC_GPIOA_CLK_ENABLE();
-    __HAL_RCC_GPIOH_CLK_ENABLE();
-    __HAL_RCC_GPIOC_CLK_ENABLE();
-    __HAL_RCC_GPIOD_CLK_ENABLE();
-    __HAL_RCC_GPIOB_CLK_ENABLE();
-    GPIO_InitStruct.Pin       = GPIO_PIN_6;
-    GPIO_InitStruct.Mode      = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull      = GPIO_NOPULL;
-    GPIO_InitStruct.Speed     = GPIO_SPEED_FREQ_VERY_HIGH;
-    GPIO_InitStruct.Alternate = GPIO_AF13_DCMI;
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-    GPIO_InitStruct.Pin       = GPIO_PIN_8;
-    GPIO_InitStruct.Mode      = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull      = GPIO_NOPULL;
-    GPIO_InitStruct.Speed     = GPIO_SPEED_FREQ_VERY_HIGH;
-    GPIO_InitStruct.Alternate = GPIO_AF13_DCMI;
-    HAL_GPIO_Init(GPIOH, &GPIO_InitStruct);
-
-    GPIO_InitStruct.Pin       = GPIO_PIN_6 | GPIO_PIN_7;
-    GPIO_InitStruct.Mode      = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull      = GPIO_NOPULL;
-    GPIO_InitStruct.Speed     = GPIO_SPEED_FREQ_VERY_HIGH;
-    GPIO_InitStruct.Alternate = GPIO_AF13_DCMI;
-    HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-
-    GPIO_InitStruct.Pin       = GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_11;
-    GPIO_InitStruct.Mode      = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull      = GPIO_NOPULL;
-    GPIO_InitStruct.Speed     = GPIO_SPEED_FREQ_LOW;
-    GPIO_InitStruct.Alternate = GPIO_AF13_DCMI;
-    HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-
-    GPIO_InitStruct.Pin       = GPIO_PIN_3;
-    GPIO_InitStruct.Mode      = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull      = GPIO_NOPULL;
-    GPIO_InitStruct.Speed     = GPIO_SPEED_FREQ_VERY_HIGH;
-    GPIO_InitStruct.Alternate = GPIO_AF13_DCMI;
-    HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
-
-    GPIO_InitStruct.Pin       = GPIO_PIN_7 | GPIO_PIN_8 | GPIO_PIN_9;
-    GPIO_InitStruct.Mode      = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull      = GPIO_NOPULL;
-    GPIO_InitStruct.Speed     = GPIO_SPEED_FREQ_VERY_HIGH;
-    GPIO_InitStruct.Alternate = GPIO_AF13_DCMI;
-    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-}
-
-static void dcmi_rgb_mspinit(DCMI_HandleTypeDef *dcmiHandle) {
-    dcmi_clk_pin_init();
-
-    my_hdma_dcmi.Instance                 = DMA1_Stream0;
-    my_hdma_dcmi.Init.Request             = DMA_REQUEST_DCMI;
-    my_hdma_dcmi.Init.Direction           = DMA_PERIPH_TO_MEMORY;
-    my_hdma_dcmi.Init.PeriphInc           = DMA_PINC_DISABLE;
-    my_hdma_dcmi.Init.MemInc              = DMA_MINC_ENABLE;
-    my_hdma_dcmi.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
-    my_hdma_dcmi.Init.MemDataAlignment    = DMA_MDATAALIGN_WORD;
-    my_hdma_dcmi.Init.Mode                = DMA_CIRCULAR;
-    my_hdma_dcmi.Init.Priority            = DMA_PRIORITY_HIGH;
-    my_hdma_dcmi.Init.FIFOMode            = DMA_FIFOMODE_ENABLE;
-    my_hdma_dcmi.Init.FIFOThreshold       = DMA_FIFO_THRESHOLD_FULL;
-    my_hdma_dcmi.Init.MemBurst            = DMA_MBURST_INC4;
-    my_hdma_dcmi.Init.PeriphBurst         = DMA_PBURST_SINGLE;
-    if (HAL_DMA_Init(&my_hdma_dcmi) != HAL_OK) {
-        Error_Handler();
-    }
-
-    __HAL_LINKDMA(dcmiHandle, DMA_Handle, my_hdma_dcmi);
-
-    HAL_NVIC_SetPriority(DCMI_IRQn, 6, 0);
-    HAL_NVIC_EnableIRQ(DCMI_IRQn);
-}
-
-static void dcmi_ycbcr_mspinit(DCMI_HandleTypeDef *dcmiHandle) {
-    dcmi_clk_pin_init();
-
-    my_hdma_dcmi.Instance                 = DMA1_Stream0;
-    my_hdma_dcmi.Init.Request             = DMA_REQUEST_DCMI;
-    my_hdma_dcmi.Init.Direction           = DMA_PERIPH_TO_MEMORY;
-    my_hdma_dcmi.Init.PeriphInc           = DMA_PINC_DISABLE;
-    my_hdma_dcmi.Init.MemInc              = DMA_MINC_ENABLE;
-    my_hdma_dcmi.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
-    my_hdma_dcmi.Init.MemDataAlignment    = DMA_MDATAALIGN_WORD;
-    my_hdma_dcmi.Init.Mode                = DMA_CIRCULAR;
-    my_hdma_dcmi.Init.Priority            = DMA_PRIORITY_HIGH;
-    my_hdma_dcmi.Init.FIFOMode            = DMA_FIFOMODE_ENABLE;
-    my_hdma_dcmi.Init.FIFOThreshold       = DMA_FIFO_THRESHOLD_FULL;
-    my_hdma_dcmi.Init.MemBurst            = DMA_MBURST_INC4;
-    my_hdma_dcmi.Init.PeriphBurst         = DMA_PBURST_SINGLE;
-    if (HAL_DMA_Init(&my_hdma_dcmi) != HAL_OK) {
-        Error_Handler();
-    }
-
-    __HAL_LINKDMA(dcmiHandle, DMA_Handle, my_hdma_dcmi);
-
-    HAL_NVIC_SetPriority(DCMI_IRQn, 6, 0);
-    HAL_NVIC_EnableIRQ(DCMI_IRQn);
-}
-
-static void dcmi_jpeg_mspinit(DCMI_HandleTypeDef *dcmiHandle) {
-    dcmi_clk_pin_init();
-
-    my_hdma_dcmi.Instance                 = DMA1_Stream0;
-    my_hdma_dcmi.Init.Request             = DMA_REQUEST_DCMI;
-    my_hdma_dcmi.Init.Direction           = DMA_PERIPH_TO_MEMORY;
-    my_hdma_dcmi.Init.PeriphInc           = DMA_PINC_DISABLE;
-    my_hdma_dcmi.Init.MemInc              = DMA_MINC_ENABLE;
-    my_hdma_dcmi.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
-    my_hdma_dcmi.Init.MemDataAlignment    = DMA_MDATAALIGN_WORD;
-    my_hdma_dcmi.Init.Mode                = DMA_CIRCULAR;
-    my_hdma_dcmi.Init.Priority            = DMA_PRIORITY_HIGH;
-    my_hdma_dcmi.Init.FIFOMode            = DMA_FIFOMODE_ENABLE;
-    my_hdma_dcmi.Init.FIFOThreshold       = DMA_FIFO_THRESHOLD_FULL;
-    my_hdma_dcmi.Init.MemBurst            = DMA_MBURST_INC4;
-    my_hdma_dcmi.Init.PeriphBurst         = DMA_PBURST_SINGLE;
-    if (HAL_DMA_Init(&my_hdma_dcmi) != HAL_OK) {
-        Error_Handler();
-    }
-
-    __HAL_LINKDMA(dcmiHandle, DMA_Handle, my_hdma_dcmi);
-
-    HAL_NVIC_SetPriority(DCMI_IRQn, 6, 0);
-    HAL_NVIC_EnableIRQ(DCMI_IRQn);
-}
-
-
-
-static void dcmi_msp_deinit(DCMI_HandleTypeDef *dcmiHandle) {
-    __HAL_RCC_DCMI_CLK_DISABLE();
-    HAL_GPIO_DeInit(GPIOA, GPIO_PIN_6);
-    HAL_GPIO_DeInit(GPIOH, GPIO_PIN_8);
-    HAL_GPIO_DeInit(GPIOC, GPIO_PIN_6 | GPIO_PIN_7 | GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_11);
-    HAL_GPIO_DeInit(GPIOD, GPIO_PIN_3);
-    HAL_GPIO_DeInit(GPIOB, GPIO_PIN_7 | GPIO_PIN_8 | GPIO_PIN_9);
-
-    HAL_DMA_DeInit(dcmiHandle->DMA_Handle);
-    HAL_NVIC_DisableIRQ(DCMI_IRQn);
-}
 
 
 static HAL_StatusTypeDef hdmi_start_capture(DCMI_HandleTypeDef *hdcmi, camera_format target_format,
@@ -795,6 +466,3 @@ void HAL_DCMI_FrameEventCallback(DCMI_HandleTypeDef *hdcmi) {
 void HAL_DCMI_ErrorCallback(DCMI_HandleTypeDef *hdcmi) {
 }
 
-void DCMI_IRQHandler(void) {
-    HAL_DCMI_IRQHandler(target_dcmi);
-}

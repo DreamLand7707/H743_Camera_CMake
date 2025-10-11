@@ -35,19 +35,20 @@ target_sources(${Core_Name} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/soft_iic/soft_sccb.cpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/initial_task_routine.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/touch_sence_routine.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/camera_task_routine.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/camera_hal_init.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/lcd_touch.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/my_heap_manage.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/timer_delay.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/timer2_delay.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/pcf8574.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/touch_sence_routine.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/file_explorer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/bsp_fatfs_callback.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/path_func.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/photo_folder_setting.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/memory_pool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/std_new_delete.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/camera_task_routine.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/ov5640/ov5640_reg.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/ov5640/ov5640.c
 
