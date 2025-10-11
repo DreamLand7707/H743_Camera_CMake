@@ -50,7 +50,7 @@ __weak uint8_t BSP_SD_Init(void) {
     /* Configure SD Bus width (4 bits mode selected) */
     if (sd_state == MSD_OK) {
         /* Enable wide operation */
-        if (HAL_SD_ConfigWideBusOperation(&hsd2, SDMMC_BUS_WIDE_4B) != HAL_OK) {
+        if (HAL_SD_ConfigWideBusOperation(&hsd2, SDMMC_BUS_WIDE_1B) != HAL_OK) {
             sd_state = MSD_ERROR;
         }
     }

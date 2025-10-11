@@ -437,9 +437,8 @@ static void main_manage_task(void *args) {
     main_manage_command        old_message {};
     main_manage_command        new_message {};
     //
-    bool can_click_pict   = false;
-    bool card_ok          = false;
-    bool before_sdcard_ok = false;
+    bool can_click_pict = false;
+    bool card_ok        = false;
     // lambda expression
     static auto recycle_resource = [&]()
     {
@@ -611,50 +610,16 @@ static void main_manage_task(void *args) {
             }
             xSemaphoreGive(jpeg_decode_task_interrupt_mutex);
 
-            before_sdcard_ok = card_ok;
             lvgl_manage_command cm {};
-
-            cm.type = lvgl_command_type::pop_card;
-            if (xQueueSend(lvgl_manage_task_queue, &cm, pdMS_TO_TICKS(20)) == pdPASS) {
-                if (sdcard_is_mounted && f_mount(nullptr, SDPath, 1) != FR_OK) {
-                    continue;
-                }
-                card_ok           = false;
-                sdcard_is_mounted = 0;
-                (void)HAL_SD_DeInit(&hsd2);
-                if (sdcard_link_driver && FATFS_UnLinkDriver(SDPath) != 0) {
-                    continue;
-                }
-                sdcard_link_driver = 0;
-
-                cm.type            = lvgl_command_type::to_camera;
-                xQueueSend(lvgl_manage_task_queue, &cm, portMAX_DELAY);
-            }
-
+            cm.type = lvgl_command_type::to_camera;
+            xQueueSend(lvgl_manage_task_queue, &cm, portMAX_DELAY);
             break;
         }
         case manage_command_type::to_file_explorer: {
             lvgl_manage_command cm {};
             cm.type = lvgl_command_type::to_file_explorer;
             xQueueSend(lvgl_manage_task_queue, &cm, portMAX_DELAY);
-
-            if (before_sdcard_ok && !card_ok) {
-                if (!sdcard_link_driver && FATFS_LinkDriver(&SD_Driver, SDPath) != 0) {
-                    continue;
-                }
-                sdcard_link_driver = 1;
-                if (!sdcard_is_mounted && f_mount(&SDFatFS, SDPath, 1) != FR_OK) {
-                    continue;
-                }
-                sdcard_is_mounted = 1;
-
-                old_message       = new_message;
-                lvgl_manage_command cm {};
-                cm.type = lvgl_command_type::ins_card;
-
-                if (xQueueSend(lvgl_manage_task_queue, &cm, pdMS_TO_TICKS(20)) == pdPASS)
-                    card_ok = true;
-            }
+            break;
         }
         }
     }
