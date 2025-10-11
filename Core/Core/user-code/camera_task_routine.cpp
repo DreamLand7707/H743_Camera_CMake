@@ -11,6 +11,8 @@ static void change_to_file_explorer_callback(lv_event_t *e);
 static void take_photo_callback(lv_event_t *e);
 static void open_setting_callback(lv_event_t *e);
 //
+static void         indicator_operate(const char *message);
+static void         screen_image_operate(void *source);
 
 extern "C" void     DMA1_Stream0_IRQHandler(void);
 
@@ -132,50 +134,23 @@ void camera_task_routine(void const *argument) {
         }
 
         // DCMI Init -> IO Init -> OV5640 Init -> OV5640 Start -> DCMI DMA
-        lv_lock();
-        {
-            lv_obj_remove_flag(indicator_label, LV_OBJ_FLAG_HIDDEN);
-            lv_label_set_text_static(indicator_label, "Initialize DCMI Interface...");
-        }
-        lv_unlock();
+        indicator_operate("Initialize DCMI Interface...");
         if (HAL_DCMI_Init(target_dcmi) != HAL_OK) {
-            lv_lock();
-            {
-                lv_label_set_text_static(indicator_label, "Initialize DCMI Interface Failed!");
-            }
-            lv_unlock();
+            indicator_operate("Initialize DCMI Interface Failed!");
             continue;
         }
 
-        lv_lock();
-        {
-            lv_label_set_text_static(indicator_label, "Initialize Camera...");
-        }
-        lv_unlock();
-
+        indicator_operate("Initialize Camera...");
         (void)OV5640_RegisterBusIO(&ov5640, &ov5640_io);
         if (OV5640_Init(&ov5640, resolution, format) != OV5640_OK) {
-            lv_lock();
-            {
-                lv_label_set_text_static(indicator_label, "Initialize Camera Failed!");
-            }
-            lv_unlock();
+            indicator_operate("Initialize Camera Failed!");
             continue;
         }
 
-        lv_lock();
-        {
-            lv_label_set_text_static(indicator_label, "Start Camera...");
-        }
-        lv_unlock();
+        indicator_operate("Start Camera...");
         OV5640_Start(&ov5640);
 
-        lv_lock();
-        {
-            lv_obj_add_flag(indicator_label, LV_OBJ_FLAG_HIDDEN);
-            lv_label_set_text_static(indicator_label, "");
-        }
-        lv_unlock();
+        indicator_operate(nullptr);
 
         if (can_catch_scene) {
             HAL_DCMI_Start_DMA(target_dcmi, DCMI_MODE_SNAPSHOT, (uint32_t)jpeg_before_buffer_rgb, data_length / 4);
@@ -204,12 +179,7 @@ void camera_task_routine(void const *argument) {
                 img_dsc.data      = full_screen_pict_show_buffer;
                 img_dsc.data_size = full_pict_show_size[0] * full_pict_show_size[1] * 2;
 
-                lv_lock();
-                {
-                    lv_image_set_src(camera_capture_image, &img_dsc);
-                    lv_image_set_align(camera_capture_image, LV_IMAGE_ALIGN_CENTER);
-                }
-                lv_unlock();
+                screen_image_operate(&img_dsc);
 
                 __HAL_DCMI_ENABLE_IT(target_dcmi, DCMI_IT_FRAME);
                 if (HAL_DCMI_Start_DMA(target_dcmi, DCMI_MODE_SNAPSHOT, (uint32_t)jpeg_before_buffer_rgb, data_length / 4) != HAL_OK) {
@@ -221,13 +191,10 @@ void camera_task_routine(void const *argument) {
             }
             else if (the_queue == camera_exit) {
                 xSemaphoreTake(camera_exit, 0);
-                lv_lock();
-                {
-                    lv_label_set_text_static(indicator_label, "");
-                    lv_obj_add_flag(indicator_label, LV_OBJ_FLAG_HIDDEN);
-                    lv_image_set_src(camera_capture_image, nullptr);
-                }
-                lv_unlock();
+
+                indicator_operate(nullptr);
+                screen_image_operate(nullptr);
+
                 // Init:   DCMI Init   -> IO Init   -> OV5640 Init   -> OV5640 Start -> DCMI DMA
                 // DeInit: DCMI DeInit <- IO DeInit <- OV5640 Deinit <- OV5640 Stop  <- DCMI DMA Stop
                 HAL_DCMI_Stop(target_dcmi);
@@ -466,3 +433,32 @@ void HAL_DCMI_FrameEventCallback(DCMI_HandleTypeDef *hdcmi) {
 void HAL_DCMI_ErrorCallback(DCMI_HandleTypeDef *hdcmi) {
 }
 
+static void indicator_operate(const char *message) {
+    if (!message) {
+        lv_lock();
+        {
+            lv_obj_add_flag(indicator_label, LV_OBJ_FLAG_HIDDEN);
+            lv_label_set_text_static(indicator_label, "");
+        }
+        lv_unlock();
+    }
+    else {
+        lv_lock();
+        {
+            lv_obj_remove_flag(indicator_label, LV_OBJ_FLAG_HIDDEN);
+            lv_label_set_text_static(indicator_label, message);
+        }
+        lv_unlock();
+    }
+}
+
+static void screen_image_operate(void *source) {
+    lv_lock();
+    {
+        lv_image_set_src(camera_capture_image, source);
+        if (source) {
+            lv_image_set_align(camera_capture_image, LV_IMAGE_ALIGN_CENTER);
+        }
+    }
+    lv_unlock();
+}
