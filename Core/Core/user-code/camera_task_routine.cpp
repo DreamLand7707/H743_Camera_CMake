@@ -42,6 +42,7 @@ DCMI_HandleTypeDef JPEG_hdcmi;  // JPEG(4:2:2)
 
 SemaphoreHandle_t  camera_interface_changed;
 
+static bool        PCF8574_init = false;
 namespace
 {
     OV5640_IO_t       ov5640_io {};
@@ -331,7 +332,7 @@ static void dcmi_data_structure_init() {
     {
         uint32_t i;
         while (delay--) {
-            i = 50;
+            i = 200;
             while (i--)
                 ;
         }
@@ -361,7 +362,6 @@ static void dcmi_data_structure_init() {
 
 static void dcmi_io_deinit_ov5640() {
 #ifdef ALINTEK_BOARD
-    static bool PCF8574_init = false;
     if (!PCF8574_init) {
         PCF8574_Init();
         PCF8574_init = true;
@@ -491,6 +491,13 @@ static int32_t ov5640_init() {
     uint8_t  reg1, reg2;
     uint16_t reg;
 
+#ifdef ALINTEK_BOARD
+    if (!PCF8574_init) {
+        PCF8574_Init();
+        PCF8574_init = true;
+    }
+#endif
+
     OV5640_RST(0);
     timer_delay_ms(20);
     OV5640_PWDN_Set(0);
@@ -509,11 +516,6 @@ static int32_t ov5640_init() {
     if (reg != OV5640_ID) {
         return OV5640_ERROR;
     }
-    if (OV5640_WR_Reg(&my_sccb, 0x3103, 0X11))
-        return OV5640_ERROR;
-    if (OV5640_WR_Reg(&my_sccb, 0X3008, 0X82))
-        return OV5640_ERROR;
-    timer_delay_ms(10);
 
     return OV5640_OK;
 }
@@ -683,9 +685,25 @@ static HAL_StatusTypeDef hdmi_start_capture(DCMI_HandleTypeDef *hdcmi, camera_fo
     case camera_format::format_YCbCr: {
 
         size_t final_data_item_number     = data_length >> 4;
-        size_t dma_buffer_max_item_number = dma_first_buffer_length >> 4;
+        size_t dma_buffer_max_item_number = std::max<size_t>(dma_first_buffer_length >> 4, 0xffff);
 
-        
+        bool   need_double_buffer         = final_data_item_number > dma_buffer_max_item_number;
+
+
+        if (need_double_buffer) {
+            size_t times     = final_data_item_number / dma_buffer_max_item_number;
+            size_t remainder = final_data_item_number % dma_buffer_max_item_number;
+
+            if (remainder) {
+                if (times % 2)
+                    times++;
+                else
+                    times += 2;
+            }
+        }
+        else {
+        }
+
         break;
     }
     case camera_format::format_JPEG: {
