@@ -19,6 +19,8 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "cmsis_os.h"
+#include "dcmi.h"
+#include "dma.h"
 #include "dma2d.h"
 #include "fatfs.h"
 #include "jpeg.h"
@@ -117,24 +119,25 @@ int main(void) {
 
     /* USER CODE END SysInit */
 
-    /* Initialize all configured peripherals */
+  /* Initialize all configured peripherals */
     MX_GPIO_Init();
     MX_MDMA_Init();
+    MX_DMA_Init();
     MX_USART1_UART_Init();
     MX_TIM2_Init();
     MX_FMC_Init();
     MX_LTDC_Init();
-    MX_DMA_Init();
     MX_DMA2D_Init();
     MX_JPEG_Init();
-    MX_SDMMC1_SD_Init();
+    MX_SDMMC2_SD_Init();
     MX_FATFS_Init();
     MX_TIM6_Init();
     MX_TIM3_Init();
     MX_TIM12_Init();
     MX_RTC_Init();
     MX_LIBJPEG_Init();
-    /* USER CODE BEGIN 2 */
+    MX_DCMI_Init();
+  /* USER CODE BEGIN 2 */
     sdcard_link_driver = 1;
     SEGGER_RTT_Init();
     GPIO_InitTypeDef GPIO_InitStruct = {0};

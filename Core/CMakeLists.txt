@@ -24,8 +24,8 @@ target_sources(${Core_Name} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/Camera_1_bit.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/sdram_drl.c
 
-    ${CMAKE_CURRENT_SOURCE_DIR}/Conflict-Code/Core/Src/dcmi.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Conflict-Code/Driver/Src/stm32h7xx_hal_dcmi.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Conflict-Code/Core/Src/dcmi.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Conflict-Code/Driver/Src/stm32h7xx_hal_dcmi.c
 
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/lvgl/examples/porting/lv_port_disp.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/lvgl/examples/porting/lv_port_fs.c
@@ -92,8 +92,8 @@ target_include_directories(${Core_Name} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/ov5640
 
-    ${CMAKE_CURRENT_SOURCE_DIR}/Conflict-Code/Core/Inc
-    ${CMAKE_CURRENT_SOURCE_DIR}/Conflict-Code/Driver/Inc
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Conflict-Code/Core/Inc
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Conflict-Code/Driver/Inc
 
     # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Inc
     # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Config

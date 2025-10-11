@@ -794,10 +794,6 @@ void HAL_DCMI_FrameEventCallback(DCMI_HandleTypeDef *hdcmi) {
 void HAL_DCMI_ErrorCallback(DCMI_HandleTypeDef *hdcmi) {
 }
 
-void DMA1_Stream0_IRQHandler(void) {
-    HAL_DMA_IRQHandler(&my_hdma_dcmi);
-}
-
 void DCMI_IRQHandler(void) {
     HAL_DCMI_IRQHandler(target_dcmi);
 }

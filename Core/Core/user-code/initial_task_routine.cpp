@@ -187,8 +187,8 @@ void print_sdcard_info(void) {
     HAL_SD_CardCIDTypeDef  SDCard_CID;
     HAL_SD_CardInfoTypeDef SDCardInfo;
 
-    HAL_SD_GetCardCID(&hsd1, &SDCard_CID);                                              // 获取CID
-    HAL_SD_GetCardInfo(&hsd1, &SDCardInfo);                                             // 获取SD卡信息
+    HAL_SD_GetCardCID(&hsd2, &SDCard_CID);                                              // 获取CID
+    HAL_SD_GetCardInfo(&hsd2, &SDCardInfo);                                             // 获取SD卡信息
     CardCap = (uint64_t)(SDCardInfo.LogBlockNbr) * (uint64_t)(SDCardInfo.LogBlockSize); // 计算SD卡容量
     switch (SDCardInfo.CardType) {
     case CARD_SDSC: {
@@ -589,7 +589,7 @@ static void main_manage_task(void *args) {
                     }
                     card_ok           = false;
                     sdcard_is_mounted = 0;
-                    (void)HAL_SD_DeInit(&hsd1);
+                    (void)HAL_SD_DeInit(&hsd2);
                     if (sdcard_link_driver && FATFS_UnLinkDriver(SDPath) != 0) {
                         continue;
                     }
@@ -621,7 +621,7 @@ static void main_manage_task(void *args) {
                 }
                 card_ok           = false;
                 sdcard_is_mounted = 0;
-                (void)HAL_SD_DeInit(&hsd1);
+                (void)HAL_SD_DeInit(&hsd2);
                 if (sdcard_link_driver && FATFS_UnLinkDriver(SDPath) != 0) {
                     continue;
                 }
