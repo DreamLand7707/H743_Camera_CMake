@@ -4,6 +4,7 @@
 #include <timer2_delay.hpp>
 #include "main.h"
 #include "dma2d.h"
+#include "dma.h"
 #include "jpeg.h"
 #include "ltdc.h"
 #include "memorymap.h"

@@ -43,7 +43,7 @@ void MX_SDMMC2_SD_Init(void)
   hsd2.Init.ClockPowerSave = SDMMC_CLOCK_POWER_SAVE_DISABLE;
   hsd2.Init.BusWide = SDMMC_BUS_WIDE_1B;
   hsd2.Init.HardwareFlowControl = SDMMC_HARDWARE_FLOW_CONTROL_DISABLE;
-  hsd2.Init.ClockDiv = 4;
+  hsd2.Init.ClockDiv = 3;
 
   /* USER CODE BEGIN SDMMC2_Init 2 */
 
