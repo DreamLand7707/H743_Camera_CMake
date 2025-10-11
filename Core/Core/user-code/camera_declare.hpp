@@ -47,3 +47,5 @@ LV_FONT_DECLARE(photo_folder_setting)
 #define OV5640_RST(n)        (HAL_GPIO_WritePin(DCMI_RESET_GPIO_Port, DCMI_RESET_Pin, (n) ? GPIO_PIN_SET : GPIO_PIN_RESET))
 #define DCMI_PWDN_IO         2
 #define MY_TAKE_PHOTO_SYMBOL "\xE2\x97\x89"
+
+#define ALINTEK_BOARD

@@ -2,8 +2,6 @@
 
 #include "camera_declare.hpp"
 
-#define ALINTEK_BOARD
-
 static void lvgl_create_camera_interface();
 static void dcmi_resource_init();
 
