@@ -46,7 +46,7 @@ void SDRAM_Init(void) {
     SDRAM_SendCommand(FMC_SDRAM_CMD_AUTOREFRESH_MODE, 1, 8, 0);
 
     /* 5. 配置SDRAM模式寄存器 */
-    temp = (uint32_t)SDRAM_MODEREG_BURST_LENGTH_1 | // 设置突发长度：1
+    temp = (uint32_t)SDRAM_MODEREG_BURST_LENGTH_8 | // 设置突发长度：1
            SDRAM_MODEREG_BURST_TYPE_SEQUENTIAL |    // 设置突发类型：连续
            SDRAM_MODEREG_CAS_LATENCY_3 |            // 设置CL值：3
            SDRAM_MODEREG_OPERATING_MODE_STANDARD |  // 设置操作模式：标准

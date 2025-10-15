@@ -136,7 +136,7 @@ static void _dave2d_buf_invalidate_cache_cb(const lv_draw_buf_t * draw_buf, cons
     address = address + (area->x1 * (int32_t)bytes_per_pixel) + (stride * (uint32_t)area->y1);
 
     for(i = 0; i < lines; i++) {
-        SCB_CleanInvalidateDCache_by_Addr(address, bytes_to_flush_per_line);
+        MYSCB_CleanInvalidateDCache_by_Addr(address, bytes_to_flush_per_line);
         address += stride;
     }
 }

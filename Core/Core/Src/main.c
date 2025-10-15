@@ -116,7 +116,9 @@ int main(void) {
     PeriphCommonClock_Config();
 
     /* USER CODE BEGIN SysInit */
-
+    __HAL_RCC_D2SRAM1_CLK_ENABLE();
+    __HAL_RCC_D2SRAM2_CLK_ENABLE();
+    __HAL_RCC_D2SRAM3_CLK_ENABLE();
     /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */

@@ -10,19 +10,19 @@
 
 #ifdef __cplusplus
 
-#include <vector>
-#include <deque>
-#include <string>
-#include <set>
-#include <map>
-#include <unordered_map>
-#include <unordered_set>
-#include <list>
-#include <forward_list>
+    #include <vector>
+    #include <deque>
+    #include <string>
+    #include <set>
+    #include <map>
+    #include <unordered_map>
+    #include <unordered_set>
+    #include <list>
+    #include <forward_list>
 
-#include <functional>
+    #include <functional>
 
-#include "memory_pool_allocator.hpp"
+    #include "memory_pool_allocator.hpp"
 
 template <class T>
 class freertos_allocator {
@@ -135,6 +135,54 @@ namespace litesys_transparent_map_details
         }
     };
 } // namespace litesys_transparent_map_details
+
+
+template <typename T, std::size_t Alignment = 32>
+class aligned_allocator {
+ public:
+    using value_type                       = T;
+    using size_type                        = std::size_t;
+    using difference_type                  = std::ptrdiff_t;
+
+    static constexpr std::size_t alignment = Alignment;
+
+    aligned_allocator() noexcept           = default;
+
+    template <typename U>
+    explicit aligned_allocator(const aligned_allocator<U, Alignment> &) noexcept {}
+
+    template <typename U>
+    struct rebind {
+        using other = aligned_allocator<U, Alignment>;
+    };
+
+    T *allocate(std::size_t n) {
+        if (n > std::size_t(-1) / sizeof(T)) {
+            return nullptr;
+        }
+
+        std::size_t size = n * sizeof(T);
+        void       *ptr  = ::operator new(size, std::align_val_t {Alignment});
+        return static_cast<T *>(ptr);
+    }
+
+    void deallocate(T *ptr, std::size_t n) noexcept {
+        ::operator delete(ptr, n * sizeof(T), std::align_val_t {Alignment});
+    }
+};
+
+template <typename T, std::size_t AlignmentT, typename U, std::size_t AlignmentU>
+bool operator==(const aligned_allocator<T, AlignmentT> &,
+                const aligned_allocator<U, AlignmentU> &) noexcept {
+    return AlignmentT == AlignmentU;
+}
+
+template <typename T, std::size_t AlignmentT, typename U, std::size_t AlignmentU>
+bool operator!=(const aligned_allocator<T, AlignmentT> &,
+                const aligned_allocator<U, AlignmentU> &) noexcept {
+    return AlignmentT != AlignmentU;
+}
+
 
 #endif
 

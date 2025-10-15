@@ -2,52 +2,55 @@
 #include "camera_declare.hpp"
 //
 void dcmi_data_structure_init() {
-    RGB_hdcmi.Instance                = DCMI;
-    RGB_hdcmi.Init.SynchroMode        = DCMI_SYNCHRO_HARDWARE;
-    RGB_hdcmi.Init.PCKPolarity        = DCMI_PCKPOLARITY_RISING;
-    RGB_hdcmi.Init.VSPolarity         = DCMI_VSPOLARITY_HIGH;
-    RGB_hdcmi.Init.HSPolarity         = DCMI_HSPOLARITY_HIGH;
-    RGB_hdcmi.Init.CaptureRate        = DCMI_CR_ALL_FRAME;
-    RGB_hdcmi.Init.ExtendedDataMode   = DCMI_EXTEND_DATA_8B;
-    RGB_hdcmi.Init.JPEGMode           = DCMI_JPEG_DISABLE;
-    RGB_hdcmi.Init.ByteSelectMode     = DCMI_BSM_ALL;
-    RGB_hdcmi.Init.ByteSelectStart    = DCMI_OEBS_ODD;
-    RGB_hdcmi.Init.LineSelectMode     = DCMI_LSM_ALL;
-    RGB_hdcmi.Init.LineSelectStart    = DCMI_OELS_ODD;
-    RGB_hdcmi.MspInitCallback         = dcmi_rgb_mspinit;
-    RGB_hdcmi.MspDeInitCallback       = dcmi_msp_deinit;
+    RGB_hdcmi.data.instance.Instance                = DCMI;
+    RGB_hdcmi.data.instance.Init.SynchroMode        = DCMI_SYNCHRO_HARDWARE;
+    RGB_hdcmi.data.instance.Init.PCKPolarity        = DCMI_PCKPOLARITY_RISING;
+    RGB_hdcmi.data.instance.Init.VSPolarity         = DCMI_VSPOLARITY_HIGH;
+    RGB_hdcmi.data.instance.Init.HSPolarity         = DCMI_HSPOLARITY_HIGH;
+    RGB_hdcmi.data.instance.Init.CaptureRate        = DCMI_CR_ALL_FRAME;
+    RGB_hdcmi.data.instance.Init.ExtendedDataMode   = DCMI_EXTEND_DATA_8B;
+    RGB_hdcmi.data.instance.Init.JPEGMode           = DCMI_JPEG_DISABLE;
+    RGB_hdcmi.data.instance.Init.ByteSelectMode     = DCMI_BSM_ALL;
+    RGB_hdcmi.data.instance.Init.ByteSelectStart    = DCMI_OEBS_ODD;
+    RGB_hdcmi.data.instance.Init.LineSelectMode     = DCMI_LSM_ALL;
+    RGB_hdcmi.data.instance.Init.LineSelectStart    = DCMI_OELS_ODD;
+    RGB_hdcmi.data.instance.MspInitCallback         = dcmi_rgb_mspinit;
+    RGB_hdcmi.data.instance.MspDeInitCallback       = dcmi_msp_deinit;
+    RGB_hdcmi.data.eg                               = xEventGroupCreate();
 
-    YCbCr_hdcmi.Instance              = DCMI;
-    YCbCr_hdcmi.Init.SynchroMode      = DCMI_SYNCHRO_HARDWARE;
-    YCbCr_hdcmi.Init.PCKPolarity      = DCMI_PCKPOLARITY_RISING;
-    YCbCr_hdcmi.Init.VSPolarity       = DCMI_VSPOLARITY_HIGH;
-    YCbCr_hdcmi.Init.HSPolarity       = DCMI_HSPOLARITY_HIGH;
-    YCbCr_hdcmi.Init.CaptureRate      = DCMI_CR_ALL_FRAME;
-    YCbCr_hdcmi.Init.ExtendedDataMode = DCMI_EXTEND_DATA_8B;
-    YCbCr_hdcmi.Init.JPEGMode         = DCMI_JPEG_DISABLE;
-    YCbCr_hdcmi.Init.ByteSelectMode   = DCMI_BSM_ALL;
-    YCbCr_hdcmi.Init.ByteSelectStart  = DCMI_OEBS_ODD;
-    YCbCr_hdcmi.Init.LineSelectMode   = DCMI_LSM_ALL;
-    YCbCr_hdcmi.Init.LineSelectStart  = DCMI_OELS_ODD;
-    YCbCr_hdcmi.MspInitCallback       = dcmi_ycbcr_mspinit;
-    YCbCr_hdcmi.MspDeInitCallback     = dcmi_msp_deinit;
+    YCbCr_hdcmi.data.instance.Instance              = DCMI;
+    YCbCr_hdcmi.data.instance.Init.SynchroMode      = DCMI_SYNCHRO_HARDWARE;
+    YCbCr_hdcmi.data.instance.Init.PCKPolarity      = DCMI_PCKPOLARITY_RISING;
+    YCbCr_hdcmi.data.instance.Init.VSPolarity       = DCMI_VSPOLARITY_HIGH;
+    YCbCr_hdcmi.data.instance.Init.HSPolarity       = DCMI_HSPOLARITY_HIGH;
+    YCbCr_hdcmi.data.instance.Init.CaptureRate      = DCMI_CR_ALL_FRAME;
+    YCbCr_hdcmi.data.instance.Init.ExtendedDataMode = DCMI_EXTEND_DATA_8B;
+    YCbCr_hdcmi.data.instance.Init.JPEGMode         = DCMI_JPEG_DISABLE;
+    YCbCr_hdcmi.data.instance.Init.ByteSelectMode   = DCMI_BSM_ALL;
+    YCbCr_hdcmi.data.instance.Init.ByteSelectStart  = DCMI_OEBS_ODD;
+    YCbCr_hdcmi.data.instance.Init.LineSelectMode   = DCMI_LSM_ALL;
+    YCbCr_hdcmi.data.instance.Init.LineSelectStart  = DCMI_OELS_ODD;
+    YCbCr_hdcmi.data.instance.MspInitCallback       = dcmi_ycbcr_mspinit;
+    YCbCr_hdcmi.data.instance.MspDeInitCallback     = dcmi_msp_deinit;
+    YCbCr_hdcmi.data.eg                             = xEventGroupCreate();
 
-    JPEG_hdcmi.Instance               = DCMI;
-    JPEG_hdcmi.Init.SynchroMode       = DCMI_SYNCHRO_HARDWARE;
-    JPEG_hdcmi.Init.PCKPolarity       = DCMI_PCKPOLARITY_RISING;
-    JPEG_hdcmi.Init.VSPolarity        = DCMI_VSPOLARITY_HIGH;
-    JPEG_hdcmi.Init.HSPolarity        = DCMI_HSPOLARITY_HIGH;
-    JPEG_hdcmi.Init.CaptureRate       = DCMI_CR_ALL_FRAME;
-    JPEG_hdcmi.Init.ExtendedDataMode  = DCMI_EXTEND_DATA_8B;
-    JPEG_hdcmi.Init.JPEGMode          = DCMI_JPEG_ENABLE;
-    JPEG_hdcmi.Init.ByteSelectMode    = DCMI_BSM_ALL;
-    JPEG_hdcmi.Init.ByteSelectStart   = DCMI_OEBS_ODD;
-    JPEG_hdcmi.Init.LineSelectMode    = DCMI_LSM_ALL;
-    JPEG_hdcmi.Init.LineSelectStart   = DCMI_OELS_ODD;
-    JPEG_hdcmi.MspInitCallback        = dcmi_jpeg_mspinit;
-    JPEG_hdcmi.MspDeInitCallback      = dcmi_msp_deinit;
-
-    static auto delay_handle          = [](uint32_t delay)
+    JPEG_hdcmi.data.instance.Instance               = DCMI;
+    JPEG_hdcmi.data.instance.Init.SynchroMode       = DCMI_SYNCHRO_HARDWARE;
+    JPEG_hdcmi.data.instance.Init.PCKPolarity       = DCMI_PCKPOLARITY_RISING;
+    JPEG_hdcmi.data.instance.Init.VSPolarity        = DCMI_VSPOLARITY_HIGH;
+    JPEG_hdcmi.data.instance.Init.HSPolarity        = DCMI_HSPOLARITY_HIGH;
+    JPEG_hdcmi.data.instance.Init.CaptureRate       = DCMI_CR_ALL_FRAME;
+    JPEG_hdcmi.data.instance.Init.ExtendedDataMode  = DCMI_EXTEND_DATA_8B;
+    JPEG_hdcmi.data.instance.Init.JPEGMode          = DCMI_JPEG_ENABLE;
+    JPEG_hdcmi.data.instance.Init.ByteSelectMode    = DCMI_BSM_ALL;
+    JPEG_hdcmi.data.instance.Init.ByteSelectStart   = DCMI_OEBS_ODD;
+    JPEG_hdcmi.data.instance.Init.LineSelectMode    = DCMI_LSM_ALL;
+    JPEG_hdcmi.data.instance.Init.LineSelectStart   = DCMI_OELS_ODD;
+    JPEG_hdcmi.data.instance.MspInitCallback        = dcmi_jpeg_mspinit;
+    JPEG_hdcmi.data.instance.MspDeInitCallback      = dcmi_msp_deinit;
+    JPEG_hdcmi.data.eg                              = xEventGroupCreate();
+    // Delay
+    static auto delay_handle = [](uint32_t delay)
     {
         uint32_t i;
         while (delay--) {
@@ -126,79 +129,142 @@ static void dcmi_clk_pin_init() {
 void dcmi_rgb_mspinit(DCMI_HandleTypeDef *dcmiHandle) {
     dcmi_clk_pin_init();
 
-    my_hdma_dcmi.Instance                 = DMA1_Stream0;
-    my_hdma_dcmi.Init.Request             = DMA_REQUEST_DCMI;
-    my_hdma_dcmi.Init.Direction           = DMA_PERIPH_TO_MEMORY;
-    my_hdma_dcmi.Init.PeriphInc           = DMA_PINC_DISABLE;
-    my_hdma_dcmi.Init.MemInc              = DMA_MINC_ENABLE;
-    my_hdma_dcmi.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
-    my_hdma_dcmi.Init.MemDataAlignment    = DMA_MDATAALIGN_WORD;
-    my_hdma_dcmi.Init.Mode                = DMA_CIRCULAR;
-    my_hdma_dcmi.Init.Priority            = DMA_PRIORITY_HIGH;
-    my_hdma_dcmi.Init.FIFOMode            = DMA_FIFOMODE_ENABLE;
-    my_hdma_dcmi.Init.FIFOThreshold       = DMA_FIFO_THRESHOLD_FULL;
-    my_hdma_dcmi.Init.MemBurst            = DMA_MBURST_INC4;
-    my_hdma_dcmi.Init.PeriphBurst         = DMA_PBURST_SINGLE;
-    if (HAL_DMA_Init(&my_hdma_dcmi) != HAL_OK) {
+    Camera_DCMI_Data   *p                       = container_of(dcmiHandle, Camera_DCMI_Data, instance);
+    DMA_HandleTypeDef  &camera_first_stage_dma  = p->first_stage_dma;
+    MDMA_HandleTypeDef &camera_second_stage_dma = p->second_stage_dma;
+    //
+    camera_first_stage_dma.Instance                 = DMA1_Stream0;
+    camera_first_stage_dma.Init.Request             = DMA_REQUEST_DCMI;
+    camera_first_stage_dma.Init.Direction           = DMA_PERIPH_TO_MEMORY;
+    camera_first_stage_dma.Init.PeriphInc           = DMA_PINC_DISABLE;
+    camera_first_stage_dma.Init.MemInc              = DMA_MINC_ENABLE;
+    camera_first_stage_dma.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
+    camera_first_stage_dma.Init.MemDataAlignment    = DMA_MDATAALIGN_WORD;
+    camera_first_stage_dma.Init.Mode                = DMA_CIRCULAR;
+    camera_first_stage_dma.Init.Priority            = DMA_PRIORITY_HIGH;
+    camera_first_stage_dma.Init.FIFOMode            = DMA_FIFOMODE_ENABLE;
+    camera_first_stage_dma.Init.FIFOThreshold       = DMA_FIFO_THRESHOLD_FULL;
+    camera_first_stage_dma.Init.MemBurst            = DMA_MBURST_INC4;
+    camera_first_stage_dma.Init.PeriphBurst         = DMA_PBURST_SINGLE;
+    if (HAL_DMA_Init(&camera_first_stage_dma) != HAL_OK) {
         Error_Handler();
     }
 
-    __HAL_LINKDMA(dcmiHandle, DMA_Handle, my_hdma_dcmi);
+    __HAL_LINKDMA(dcmiHandle, DMA_Handle, camera_first_stage_dma);
 
     HAL_NVIC_SetPriority(DCMI_IRQn, 6, 0);
     HAL_NVIC_EnableIRQ(DCMI_IRQn);
+
+    // MDMA
+    camera_second_stage_dma.Instance                      = MDMA_Channel2;
+    camera_second_stage_dma.Init.Request                  = MDMA_REQUEST_DMA1_Stream0_TC;
+    camera_second_stage_dma.Init.TransferTriggerMode      = MDMA_REPEAT_BLOCK_TRANSFER;
+    camera_second_stage_dma.Init.Priority                 = MDMA_PRIORITY_VERY_HIGH;
+    camera_second_stage_dma.Init.Endianness               = MDMA_LITTLE_ENDIANNESS_PRESERVE;
+    camera_second_stage_dma.Init.SourceInc                = MDMA_SRC_INC_WORD;
+    camera_second_stage_dma.Init.DestinationInc           = MDMA_DEST_INC_WORD;
+    camera_second_stage_dma.Init.SourceDataSize           = MDMA_SRC_DATASIZE_WORD;
+    camera_second_stage_dma.Init.DestDataSize             = MDMA_DEST_DATASIZE_WORD;
+    camera_second_stage_dma.Init.DataAlignment            = MDMA_DATAALIGN_PACKENABLE;
+    camera_second_stage_dma.Init.BufferTransferLength     = 32;
+    camera_second_stage_dma.Init.SourceBurst              = MDMA_SOURCE_BURST_8BEATS;
+    camera_second_stage_dma.Init.DestBurst                = MDMA_DEST_BURST_8BEATS;
+    camera_second_stage_dma.Init.SourceBlockAddressOffset = 0;
+    camera_second_stage_dma.Init.DestBlockAddressOffset   = 0;
 }
 
 void dcmi_ycbcr_mspinit(DCMI_HandleTypeDef *dcmiHandle) {
     dcmi_clk_pin_init();
 
-    my_hdma_dcmi.Instance                 = DMA1_Stream0;
-    my_hdma_dcmi.Init.Request             = DMA_REQUEST_DCMI;
-    my_hdma_dcmi.Init.Direction           = DMA_PERIPH_TO_MEMORY;
-    my_hdma_dcmi.Init.PeriphInc           = DMA_PINC_DISABLE;
-    my_hdma_dcmi.Init.MemInc              = DMA_MINC_ENABLE;
-    my_hdma_dcmi.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
-    my_hdma_dcmi.Init.MemDataAlignment    = DMA_MDATAALIGN_WORD;
-    my_hdma_dcmi.Init.Mode                = DMA_CIRCULAR;
-    my_hdma_dcmi.Init.Priority            = DMA_PRIORITY_HIGH;
-    my_hdma_dcmi.Init.FIFOMode            = DMA_FIFOMODE_ENABLE;
-    my_hdma_dcmi.Init.FIFOThreshold       = DMA_FIFO_THRESHOLD_FULL;
-    my_hdma_dcmi.Init.MemBurst            = DMA_MBURST_INC4;
-    my_hdma_dcmi.Init.PeriphBurst         = DMA_PBURST_SINGLE;
-    if (HAL_DMA_Init(&my_hdma_dcmi) != HAL_OK) {
+    Camera_DCMI_Data *p                       = container_of(dcmiHandle, Camera_DCMI_Data, instance);
+    DMA_HandleTypeDef      &camera_first_stage_dma  = p->first_stage_dma;
+    MDMA_HandleTypeDef     &camera_second_stage_dma = p->second_stage_dma;
+    //
+    camera_first_stage_dma.Instance                 = DMA1_Stream0;
+    camera_first_stage_dma.Init.Request             = DMA_REQUEST_DCMI;
+    camera_first_stage_dma.Init.Direction           = DMA_PERIPH_TO_MEMORY;
+    camera_first_stage_dma.Init.PeriphInc           = DMA_PINC_DISABLE;
+    camera_first_stage_dma.Init.MemInc              = DMA_MINC_ENABLE;
+    camera_first_stage_dma.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
+    camera_first_stage_dma.Init.MemDataAlignment    = DMA_MDATAALIGN_WORD;
+    camera_first_stage_dma.Init.Mode                = DMA_CIRCULAR;
+    camera_first_stage_dma.Init.Priority            = DMA_PRIORITY_HIGH;
+    camera_first_stage_dma.Init.FIFOMode            = DMA_FIFOMODE_ENABLE;
+    camera_first_stage_dma.Init.FIFOThreshold       = DMA_FIFO_THRESHOLD_FULL;
+    camera_first_stage_dma.Init.MemBurst            = DMA_MBURST_INC4;
+    camera_first_stage_dma.Init.PeriphBurst         = DMA_PBURST_SINGLE;
+    if (HAL_DMA_Init(&camera_first_stage_dma) != HAL_OK) {
         Error_Handler();
     }
 
-    __HAL_LINKDMA(dcmiHandle, DMA_Handle, my_hdma_dcmi);
+    __HAL_LINKDMA(dcmiHandle, DMA_Handle, camera_first_stage_dma);
 
     HAL_NVIC_SetPriority(DCMI_IRQn, 6, 0);
     HAL_NVIC_EnableIRQ(DCMI_IRQn);
+
+    // MDMA
+    camera_second_stage_dma.Instance                      = MDMA_Channel2;
+    camera_second_stage_dma.Init.Request                  = MDMA_REQUEST_DMA1_Stream0_TC;
+    camera_second_stage_dma.Init.TransferTriggerMode      = MDMA_REPEAT_BLOCK_TRANSFER;
+    camera_second_stage_dma.Init.Priority                 = MDMA_PRIORITY_VERY_HIGH;
+    camera_second_stage_dma.Init.Endianness               = MDMA_LITTLE_ENDIANNESS_PRESERVE;
+    camera_second_stage_dma.Init.SourceInc                = MDMA_SRC_INC_WORD;
+    camera_second_stage_dma.Init.DestinationInc           = MDMA_DEST_INC_WORD;
+    camera_second_stage_dma.Init.SourceDataSize           = MDMA_SRC_DATASIZE_WORD;
+    camera_second_stage_dma.Init.DestDataSize             = MDMA_DEST_DATASIZE_WORD;
+    camera_second_stage_dma.Init.DataAlignment            = MDMA_DATAALIGN_PACKENABLE;
+    camera_second_stage_dma.Init.BufferTransferLength     = 32;
+    camera_second_stage_dma.Init.SourceBurst              = MDMA_SOURCE_BURST_8BEATS;
+    camera_second_stage_dma.Init.DestBurst                = MDMA_DEST_BURST_8BEATS;
+    camera_second_stage_dma.Init.SourceBlockAddressOffset = 0;
+    camera_second_stage_dma.Init.DestBlockAddressOffset   = 0;
 }
 
 void dcmi_jpeg_mspinit(DCMI_HandleTypeDef *dcmiHandle) {
     dcmi_clk_pin_init();
 
-    my_hdma_dcmi.Instance                 = DMA1_Stream0;
-    my_hdma_dcmi.Init.Request             = DMA_REQUEST_DCMI;
-    my_hdma_dcmi.Init.Direction           = DMA_PERIPH_TO_MEMORY;
-    my_hdma_dcmi.Init.PeriphInc           = DMA_PINC_DISABLE;
-    my_hdma_dcmi.Init.MemInc              = DMA_MINC_ENABLE;
-    my_hdma_dcmi.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
-    my_hdma_dcmi.Init.MemDataAlignment    = DMA_MDATAALIGN_WORD;
-    my_hdma_dcmi.Init.Mode                = DMA_CIRCULAR;
-    my_hdma_dcmi.Init.Priority            = DMA_PRIORITY_HIGH;
-    my_hdma_dcmi.Init.FIFOMode            = DMA_FIFOMODE_ENABLE;
-    my_hdma_dcmi.Init.FIFOThreshold       = DMA_FIFO_THRESHOLD_FULL;
-    my_hdma_dcmi.Init.MemBurst            = DMA_MBURST_INC4;
-    my_hdma_dcmi.Init.PeriphBurst         = DMA_PBURST_SINGLE;
-    if (HAL_DMA_Init(&my_hdma_dcmi) != HAL_OK) {
+    Camera_DCMI_Data *p                       = container_of(dcmiHandle, Camera_DCMI_Data, instance);
+    DMA_HandleTypeDef      &camera_first_stage_dma  = p->first_stage_dma;
+    MDMA_HandleTypeDef     &camera_second_stage_dma = p->second_stage_dma;
+    //
+    camera_first_stage_dma.Instance                 = DMA1_Stream0;
+    camera_first_stage_dma.Init.Request             = DMA_REQUEST_DCMI;
+    camera_first_stage_dma.Init.Direction           = DMA_PERIPH_TO_MEMORY;
+    camera_first_stage_dma.Init.PeriphInc           = DMA_PINC_DISABLE;
+    camera_first_stage_dma.Init.MemInc              = DMA_MINC_ENABLE;
+    camera_first_stage_dma.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
+    camera_first_stage_dma.Init.MemDataAlignment    = DMA_MDATAALIGN_WORD;
+    camera_first_stage_dma.Init.Mode                = DMA_CIRCULAR;
+    camera_first_stage_dma.Init.Priority            = DMA_PRIORITY_HIGH;
+    camera_first_stage_dma.Init.FIFOMode            = DMA_FIFOMODE_ENABLE;
+    camera_first_stage_dma.Init.FIFOThreshold       = DMA_FIFO_THRESHOLD_FULL;
+    camera_first_stage_dma.Init.MemBurst            = DMA_MBURST_INC4;
+    camera_first_stage_dma.Init.PeriphBurst         = DMA_PBURST_SINGLE;
+    if (HAL_DMA_Init(&camera_first_stage_dma) != HAL_OK) {
         Error_Handler();
     }
 
-    __HAL_LINKDMA(dcmiHandle, DMA_Handle, my_hdma_dcmi);
+    __HAL_LINKDMA(dcmiHandle, DMA_Handle, camera_first_stage_dma);
 
     HAL_NVIC_SetPriority(DCMI_IRQn, 6, 0);
     HAL_NVIC_EnableIRQ(DCMI_IRQn);
+
+    // MDMA
+    camera_second_stage_dma.Instance                      = MDMA_Channel2;
+    camera_second_stage_dma.Init.Request                  = MDMA_REQUEST_DMA1_Stream0_TC;
+    camera_second_stage_dma.Init.TransferTriggerMode      = MDMA_REPEAT_BLOCK_TRANSFER;
+    camera_second_stage_dma.Init.Priority                 = MDMA_PRIORITY_VERY_HIGH;
+    camera_second_stage_dma.Init.Endianness               = MDMA_LITTLE_ENDIANNESS_PRESERVE;
+    camera_second_stage_dma.Init.SourceInc                = MDMA_SRC_INC_WORD;
+    camera_second_stage_dma.Init.DestinationInc           = MDMA_DEST_INC_WORD;
+    camera_second_stage_dma.Init.SourceDataSize           = MDMA_SRC_DATASIZE_WORD;
+    camera_second_stage_dma.Init.DestDataSize             = MDMA_DEST_DATASIZE_WORD;
+    camera_second_stage_dma.Init.DataAlignment            = MDMA_DATAALIGN_PACKENABLE;
+    camera_second_stage_dma.Init.BufferTransferLength     = 32;
+    camera_second_stage_dma.Init.SourceBurst              = MDMA_SOURCE_BURST_8BEATS;
+    camera_second_stage_dma.Init.DestBurst                = MDMA_DEST_BURST_8BEATS;
+    camera_second_stage_dma.Init.SourceBlockAddressOffset = 0;
+    camera_second_stage_dma.Init.DestBlockAddressOffset   = 0;
 }
 
 
@@ -289,8 +355,4 @@ void dcmi_io_deinit_ov5640() {
 #endif
     OV5640_PWDN_Set(1);
     OV5640_RST(0);
-}
-
-void DCMI_IRQHandler(void) {
-    HAL_DCMI_IRQHandler(target_dcmi);
 }

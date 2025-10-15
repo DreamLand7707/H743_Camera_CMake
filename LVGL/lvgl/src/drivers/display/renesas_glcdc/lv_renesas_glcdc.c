@@ -247,7 +247,7 @@ static void flush_direct(lv_display_t * display, const lv_area_t * area, uint8_t
 
 #if defined(RENESAS_CORTEX_M85) && (BSP_CFG_DCACHE_ENABLED)
     /* Invalidate cache - so the HW can access any data written by the CPU */
-    SCB_CleanInvalidateDCache_by_Addr(px_map, sizeof(fb_background[0]));
+    MYSCB_CleanInvalidateDCache_by_Addr(px_map, sizeof(fb_background[0]));
 #endif
 
 #ifdef _RENESAS_RA_
@@ -325,7 +325,7 @@ static void flush_partial(lv_display_t * display, const lv_area_t * area, uint8_
         lv_memcpy(fb, img, w * BYTES_PER_PIXEL);
 
 #if defined(RENESAS_CORTEX_M85) && (BSP_CFG_DCACHE_ENABLED)
-        SCB_CleanInvalidateDCache_by_Addr(fb, w * BYTES_PER_PIXEL);
+        MYSCB_CleanInvalidateDCache_by_Addr(fb, w * BYTES_PER_PIXEL);
 #endif
         fb += DISPLAY_HSIZE_INPUT0;
         img += w;

@@ -290,7 +290,7 @@ DRESULT SD_read(BYTE lun, BYTE *buff, DWORD sector, UINT count) {
                             adjust the address and the D-Cache size to invalidate accordingly.
                             */
                             alignedAddr = (uint32_t)buff & ~0x1F;
-                            SCB_InvalidateDCache_by_Addr((uint32_t *)alignedAddr, count * BLOCKSIZE + ((uint32_t)buff - alignedAddr));
+                            MYSCB_InvalidateDCache_by_Addr((uint32_t *)alignedAddr, count * BLOCKSIZE + ((uint32_t)buff - alignedAddr));
 #endif
                             break;
                         }
@@ -352,7 +352,7 @@ DRESULT SD_read(BYTE lun, BYTE *buff, DWORD sector, UINT count) {
                  *
                  * invalidate the scratch buffer before the next read to get the actual data instead of the cached one
                  */
-                SCB_InvalidateDCache_by_Addr((uint32_t *)scratch, BLOCKSIZE);
+                MYSCB_InvalidateDCache_by_Addr((uint32_t *)scratch, BLOCKSIZE);
     #endif
                 memcpy(buff, scratch, BLOCKSIZE);
                 buff += BLOCKSIZE;
@@ -415,7 +415,7 @@ DRESULT SD_write(BYTE lun, const BYTE *buff, DWORD sector, UINT count) {
           adjust the address and the D-Cache size to clean accordingly.
         */
         alignedAddr = (uint32_t)buff & ~0x1F;
-        SCB_CleanDCache_by_Addr((uint32_t *)alignedAddr, count * BLOCKSIZE + ((uint32_t)buff - alignedAddr));
+        MYSCB_CleanDCache_by_Addr((uint32_t *)alignedAddr, count * BLOCKSIZE + ((uint32_t)buff - alignedAddr));
     #endif
 
         if (BSP_SD_WriteBlocks_DMA((uint32_t *)buff,
@@ -462,7 +462,7 @@ DRESULT SD_write(BYTE lun, const BYTE *buff, DWORD sector, UINT count) {
             /*
              * invalidate the scratch buffer before the next write to get the actual data instead of the cached one
              */
-            SCB_InvalidateDCache_by_Addr((uint32_t *)scratch, BLOCKSIZE);
+            MYSCB_InvalidateDCache_by_Addr((uint32_t *)scratch, BLOCKSIZE);
         #endif
             for (i = 0; i < count; i++) {
                 memcpy((void *)scratch, buff, BLOCKSIZE);

@@ -164,6 +164,7 @@ extern "C"
     void initial_task_routine(void const *argument);
     void touch_sence_routine(void const *argument);
     void camera_task_routine(void const *argument);
+    void camera_mdma_IRQHandler();
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
@@ -258,6 +259,55 @@ extern "C"
         int32_t real_size = (int32_t)(address_end - address_start);
         SCB_InvalidateDCache_by_Addr((uint32_t *)address_start, real_size);
     }
+
+    static inline void MYSCB_EnableICache(void) {
+        SCB_EnableICache();
+    }
+
+    static inline void MYSCB_DisableICache(void) {
+        SCB_DisableICache();
+    }
+
+    static inline void MYSCB_InvalidateICache(void) {
+        SCB_InvalidateICache();
+    }
+
+    static inline void MYSCB_InvalidateICache_by_Addr(void *addr, int32_t isize) {
+        SCB_InvalidateICache_by_Addr(addr, isize);
+    }
+
+    static inline void MYSCB_EnableDCache(void) {
+        SCB_EnableDCache();
+    }
+
+    static inline void MYSCB_DisableDCache(void) {
+        SCB_DisableDCache();
+    }
+
+    static inline void MYSCB_InvalidateDCache(void) {
+        SCB_InvalidateDCache();
+    }
+
+    static inline void MYSCB_CleanDCache(void) {
+        SCB_CleanDCache();
+    }
+
+    static inline void MYSCB_CleanInvalidateDCache(void) {
+        SCB_CleanInvalidateDCache();
+    }
+
+    static inline void MYSCB_InvalidateDCache_by_Addr(void *addr, int32_t dsize) {
+        SCB_InvalidateDCache_by_Addr(addr, dsize);
+    }
+
+    static inline void MYSCB_CleanDCache_by_Addr(uint32_t *addr, int32_t dsize) {
+        SCB_CleanDCache_by_Addr(addr, dsize);
+    }
+
+    static inline void MYSCB_CleanInvalidateDCache_by_Addr(uint32_t *addr, int32_t dsize) {
+        SCB_CleanInvalidateDCache_by_Addr(addr, dsize);
+    }
+
 #else
 static inline void MYSCB_CleanInvalidateDCache_by_AddrRange(const void *pData_begin, const void *pData_end) {
     UNUSED(pData_begin);
@@ -273,13 +323,57 @@ static inline void MYSCB_InvalidateDCache_by_AddrRange(const void *pData_begin, 
     UNUSED(pData_begin);
     UNUSED(pData_end);
 }
+static inline void MYSCB_EnableICache(void) {}
+static inline void MYSCB_DisableICache(void) {}
+static inline void MYSCB_InvalidateICache(void) {}
+
+static inline void MYSCB_InvalidateICache_by_Addr(void *addr, int32_t isize) {
+    UNUSED(addr);
+    UNUSED(isize);
+}
+
+static inline void MYSCB_EnableDCache(void) {}
+static inline void MYSCB_DisableDCache(void) {}
+static inline void MYSCB_InvalidateDCache(void) {}
+static inline void MYSCB_CleanDCache(void) {}
+static inline void MYSCB_CleanInvalidateDCache(void) {}
+
+static inline void MYSCB_InvalidateDCache_by_Addr(void *addr, int32_t dsize) {
+    UNUSED(addr);
+    UNUSED(dsize);
+}
+static inline void MYSCB_CleanDCache_by_Addr(uint32_t *addr, int32_t dsize) {
+    UNUSED(addr);
+    UNUSED(dsize);
+}
+static inline void MYSCB_CleanInvalidateDCache_by_Addr(uint32_t *addr, int32_t dsize) {
+    UNUSED(addr);
+    UNUSED(dsize);
+}
 #endif
+
+    static inline uintptr_t make_ptr_aligned(uintptr_t address, uintptr_t aligned) {
+        uintptr_t ret =
+            (address & (~(aligned - 1))) + ((address & (aligned - 1)) ? (aligned) : 0);
+
+        return ret;
+    }
+
+    static inline uintptr_t make_length_aligned(uintptr_t length, uintptr_t aligned) {
+        uintptr_t ret = length & (~(aligned - 1));
+
+        return ret;
+    }
+
+    static inline uint32_t divide_ceil(uint32_t lhs, uint32_t rhs) {
+        return lhs / rhs + !!(lhs % rhs);
+    }
 
     static inline int rgba_equal(BGR *a, BGR *b) {
         return (a->B == b->B) && (a->G == b->G) && (a->R == b->R);
     }
 
-    __STATIC_FORCEINLINE int in_handler_mode(void) {
+    static inline int in_handler_mode(void) {
         return __get_IPSR() != 0;
     }
 
