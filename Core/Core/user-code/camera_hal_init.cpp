@@ -139,12 +139,12 @@ void dcmi_rgb_mspinit(DCMI_HandleTypeDef *dcmiHandle) {
     camera_first_stage_dma.Init.PeriphInc           = DMA_PINC_DISABLE;
     camera_first_stage_dma.Init.MemInc              = DMA_MINC_ENABLE;
     camera_first_stage_dma.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
-    camera_first_stage_dma.Init.MemDataAlignment    = DMA_MDATAALIGN_WORD;
+    camera_first_stage_dma.Init.MemDataAlignment    = DMA_MDATAALIGN_HALFWORD;
     camera_first_stage_dma.Init.Mode                = DMA_CIRCULAR;
     camera_first_stage_dma.Init.Priority            = DMA_PRIORITY_HIGH;
     camera_first_stage_dma.Init.FIFOMode            = DMA_FIFOMODE_ENABLE;
     camera_first_stage_dma.Init.FIFOThreshold       = DMA_FIFO_THRESHOLD_FULL;
-    camera_first_stage_dma.Init.MemBurst            = DMA_MBURST_INC4;
+    camera_first_stage_dma.Init.MemBurst            = DMA_MBURST_SINGLE;
     camera_first_stage_dma.Init.PeriphBurst         = DMA_PBURST_SINGLE;
     if (HAL_DMA_Init(&camera_first_stage_dma) != HAL_OK) {
         Error_Handler();
