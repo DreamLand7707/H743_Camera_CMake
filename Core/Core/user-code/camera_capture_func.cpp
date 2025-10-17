@@ -9,15 +9,18 @@ SemaphoreHandle_t camera_error {};
 QueueSetHandle_t  camera_queue_set {};
 
 void              dcmi_capture_resource_init() {
-    camera_queue_set         = xQueueCreateSet(4);
+    camera_queue_set         = xQueueCreateSet(5);
     camera_interface_changed = xSemaphoreCreateBinary();
     camera_new_message       = xSemaphoreCreateBinary();
     camera_exit              = xSemaphoreCreateBinary();
     camera_error             = xSemaphoreCreateBinary();
+    camera_interface_restart = xSemaphoreCreateBinary();
+
     xQueueAddToSet(camera_new_message, camera_queue_set);
     xQueueAddToSet(camera_exit, camera_queue_set);
     xQueueAddToSet(camera_error, camera_queue_set);
     xQueueAddToSet(camera_interface_changed, camera_queue_set);
+    xQueueAddToSet(camera_interface_restart, camera_queue_set);
 }
 
 HAL_StatusTypeDef camera_start_capture(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format,
@@ -300,6 +303,8 @@ void camera_RGB_YCbCr_capture_stop(Camera_DCMI_HandleType *Camera_DCMI, camera_f
     while (Camera_DCMI->data.instance.Instance->CR & DCMI_CR_CAPTURE) {
         vTaskDelay(pdMS_TO_TICKS(10));
     }
+
+    __HAL_DCMI_DISABLE(&Camera_DCMI->data.instance);
 
     HAL_DMA_Abort(&Camera_DCMI->data.first_stage_dma);
     HAL_MDMA_Abort(&Camera_DCMI->data.second_stage_dma);

@@ -17,6 +17,7 @@ camera_resolution       current_resolution {};
 camera_format           current_format {};
 
 SemaphoreHandle_t       camera_interface_changed {};
+SemaphoreHandle_t       camera_interface_restart {};
 bool                    camera_deinit_have_done = true;
 
 lv_obj_t               *screen_container {};
@@ -67,7 +68,7 @@ void camera_task_routine(void const *argument) {
         // ?
         the_queue = xQueueSelectFromSet(camera_queue_set, portMAX_DELAY);
 
-        if (the_queue == camera_interface_changed) {
+        if (the_queue == camera_interface_changed || the_queue == camera_interface_restart) {
             xSemaphoreTake(camera_interface_changed, 0);
 
             queue_enable            = true;
@@ -94,7 +95,12 @@ void camera_task_routine(void const *argument) {
 
             if ((ret & (uint32_t)message_process::ERROR_STOP)) {
                 camera_RGB_YCbCr_capture_stop(target_dcmi, current_format);
+                camera_deinit(error_message, nullptr);
+
+                can_catch_scene     = false;
                 camera_captured_end = false;
+
+                xSemaphoreGive(camera_interface_restart);
                 continue;
             }
 

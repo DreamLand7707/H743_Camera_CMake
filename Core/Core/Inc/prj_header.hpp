@@ -85,3 +85,4 @@ BaseType_t               send_command_to_main_manage(std::string *path, size_t r
 void                     picture_scaling(const void *src, void *dst, uint32_t src_w, uint32_t src_h, uint32_t &dst_w, uint32_t &dst_h);
 
 extern SemaphoreHandle_t camera_interface_changed;
+extern SemaphoreHandle_t camera_interface_restart;
