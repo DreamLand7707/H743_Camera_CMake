@@ -6,6 +6,7 @@ enum class camera_resolution {
     reso_max_resolution,
     reso_1080p,
     reso_vga, // 640*480
+    reso_sreen
 };
 
 enum class camera_format {

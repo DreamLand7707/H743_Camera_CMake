@@ -105,6 +105,7 @@ void                    camera_task_routine(void const *argument) {
     bool          camera_captured_end = false;
     QueueHandle_t the_queue {};
     uint32_t      resolution {}, format {}, data_length {}, src_w {}, src_h {};
+    uint32_t      use_full_buffer = 1;
     while (1) {
         // ?
         the_queue = xQueueSelectFromSet(camera_queue_set, portMAX_DELAY);
@@ -133,6 +134,13 @@ void                    camera_task_routine(void const *argument) {
                 data_length = 640 * 480;
                 src_w       = 640;
                 src_h       = 480;
+                break;
+            }
+            case camera_resolution::reso_sreen: {
+                resolution  = OV5640_R480x272;
+                data_length = 480 * 272;
+                src_w       = 480;
+                src_h       = 272;
                 break;
             }
             }
@@ -217,12 +225,31 @@ void                    camera_task_routine(void const *argument) {
                 MYSCB_InvalidateDCache_by_Addr((void *)jpeg_before_buffer_rgb, (int32_t)data_length);
                 full_pict_show_size[0] = MY_DISP_HOR_RES;
                 full_pict_show_size[1] = MY_DISP_VER_RES;
-                picture_scaling(jpeg_before_buffer_rgb, full_screen_pict_show_buffer, src_w, src_h,
-                                                   full_pict_show_size[0], full_pict_show_size[1]);
+                if (use_full_buffer == 1) {
+                    if (src_w == full_pict_show_size[0] && src_h == full_pict_show_size[1]) {
+                        memcpy(full_screen_pict_show_buffer, jpeg_before_buffer_rgb, data_length);
+                    }
+                    else {
+                        picture_scaling(jpeg_before_buffer_rgb, full_screen_pict_show_buffer, src_w, src_h,
+                                                           full_pict_show_size[0], full_pict_show_size[1]);
+                    }
+                    img_dsc.data    = full_screen_pict_show_buffer;
+                    use_full_buffer = 2;
+                }
+                else {
+                    if (src_w == full_pict_show_size[0] && src_h == full_pict_show_size[1]) {
+                        memcpy(full_screen_pict_show_buffer_2, jpeg_before_buffer_rgb, data_length);
+                    }
+                    else {
+                        picture_scaling(jpeg_before_buffer_rgb, full_screen_pict_show_buffer_2, src_w, src_h,
+                                                           full_pict_show_size[0], full_pict_show_size[1]);
+                    }
+                    img_dsc.data    = full_screen_pict_show_buffer_2;
+                    use_full_buffer = 1;
+                }
 
                 img_dsc.header.w  = full_pict_show_size[0];
                 img_dsc.header.h  = full_pict_show_size[1];
-                img_dsc.data      = full_screen_pict_show_buffer;
                 img_dsc.data_size = full_pict_show_size[0] * full_pict_show_size[1] * 2;
 
                 screen_image_operate(&img_dsc);
@@ -436,7 +463,7 @@ static HAL_StatusTypeDef camera_start_capture(Camera_DCMI_HandleType *Camera_DCM
                                            0b10000u);
 
             uintptr_t             destination = final_buffer + (per_block_word << 2u);
-            bool                  is_second   = false;
+            bool                  is_second   = true;
             MDMA_LinkNodeTypeDef *prev_node   = nullptr;
             for (auto &x : Camera_DCMI->the_node_list) {
                 MDMA_LinkNodeConfTypeDef node_conf;
@@ -643,10 +670,21 @@ static void camera_RGB_YCbCr_capture_abort_first_stage_dma(Camera_DCMI_HandleTyp
 }
 
 static void camera_RGB_YCbCr_capture_stop(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format) {
+    __HAL_DCMI_DISABLE_IT(&Camera_DCMI->data.instance, DCMI_IT_FRAME);
+    Camera_DCMI->data.instance.Instance->CR &= ~DCMI_CR_CAPTURE;
+
+    while (Camera_DCMI->data.instance.Instance->CR & DCMI_CR_CAPTURE) {
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+
     HAL_DMA_Abort(&Camera_DCMI->data.first_stage_dma);
     HAL_MDMA_Abort(&Camera_DCMI->data.second_stage_dma);
     xEventGroupClearBits(Camera_DCMI->data.eg, 0x00ffffff);
     xQueueReset(camera_new_message);
+
+    __HAL_DCMI_CLEAR_FLAG(&Camera_DCMI->data.instance, 0x1F);
+    __HAL_DMA_CLEAR_FLAG(&Camera_DCMI->data.first_stage_dma, 0x3D);
+    __HAL_MDMA_CLEAR_FLAG(&Camera_DCMI->data.second_stage_dma, 0x1F);
 
     taskENTER_CRITICAL();
     {

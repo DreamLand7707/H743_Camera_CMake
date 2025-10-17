@@ -365,13 +365,14 @@ static void lvgl_create_full_screen_pict_interface() {
     lv_obj_add_event_cb(full_pict_screen_container, click_full_screen_picture_call, LV_EVENT_CLICKED, nullptr);
 }
 
-uint8_t *file_exchange_buffer         = nullptr;
-uint8_t *jpeg_after_buffer            = nullptr; // YCbCr
-uint8_t *jpeg_before_buffer_rgb       = nullptr; // YCbCr -> RGB
-uint8_t *full_screen_pict_show_buffer = nullptr;
-uint32_t full_pict_show_size[2]       = {};
-uint8_t *widget_pict_show_buffer      = nullptr;
-uint32_t widget_pict_show_size[2]     = {};
+uint8_t *file_exchange_buffer           = nullptr;
+uint8_t *jpeg_after_buffer              = nullptr; // YCbCr
+uint8_t *jpeg_before_buffer_rgb         = nullptr; // YCbCr -> RGB
+uint8_t *full_screen_pict_show_buffer   = nullptr;
+uint8_t *full_screen_pict_show_buffer_2 = nullptr;
+uint32_t full_pict_show_size[2]         = {};
+uint8_t *widget_pict_show_buffer        = nullptr;
+uint32_t widget_pict_show_size[2]       = {};
 
 namespace
 {
@@ -425,11 +426,12 @@ static void main_manage_init() {
 }
 
 static void jpeg_rgb_exchange_init() {
-    file_exchange_buffer         = (uint8_t *)pvPortMalloc(64 * 1024);        // 64KB
-    jpeg_after_buffer            = (uint8_t *)pvPortMalloc(64 * 1024);        // 64KB
-    jpeg_before_buffer_rgb       = (uint8_t *)sdram_Malloc(16 * 1024 * 1024); // 16MB
-    full_screen_pict_show_buffer = (uint8_t *)sdram_Malloc(3 * 272 * 480);    // 382.5KB
-    widget_pict_show_buffer      = (uint8_t *)sdram_Malloc(3 * 272 * 480);    // 382.5KB
+    file_exchange_buffer           = (uint8_t *)pvPortMalloc(64 * 1024);        // 64KB
+    jpeg_after_buffer              = (uint8_t *)pvPortMalloc(64 * 1024);        // 64KB
+    jpeg_before_buffer_rgb         = (uint8_t *)sdram_Malloc(16 * 1024 * 1024); // 16MB
+    full_screen_pict_show_buffer   = (uint8_t *)sdram_Malloc(3 * 272 * 480);    // 382.5KB
+    full_screen_pict_show_buffer_2 = (uint8_t *)sdram_Malloc(3 * 272 * 480);    // 382.5KB
+    widget_pict_show_buffer        = (uint8_t *)sdram_Malloc(3 * 272 * 480);    // 382.5KB
 }
 
 static void main_manage_task(void *args) {
