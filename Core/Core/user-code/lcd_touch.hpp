@@ -49,9 +49,7 @@ extern "C"
 {
 #endif
 
-    void           EXTI9_5_IRQHandler();
-
-    extern uint8_t record_touch_valid_num;
+    void                    EXTI9_5_IRQHandler();
 
 #ifdef __cplusplus
 }

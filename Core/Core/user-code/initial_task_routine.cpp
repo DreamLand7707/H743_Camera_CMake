@@ -974,6 +974,12 @@ void HAL_LTDC_ReloadEventCallback(LTDC_HandleTypeDef *hltdc) {
 
 void picture_scaling(const void *src, void *dst,
                      uint32_t src_w, uint32_t src_h, uint32_t &dst_w, uint32_t &dst_h) {
+
+    if (src_w == dst_w && src_h == dst_h) {
+        memcpy(dst, src, (src_w * src_h * 2));
+        return;
+    }
+
     float    ratio_w   = (float)src_w / (float)dst_w;
     float    ratio_h   = (float)src_h / (float)dst_h;
     float    all_ratio = std::max(ratio_w, ratio_h);

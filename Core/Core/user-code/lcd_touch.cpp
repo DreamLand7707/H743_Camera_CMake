@@ -65,11 +65,11 @@ int lcd_touch_initialize() {
     GPIO_InitTypeDef gp;
     static auto      delay_handle = [](uint32_t delay)
     {
-        uint32_t i;
+        volatile uint32_t i;
         while (delay--) {
             i = 50;
-            while (i--)
-                ;
+            while (i)
+                i = i - 1;
         }
     };
     scr_touch_iic_port.SCL_pin          = T_SCK_Pin;

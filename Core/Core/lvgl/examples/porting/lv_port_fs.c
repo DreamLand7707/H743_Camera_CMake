@@ -234,7 +234,7 @@ static lv_fs_res_t fs_seek(lv_fs_drv_t *drv, void *file_p, uint32_t pos, lv_fs_w
 
     /*Add your code here*/
     FIL *file = (FIL*) file_p;
-    FRESULT f_res;
+    FRESULT f_res = FR_OK;
     if (whence == LV_FS_SEEK_SET) f_res = f_lseek(file, (FSIZE_t) pos);
     else if (whence == LV_FS_SEEK_CUR) f_res = f_lseek(file, f_tell(file) + pos);
     else if (whence == LV_FS_SEEK_END) f_res = f_lseek(file, f_size(file) - pos);

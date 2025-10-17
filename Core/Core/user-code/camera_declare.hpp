@@ -57,25 +57,77 @@ extern Camera_DCMI_HandleType *target_dcmi;
 extern camera_resolution       current_resolution;
 extern camera_format           current_format;
 extern bool                    PCF8574_init;
+extern bool                    camera_deinit_have_done;
+extern bool                    target_dcmi_is_ok;
 
 extern Camera_DCMI_HandleType  RGB_hdcmi;   // RGB(565) => Convert(YCbCr 4:4:4) => Encode Inside(JPEG)
 extern Camera_DCMI_HandleType  YCbCr_hdcmi; // YCbCr(4:2:2) => Encode Inside(JPEG)
 extern Camera_DCMI_HandleType  JPEG_hdcmi;  // JPEG(4:2:2)
 
+
+extern SemaphoreHandle_t       camera_new_message;
+extern SemaphoreHandle_t       camera_exit;
+extern SemaphoreHandle_t       camera_error;
+extern QueueSetHandle_t        camera_queue_set;
+
+extern lv_obj_t               *screen_container;
+extern lv_obj_t               *camera_capture_image;
+
+extern lv_obj_t               *button_container;
+extern lv_obj_t               *take_photo_button;
+extern lv_obj_t               *change_to_file_explorer_button;
+extern lv_obj_t               *open_setting_button;
+extern lv_obj_t               *take_photo_label;
+extern lv_obj_t               *change_to_file_explorer_label;
+extern lv_obj_t               *open_setting_label;
+
+extern lv_obj_t               *indicator_label;
+
 //
-void    dcmi_rgb_mspinit(DCMI_HandleTypeDef *dcmiHandle);
-void    dcmi_ycbcr_mspinit(DCMI_HandleTypeDef *dcmiHandle);
-void    dcmi_jpeg_mspinit(DCMI_HandleTypeDef *dcmiHandle);
-void    dcmi_msp_deinit(DCMI_HandleTypeDef *dcmiHandle);
-void    dcmi_data_structure_init();
-void    dcmi_io_deinit_ov5640();
-int32_t ov5640_init();
-int32_t ov5640_deinit();
-void    OV5640_PWDN_Set(uint8_t sta);
-int32_t ov5640_write_series_reg(uint16_t address, uint16_t reg, uint8_t *data, uint16_t length);
-int32_t ov5640_read_series_reg(uint16_t address, uint16_t reg, uint8_t *pdata, uint16_t length);
-//
-extern "C" void DCMI_IRQHandler(void);
+void              dcmi_rgb_mspinit(DCMI_HandleTypeDef *dcmiHandle);
+void              dcmi_ycbcr_mspinit(DCMI_HandleTypeDef *dcmiHandle);
+void              dcmi_jpeg_mspinit(DCMI_HandleTypeDef *dcmiHandle);
+void              dcmi_msp_deinit(DCMI_HandleTypeDef *dcmiHandle);
+void              dcmi_data_structure_init();
+void              dcmi_io_deinit_ov5640();
+int32_t           ov5640_init();
+int32_t           ov5640_deinit();
+void              OV5640_PWDN_Set(uint8_t sta);
+int32_t           ov5640_write_series_reg(uint16_t address, uint16_t reg, uint8_t *data, uint16_t length);
+int32_t           ov5640_read_series_reg(uint16_t address, uint16_t reg, uint8_t *pdata, uint16_t length);
+
+void              lvgl_create_camera_interface();
+void              dcmi_capture_resource_init();
+int               camera_init(bool &can_catch_scene, uint32_t resolution, uint32_t format);
+void              camera_deinit(const char *error_message, void *error_picture);
+
+void              camera_RGB_YCbCr_DMA_Cplt_Cb(DMA_HandleTypeDef *hdma);
+void              camera_RGB_YCbCr_DMA_M1_Cplt_Cb(DMA_HandleTypeDef *hdma);
+void              camera_RGB_YCbCr_DMA_Error_Cb(DMA_HandleTypeDef *hdma);
+void              camera_RGB_YCbCr_DMA_Abort_Cb(DMA_HandleTypeDef *hdma);
+void              camera_RGB_YCbCr_MDMA_RepeatBlock_Cplt_Cb(MDMA_HandleTypeDef *hmdma);
+void              camera_RGB_YCbCr_MDMA_Cplt_Cb(MDMA_HandleTypeDef *hmdma);
+void              camera_RGB_YCbCr_MDMA_Error_Cb(MDMA_HandleTypeDef *hmdma);
+void              camera_RGB_YCbCr_MDMA_Abort_Cb(MDMA_HandleTypeDef *hmdma);
+
+void              change_to_file_explorer_callback(lv_event_t *e);
+void              take_photo_callback(lv_event_t *e);
+void              open_setting_callback(lv_event_t *e);
+
+void              indicator_operate(const char *message);
+void              screen_image_operate(void *source);
+void              calculate_decompose(size_t &x, size_t &y, size_t &z, size_t y_max);
+
+void              resolution_parse(uint32_t &resolution, uint32_t &data_length, uint32_t &src_w, uint32_t &src_h, uint32_t &format, bool &can_catch_scene);
+uint32_t          camera_RGB_YCbCr_capture_process(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format);
+HAL_StatusTypeDef camera_start_capture(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format,
+                                       uintptr_t middle_buffer, size_t middle_buffer_len,
+                                       uintptr_t final_buffer, size_t final_buffer_len);
+HAL_StatusTypeDef camera_RGB_YCbCr_capture_resume(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format);
+void              camera_RGB_YCbCr_capture_stop(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format);
+void              camera_RGB_YCbCr_capture_abort_first_stage_dma(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format);
+
+void              MY_HAL_DCMI_IRQHandler(DCMI_HandleTypeDef *hdcmi);
 
 LV_FONT_DECLARE(photo_folder_setting)
 #define OV5640_ADDR          0x78

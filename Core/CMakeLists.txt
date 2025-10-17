@@ -38,6 +38,9 @@ target_sources(${Core_Name} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/touch_sence_routine.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/camera_task_routine.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/camera_hal_init.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/camera_capture_func.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/camera_isr.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/camera_module_init.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/lcd_touch.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/my_heap_manage.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/timer_delay.cpp

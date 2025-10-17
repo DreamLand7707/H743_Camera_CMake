@@ -19,11 +19,11 @@ uint8_t PCF8574_Init(void) {
 
     static auto delay_handle = [](uint32_t delay)
     {
-        uint32_t i;
+        volatile uint32_t i;
         while (delay--) {
             i = 50;
-            while (i--)
-                ;
+            while (i)
+                i = i - 1;
         }
     };
 

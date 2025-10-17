@@ -125,6 +125,7 @@ extern "C"
     extern uint8_t           mkfs_buffer[4096] __attribute__((section(".fatfs_buffer")));
 
     extern touch_point       record_touch[10];
+    extern uint8_t           record_touch_valid_num;
     extern lv_display_t     *rgb_screen_disp;
     extern uint32_t          sdcard_link_driver;
     extern uint32_t          sdcard_is_mounted;

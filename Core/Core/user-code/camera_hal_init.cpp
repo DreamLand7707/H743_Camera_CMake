@@ -52,11 +52,11 @@ void dcmi_data_structure_init() {
     // Delay
     static auto delay_handle = [](uint32_t delay)
     {
-        uint32_t i;
+        volatile uint32_t i;
         while (delay--) {
             i = 200;
-            while (i--)
-                ;
+            while (i)
+                i = i - 1;
         }
     };
     my_sccb.address_withwr          = OV5640_ADDR;
@@ -267,8 +267,6 @@ void dcmi_jpeg_mspinit(DCMI_HandleTypeDef *dcmiHandle) {
     camera_second_stage_dma.Init.DestBlockAddressOffset   = 0;
 }
 
-
-
 void dcmi_msp_deinit(DCMI_HandleTypeDef *dcmiHandle) {
     __HAL_RCC_DCMI_CLK_DISABLE();
     HAL_GPIO_DeInit(GPIOA, GPIO_PIN_6);
@@ -281,78 +279,3 @@ void dcmi_msp_deinit(DCMI_HandleTypeDef *dcmiHandle) {
     HAL_NVIC_DisableIRQ(DCMI_IRQn);
 }
 
-
-
-int32_t ov5640_init() {
-    uint8_t  reg1, reg2;
-    uint16_t reg;
-
-#ifdef ALINTEK_BOARD
-    if (!PCF8574_init) {
-        PCF8574_Init();
-        PCF8574_init = true;
-    }
-#endif
-
-    OV5640_RST(0);
-    timer_delay_ms(20);
-    OV5640_PWDN_Set(0);
-    timer_delay_ms(5);
-    OV5640_RST(1);
-    timer_delay_ms(20);
-
-    timer_delay_ms(5);
-    if (OV5640_RD_Reg(&my_sccb, OV5640_CHIP_ID_HIGH_BYTE, &reg1))
-        return OV5640_ERROR;
-    if (OV5640_RD_Reg(&my_sccb, OV5640_CHIP_ID_LOW_BYTE, &reg2))
-        return OV5640_ERROR;
-    reg = reg1;
-    reg <<= 8u;
-    reg |= reg2;
-    if (reg != OV5640_ID) {
-        return OV5640_ERROR;
-    }
-
-    return OV5640_OK;
-}
-
-int32_t ov5640_deinit() { return OV5640_OK; }
-
-
-
-int32_t ov5640_read_series_reg(uint16_t address, uint16_t reg, uint8_t *pdata, uint16_t length) {
-    (void)address;
-    for (uint16_t idx = 0; idx < length; idx++) {
-        if (OV5640_RD_Reg(&my_sccb, reg + idx, pdata + idx))
-            return OV5640_ERROR;
-    }
-    return OV5640_OK;
-}
-
-int32_t ov5640_write_series_reg(uint16_t address, uint16_t reg, uint8_t *data, uint16_t length) {
-    (void)address;
-    for (uint16_t idx = 0; idx < length; idx++) {
-        if (OV5640_WR_Reg(&my_sccb, reg + idx, data[idx]))
-            return OV5640_ERROR;
-    }
-    return OV5640_OK;
-}
-
-void OV5640_PWDN_Set(uint8_t sta) {
-#ifdef ALINTEK_BOARD
-    PCF8574_WriteBit(DCMI_PWDN_IO, sta);
-#else
-    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, sta ? GPIO_PIN_SET : GPIO_PIN_RESET);
-#endif
-}
-
-void dcmi_io_deinit_ov5640() {
-#ifdef ALINTEK_BOARD
-    if (!PCF8574_init) {
-        PCF8574_Init();
-        PCF8574_init = true;
-    }
-#endif
-    OV5640_PWDN_Set(1);
-    OV5640_RST(0);
-}

@@ -5,8 +5,7 @@
  *      Author: DrL潇湘
  */
 
-#ifndef INC_ANSI_H_
-#define INC_ANSI_H_
+#pragma once
 
 
 #define ANSI_COLOR_FG_BLACK				"\x1b[30m"
@@ -50,4 +49,3 @@
 #define ANSI_COLOR_RESET				"\x1b[0m"
 
 
-#endif /* INC_ANSI_H_ */
