@@ -84,6 +84,9 @@ extern lv_obj_t               *open_setting_label;
 extern lv_obj_t               *indicator_label;
 
 //
+extern uint8_t D2_SRAM[128 * 1024] IN_SRAM2 __ALIGNED(32);
+
+//
 void              dcmi_rgb_mspinit(DCMI_HandleTypeDef *dcmiHandle);
 void              dcmi_ycbcr_mspinit(DCMI_HandleTypeDef *dcmiHandle);
 void              dcmi_jpeg_mspinit(DCMI_HandleTypeDef *dcmiHandle);

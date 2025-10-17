@@ -30,6 +30,8 @@ lv_obj_t               *change_to_file_explorer_label {};
 lv_obj_t               *open_setting_label {};
 lv_obj_t               *indicator_label {};
 
+uint8_t D2_SRAM[128 * 1024] IN_SRAM2 __ALIGNED(32);
+
 // static variables
 
 static char error_message[128] {};
@@ -78,7 +80,9 @@ void camera_task_routine(void const *argument) {
 
             if (can_catch_scene) {
                 camera_captured_end = false;
-                camera_start_capture(target_dcmi, current_format, 0x30000000, 128 * 1024, (uintptr_t)jpeg_before_buffer_rgb, data_length);
+                camera_start_capture(target_dcmi, current_format,
+                                     (uintptr_t)(&(D2_SRAM[0])), sizeof(D2_SRAM),
+                                     (uintptr_t)jpeg_before_buffer_rgb, data_length);
             }
         }
         else if (the_queue == camera_new_message && can_catch_scene) {

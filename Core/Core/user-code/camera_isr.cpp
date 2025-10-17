@@ -1,3 +1,5 @@
+#define FILE_DEBUG 1
+
 #include "camera_declare.hpp"
 
 
@@ -26,7 +28,8 @@ void camera_RGB_YCbCr_DMA_M1_Cplt_Cb(DMA_HandleTypeDef *hdma) {
 void camera_RGB_YCbCr_DMA_Error_Cb(DMA_HandleTypeDef *hdma) {
     Camera_DCMI_Data *p = container_of(hdma, Camera_DCMI_Data, first_stage_dma);
     //
-    debug(ANSI_COLOR_FG_RED "[ISR] %u tick: camera_RGB_YCbCr_DMA_Error_Cb\n" ANSI_COLOR_RESET, xTaskGetTickCountFromISR());
+    debug(ANSI_COLOR_FG_RED "[ISR] %u tick: camera_RGB_YCbCr_DMA_Error_Cb, ErrorCode: %u\n" ANSI_COLOR_RESET,
+          xTaskGetTickCountFromISR(), hdma->ErrorCode);
     BaseType_t should_yield = pdFALSE;
     xEventGroupSetBitsFromISR(p->eg, FIRST_STAGE_DMA_ERROR, &should_yield);
     xSemaphoreGiveFromISR(camera_new_message, &should_yield);
@@ -66,7 +69,8 @@ void camera_RGB_YCbCr_MDMA_RepeatBlock_Cplt_Cb(MDMA_HandleTypeDef *hmdma) {
 void camera_RGB_YCbCr_MDMA_Error_Cb(MDMA_HandleTypeDef *hmdma) {
     Camera_DCMI_Data *p = container_of(hmdma, Camera_DCMI_Data, second_stage_dma);
     //
-    debug(ANSI_COLOR_FG_RED "[ISR] %u tick: camera_RGB_YCbCr_MDMA_Error_Cb\n" ANSI_COLOR_RESET, xTaskGetTickCountFromISR());
+    debug(ANSI_COLOR_FG_RED "[ISR] %u tick: camera_RGB_YCbCr_MDMA_Error_Cb, ErrorCode: %u\n" ANSI_COLOR_RESET,
+          xTaskGetTickCountFromISR(), hmdma->ErrorCode);
     BaseType_t should_yield = pdFALSE;
     xEventGroupSetBitsFromISR(p->eg, SECOND_STAGE_DMA_ERROR, &should_yield);
     xSemaphoreGiveFromISR(camera_new_message, &should_yield);
@@ -83,7 +87,7 @@ void camera_RGB_YCbCr_MDMA_Abort_Cb(MDMA_HandleTypeDef *hmdma) {
     portYIELD_FROM_ISR(should_yield);
 }
 
-void HAL_DCMI_FrameEventCallback(DCMI_HandleTypeDef *hdcmi) {
+extern "C" void HAL_DCMI_FrameEventCallback(DCMI_HandleTypeDef *hdcmi) {
     Camera_DCMI_Data *p = container_of(hdcmi, Camera_DCMI_Data, instance);
     //
     debug(ANSI_COLOR_FG_YELLOW "[ISR] %u tick: HAL_DCMI_FrameEventCallback\n" ANSI_COLOR_RESET, xTaskGetTickCountFromISR());
@@ -93,10 +97,12 @@ void HAL_DCMI_FrameEventCallback(DCMI_HandleTypeDef *hdcmi) {
     portYIELD_FROM_ISR(should_yield);
 }
 
-void HAL_DCMI_ErrorCallback(DCMI_HandleTypeDef *hdcmi) {
+extern "C" void HAL_DCMI_ErrorCallback(DCMI_HandleTypeDef *hdcmi) {
     Camera_DCMI_Data *p = container_of(hdcmi, Camera_DCMI_Data, instance);
     //
-    debug("[ISR] %u tick: HAL_DCMI_ErrorCallback\n", xTaskGetTickCountFromISR());
+    debug("[ISR] %u tick: HAL_DCMI_ErrorCallback, ErrorCode: %u\n",
+          xTaskGetTickCountFromISR(),
+          (unsigned)hdcmi->ErrorCode);
     BaseType_t should_yield = pdFALSE;
     xEventGroupSetBitsFromISR(p->eg, CAMERA_CAPTURE_ERROR, &should_yield);
     xSemaphoreGiveFromISR(camera_new_message, &should_yield);

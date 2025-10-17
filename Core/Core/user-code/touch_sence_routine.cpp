@@ -70,10 +70,10 @@ static void GT9174_logic() {
                 {
                     record_touch_valid_num = touch_number;
                     for (int i = 0; i < touch_number; i++) {
-                        record_touch[i].x     = record_touch[i].x;
-                        record_touch[i].y     = record_touch[i].y;
-                        record_touch[i].size  = record_touch[i].size;
-                        record_touch[i].state = record_touch[i].state;
+                        record_touch[i].x     = record_touch_buffer[i].x;
+                        record_touch[i].y     = record_touch_buffer[i].y;
+                        record_touch[i].size  = record_touch_buffer[i].size;
+                        record_touch[i].state = record_touch_buffer[i].state;
                     }
                 }
                 ATOMIC_EXIT_CRITICAL();
@@ -147,16 +147,16 @@ static void GT1151Q_1158_logic() { // always falling -> ISR Will Be called alway
                 data_pos[1] += 8;
             }
             for (int i = touch_number; i < 10; i++)
-                record_touch[i].state = 0;
+                record_touch_buffer[i].state = 0;
 
             ATOMIC_ENTER_CRITICAL();
             {
                 record_touch_valid_num = touch_number;
                 for (int i = 0; i < touch_number; i++) {
-                    record_touch[i].x     = record_touch[i].x;
-                    record_touch[i].y     = record_touch[i].y;
-                    record_touch[i].size  = record_touch[i].size;
-                    record_touch[i].state = record_touch[i].state;
+                    record_touch[i].x     = record_touch_buffer[i].x;
+                    record_touch[i].y     = record_touch_buffer[i].y;
+                    record_touch[i].size  = record_touch_buffer[i].size;
+                    record_touch[i].state = record_touch_buffer[i].state;
                 }
                 touch_invalidate = true;
             }
