@@ -10,7 +10,7 @@ SemaphoreHandle_t camera_take_photo {};
 QueueSetHandle_t  camera_queue_set {};
 
 void              dcmi_capture_resource_init() {
-    camera_queue_set         = xQueueCreateSet(5);
+    camera_queue_set         = xQueueCreateSet(6);
     camera_interface_changed = xSemaphoreCreateBinary();
     camera_new_message       = xSemaphoreCreateBinary();
     camera_exit              = xSemaphoreCreateBinary();
@@ -56,6 +56,7 @@ HAL_StatusTypeDef camera_start_capture(Camera_DCMI_HandleType *Camera_DCMI, came
             (middle_buffer_words >= final_buffer_words) && (final_buffer_words <= mdma_single_block_max_words);
 
         Camera_DCMI->data.single_buffer_fine = single_buffer_is_fine;
+        Camera_DCMI->data.jpeg_mode          = false;
         if (single_buffer_is_fine) { // single buffer is fine
             Camera_DCMI->data.double_buffer_first          = middle_buffer;
             Camera_DCMI->data.double_buffer_second         = 0;
@@ -66,6 +67,7 @@ HAL_StatusTypeDef camera_start_capture(Camera_DCMI_HandleType *Camera_DCMI, came
             Camera_DCMI->data.final_buffer                 = final_buffer;
             Camera_DCMI->data.final_buffer_len             = final_buffer_len;
             Camera_DCMI->data.dma_not_full                 = false;
+            Camera_DCMI->data.jpeg_data_count_calculate    = 0;
 
             debug("Double Buffer Transmit Count: %u\n", 1);
 
@@ -123,6 +125,7 @@ HAL_StatusTypeDef camera_start_capture(Camera_DCMI_HandleType *Camera_DCMI, came
             Camera_DCMI->data.final_buffer                 = final_buffer;
             Camera_DCMI->data.final_buffer_len             = final_buffer_len;
             Camera_DCMI->data.dma_not_full                 = dma_not_full;
+            Camera_DCMI->data.jpeg_data_count_calculate    = 0;
             Camera_DCMI->the_node_list.resize(double_buffer_transmit_count - 1);
             debug("Double Buffer Transmit Count: %u\n", double_buffer_transmit_count);
 
@@ -136,7 +139,7 @@ HAL_StatusTypeDef camera_start_capture(Camera_DCMI_HandleType *Camera_DCMI, came
                                            uint32_t(&(((DMA_TypeDef *)(Camera_DCMI->data.first_stage_dma.Instance))->LIFCR)),
                                            0b10000u);
 
-            uintptr_t             destination = final_buffer + (per_block_word << 2u);
+            uintptr_t             destination = final_buffer + (half_middle_buffer_words << 2u);
             bool                  is_second   = true;
             MDMA_LinkNodeTypeDef *prev_node   = nullptr;
             for (auto &x : Camera_DCMI->the_node_list) {
@@ -160,7 +163,7 @@ HAL_StatusTypeDef camera_start_capture(Camera_DCMI_HandleType *Camera_DCMI, came
 
                 prev_node = &x;
                 is_second = !is_second;
-                destination += (per_block_word << 2u);
+                destination += (half_middle_buffer_words << 2u);
             }
             MYSCB_CleanInvalidateDCache_by_Addr((uint32_t *)Camera_DCMI->the_node_list.data(),
                                                 int32_t(Camera_DCMI->the_node_list.size() * sizeof(MDMA_LinkNodeConfTypeDef)));
@@ -219,6 +222,10 @@ HAL_StatusTypeDef camera_start_capture(Camera_DCMI_HandleType *Camera_DCMI, came
         size_t       middle_buffer_words         = middle_buffer_len >> 2u;
         size_t       half_middle_buffer_words    = (middle_buffer_words >> 1u) > 0xffff ? 0xffff : (middle_buffer_words >> 1u);
         size_t       per_block_word = 0, block_count = 0;
+
+        Camera_DCMI->data.single_buffer_fine = false;
+        Camera_DCMI->data.jpeg_mode          = true;
+
         calculate_decompose(half_middle_buffer_words, per_block_word, block_count, mdma_single_block_max_words);
 
         uintptr_t double_buffer_first                  = middle_buffer;
@@ -234,6 +241,8 @@ HAL_StatusTypeDef camera_start_capture(Camera_DCMI_HandleType *Camera_DCMI, came
         Camera_DCMI->data.final_buffer                 = final_buffer;
         Camera_DCMI->data.final_buffer_len             = final_buffer_len;
         Camera_DCMI->data.dma_not_full                 = true;
+        Camera_DCMI->data.jpeg_sw_final                = false;
+        Camera_DCMI->data.jpeg_data_count_calculate    = 0;
         Camera_DCMI->the_node_list.resize(2);
 
         HAL_MDMA_DeInit(&Camera_DCMI->data.second_stage_dma);
@@ -251,20 +260,16 @@ HAL_StatusTypeDef camera_start_capture(Camera_DCMI_HandleType *Camera_DCMI, came
         node_conf.Init                   = Camera_DCMI->data.second_stage_dma.Init;
         node_conf.BlockCount             = block_count;
         node_conf.BlockDataLength        = (per_block_word << 2u);
-        node_conf.DstAddress             = final_buffer;
+        node_conf.DstAddress             = final_buffer + (half_middle_buffer_words << 2u);
         node_conf.SrcAddress             = double_buffer_second;
         node_conf.PostRequestMaskAddress = uint32_t(&(((DMA_TypeDef *)(Camera_DCMI->data.first_stage_dma.Instance))->LIFCR));
         node_conf.PostRequestMaskData    = 0b10000u;
         HAL_MDMA_LinkedList_CreateNode(&Camera_DCMI->the_node_list[0], &node_conf);
 
 
-        node_conf.Init                   = Camera_DCMI->data.second_stage_dma.Init;
-        node_conf.BlockCount             = block_count;
-        node_conf.BlockDataLength        = (per_block_word << 2u);
-        node_conf.DstAddress             = final_buffer + (per_block_word << 2u);
-        node_conf.SrcAddress             = double_buffer_first;
-        node_conf.PostRequestMaskAddress = uint32_t(&(((DMA_TypeDef *)(Camera_DCMI->data.first_stage_dma.Instance))->LIFCR));
-        node_conf.PostRequestMaskData    = 0b10000u;
+        node_conf.Init       = Camera_DCMI->data.second_stage_dma.Init;
+        node_conf.DstAddress = final_buffer; // Wait For ISR Update It
+        node_conf.SrcAddress = double_buffer_first;
         HAL_MDMA_LinkedList_CreateNode(&Camera_DCMI->the_node_list[1], &node_conf);
 
         if (HAL_MDMA_LinkedList_AddNode(&Camera_DCMI->data.second_stage_dma, &Camera_DCMI->the_node_list[0], nullptr) != HAL_OK) {
@@ -335,7 +340,7 @@ HAL_StatusTypeDef camera_start_capture(Camera_DCMI_HandleType *Camera_DCMI, came
     return HAL_OK;
 }
 
-uint32_t camera_RGB_YCbCr_capture_process(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format) {
+uint32_t camera_capture_process(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format) {
     EventBits_t message;
     uint32_t    ret = 0;
     message         = xEventGroupWaitBits(Camera_DCMI->data.eg, CAMERA_CAPTURE_ALL_MASK, pdTRUE, pdFALSE, 0);
@@ -378,7 +383,7 @@ uint32_t camera_RGB_YCbCr_capture_process(Camera_DCMI_HandleType *Camera_DCMI, c
     return ret;
 }
 
-HAL_StatusTypeDef camera_RGB_YCbCr_capture_resume(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format) {
+HAL_StatusTypeDef camera_capture_resume(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format) {
     __HAL_LOCK(&Camera_DCMI->data.instance);
 
     Camera_DCMI->data.instance.State = HAL_DCMI_STATE_BUSY;
@@ -474,12 +479,76 @@ HAL_StatusTypeDef camera_RGB_YCbCr_capture_resume(Camera_DCMI_HandleType *Camera
 
 void camera_RGB_YCbCr_capture_abort_first_stage_dma(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format) {
     HAL_DMA_Abort_IT(&Camera_DCMI->data.first_stage_dma);
+
+    while (Camera_DCMI->data.instance.Instance->SR & DCMI_SR_FNE_Msk) {
+        vTaskDelay(1); // yield 1 time slice
+    }
+
     if (Camera_DCMI->data.dma_not_full)
         HAL_MDMA_GenerateSWRequest(&Camera_DCMI->data.second_stage_dma);
     __HAL_DCMI_DISABLE(&Camera_DCMI->data.instance);
 }
 
 void camera_RGB_YCbCr_capture_stop(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format) {
+    __HAL_DCMI_DISABLE_IT(&Camera_DCMI->data.instance, DCMI_IT_FRAME);
+    Camera_DCMI->data.instance.Instance->CR &= ~DCMI_CR_CAPTURE;
+
+    while (Camera_DCMI->data.instance.Instance->CR & DCMI_CR_CAPTURE) {
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+
+    __HAL_DCMI_DISABLE(&Camera_DCMI->data.instance);
+
+    HAL_DMA_Abort(&Camera_DCMI->data.first_stage_dma);
+    HAL_MDMA_Abort(&Camera_DCMI->data.second_stage_dma);
+    xEventGroupClearBits(Camera_DCMI->data.eg, 0x00ffffff);
+    xQueueReset(camera_new_message);
+
+    __HAL_DCMI_CLEAR_FLAG(&Camera_DCMI->data.instance, 0x1F);
+    __HAL_DMA_CLEAR_FLAG(&Camera_DCMI->data.first_stage_dma, 0x3D);
+    __HAL_MDMA_CLEAR_FLAG(&Camera_DCMI->data.second_stage_dma, 0x1F);
+
+    taskENTER_CRITICAL();
+    {
+        target_dcmi_is_ok = false;
+    }
+    taskEXIT_CRITICAL();
+}
+
+
+void camera_JPEG_capture_abort_first_stage_dma(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format) {
+    while (Camera_DCMI->data.instance.Instance->SR & DCMI_SR_FNE_Msk) {
+        vTaskDelay(1); // yield 1 time slice
+    }
+
+    uint32_t remain_words    = ((DMA_Stream_TypeDef *)(Camera_DCMI->data.first_stage_dma.Instance))->NDTR;
+    bool     need_sw_trigger = (remain_words != Camera_DCMI->data.half_middle_buffer_words);
+
+    Camera_DCMI->data.jpeg_data_count_calculate += (Camera_DCMI->data.half_middle_buffer_words - remain_words);
+    HAL_DMA_Abort_IT(&Camera_DCMI->data.first_stage_dma);
+
+    if (need_sw_trigger) {
+        // Just a trick!
+        if (Camera_DCMI->data.second_stage_dma.Instance->CCR & MDMA_CCR_EN) {
+            Camera_DCMI->data.second_stage_dma.Instance->CCR &= (~MDMA_CCR_EN);
+            Camera_DCMI->data.second_stage_dma.Instance->CCR |= (MDMA_CCR_SWRQ);
+            Camera_DCMI->data.second_stage_dma.Instance->CCR |= (MDMA_CCR_EN);
+            Camera_DCMI->data.jpeg_sw_final = true;
+            HAL_MDMA_GenerateSWRequest(&Camera_DCMI->data.second_stage_dma);
+        }
+        else {
+            debug("[BullShit Error] " __FILE__ ":%d\n", __LINE__);
+        }
+    }
+    else {
+        xEventGroupSetBits(Camera_DCMI->data.eg, SECOND_STAGE_DMA_CPLT);
+        xSemaphoreGive(camera_new_message);
+    }
+
+    __HAL_DCMI_DISABLE(&Camera_DCMI->data.instance);
+}
+
+void camera_JPEG_capture_stop(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format) {
     __HAL_DCMI_DISABLE_IT(&Camera_DCMI->data.instance, DCMI_IT_FRAME);
     Camera_DCMI->data.instance.Instance->CR &= ~DCMI_CR_CAPTURE;
 

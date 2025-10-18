@@ -63,8 +63,8 @@ void camera_task_routine(void const *argument) {
     bool          camera_captured_end = false;
     QueueHandle_t the_queue {};
     uint32_t      resolution {}, format {}, data_length {}, src_w {}, src_h {};
-    uint32_t      use_full_buffer     = 1;
-    bool          screen_capture_mode = true;
+    uint32_t      use_full_buffer = 1;
+    bool          screen_RGB_mode = true;
 
     while (1) {
         // ?
@@ -72,7 +72,7 @@ void camera_task_routine(void const *argument) {
 
         if (the_queue == camera_interface_changed || the_queue == camera_interface_restart) {
             xSemaphoreTake(camera_interface_changed, 0);
-            if (!screen_capture_mode)
+            if (!screen_RGB_mode)
                 continue;
 
             current_resolution = camera_resolution::reso_QVGA;
@@ -98,7 +98,7 @@ void camera_task_routine(void const *argument) {
             if (!queue_enable)
                 continue;
 
-            auto ret = camera_RGB_YCbCr_capture_process(target_dcmi, current_format);
+            auto ret = camera_capture_process(target_dcmi, current_format);
 
             if ((ret & (uint32_t)message_process::ERROR_STOP)) {
                 camera_RGB_YCbCr_capture_stop(target_dcmi, current_format);
@@ -106,7 +106,7 @@ void camera_task_routine(void const *argument) {
 
                 can_catch_scene     = false;
                 camera_captured_end = false;
-                screen_capture_mode = true;
+                screen_RGB_mode     = true;
                 queue_enable        = false;
 
                 xSemaphoreGive(camera_interface_restart);
@@ -115,39 +115,71 @@ void camera_task_routine(void const *argument) {
 
             if (ret & (uint32_t)message_process::CAPTURE_END) {
                 camera_captured_end = true;
-                camera_RGB_YCbCr_capture_abort_first_stage_dma(target_dcmi, current_format);
+
+                if (screen_RGB_mode)
+                    camera_RGB_YCbCr_capture_abort_first_stage_dma(target_dcmi, current_format);
+                else
+                    camera_JPEG_capture_abort_first_stage_dma(target_dcmi, current_format);
             }
 
             if (ret & (uint32_t)message_process::DATA_END) {
                 if (!camera_captured_end) {
                     debug("It seems not right\n");
                 }
-                camera_RGB_YCbCr_capture_stop(target_dcmi, current_format);
-                camera_captured_end = false;
 
-                MYSCB_InvalidateDCache_by_Addr((void *)jpeg_before_buffer_rgb, (int32_t)data_length);
-                full_pict_show_size[0] = MY_DISP_HOR_RES;
-                full_pict_show_size[1] = MY_DISP_VER_RES;
+                if (screen_RGB_mode) {
+                    camera_RGB_YCbCr_capture_stop(target_dcmi, current_format);
+                    camera_captured_end = false;
 
-                if (use_full_buffer == 1) {
-                    picture_scaling(jpeg_before_buffer_rgb, full_screen_pict_show_buffer, src_w, src_h,
-                                    full_pict_show_size[0], full_pict_show_size[1]);
-                    img_dsc.data    = full_screen_pict_show_buffer;
-                    use_full_buffer = 2;
+                    MYSCB_InvalidateDCache_by_Addr((void *)jpeg_before_buffer_rgb, (int32_t)data_length);
+                    full_pict_show_size[0] = MY_DISP_HOR_RES;
+                    full_pict_show_size[1] = MY_DISP_VER_RES;
+
+                    if (use_full_buffer == 1) {
+                        picture_scaling(jpeg_before_buffer_rgb, full_screen_pict_show_buffer, src_w, src_h,
+                                        full_pict_show_size[0], full_pict_show_size[1]);
+                        img_dsc.data    = full_screen_pict_show_buffer;
+                        use_full_buffer = 2;
+                    }
+                    else {
+                        picture_scaling(jpeg_before_buffer_rgb, full_screen_pict_show_buffer_2, src_w, src_h,
+                                        full_pict_show_size[0], full_pict_show_size[1]);
+                        img_dsc.data    = full_screen_pict_show_buffer_2;
+                        use_full_buffer = 1;
+                    }
+
+                    img_dsc.header.w  = full_pict_show_size[0];
+                    img_dsc.header.h  = full_pict_show_size[1];
+                    img_dsc.data_size = full_pict_show_size[0] * full_pict_show_size[1] * 2;
+
+                    screen_image_operate(&img_dsc);
+                    camera_capture_resume(target_dcmi, current_format);
                 }
                 else {
-                    picture_scaling(jpeg_before_buffer_rgb, full_screen_pict_show_buffer_2, src_w, src_h,
-                                    full_pict_show_size[0], full_pict_show_size[1]);
-                    img_dsc.data    = full_screen_pict_show_buffer_2;
-                    use_full_buffer = 1;
+                    camera_JPEG_capture_stop(target_dcmi, current_format);
+                    size_t length = target_dcmi->data.jpeg_data_count_calculate;
+                    MYSCB_InvalidateDCache_by_Addr((void *)jpeg_before_buffer_rgb, (int32_t)length);
+
+                    // storage to file
+
+                    // indicator and others...
+
+                    // change to RGB
+                    current_resolution = camera_resolution::reso_QVGA;
+                    current_format     = camera_format::format_RGB;
+                    resolution_parse(resolution, data_length, src_w, src_h, format);
+
+                    camera_deinit_have_done = false;
+                    if (camera_init(can_catch_scene, resolution, format, true) != 0) {
+                        xSemaphoreGive(camera_interface_restart);
+                        continue;
+                    }
+                    queue_enable        = true;
+                    camera_captured_end = false;
+                    camera_start_capture(target_dcmi, current_format,
+                                         (uintptr_t)(&(D2_SRAM[0])), sizeof(D2_SRAM),
+                                         (uintptr_t)jpeg_before_buffer_rgb, data_length); // RGB Capture
                 }
-
-                img_dsc.header.w  = full_pict_show_size[0];
-                img_dsc.header.h  = full_pict_show_size[1];
-                img_dsc.data_size = full_pict_show_size[0] * full_pict_show_size[1] * 2;
-
-                screen_image_operate(&img_dsc);
-                camera_RGB_YCbCr_capture_resume(target_dcmi, current_format);
             }
         }
         else if (the_queue == camera_exit) {
@@ -171,9 +203,9 @@ void camera_task_routine(void const *argument) {
         else if (the_queue == camera_take_photo) {
             xSemaphoreTake(camera_take_photo, 0);
 
-            if (screen_capture_mode) {
+            if (screen_RGB_mode) {
                 camera_RGB_YCbCr_capture_stop(target_dcmi, current_format);
-                screen_capture_mode = false;
+                screen_RGB_mode = false;
             }
 
             current_resolution = camera_resolution::reso_1080p;

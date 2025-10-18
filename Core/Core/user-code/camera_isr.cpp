@@ -96,6 +96,8 @@ void camera_JPEG_DMA_Cplt_Cb(DMA_HandleTypeDef *hdma) {
     BaseType_t should_yield = pdFALSE;
     xEventGroupSetBitsFromISR(p->eg, FIRST_STAGE_DMA_CPLT, &should_yield);
     xSemaphoreGiveFromISR(camera_new_message, &should_yield);
+
+    p->jpeg_data_count_calculate += p->half_middle_buffer_words;
     portYIELD_FROM_ISR(should_yield);
 }
 
@@ -106,6 +108,8 @@ void camera_JPEG_DMA_M1_Cplt_Cb(DMA_HandleTypeDef *hdma) {
     BaseType_t should_yield = pdFALSE;
     xEventGroupSetBitsFromISR(p->eg, FIRST_STAGE_DMA_M1_CPLT, &should_yield);
     xSemaphoreGiveFromISR(camera_new_message, &should_yield);
+
+    p->jpeg_data_count_calculate += p->half_middle_buffer_words;
     portYIELD_FROM_ISR(should_yield);
 }
 
@@ -147,6 +151,17 @@ void camera_JPEG_MDMA_RepeatBlock_Cplt_Cb(MDMA_HandleTypeDef *hmdma) {
     BaseType_t should_yield = pdFALSE;
     xEventGroupSetBitsFromISR(p->eg, SECOND_STAGE_DMA_REPEAT_CPLT, &should_yield);
     xSemaphoreGiveFromISR(camera_new_message, &should_yield);
+
+    if (p->jpeg_mode) {
+        if (!p->jpeg_sw_final) {
+            ((MDMA_LinkNodeTypeDef *)(uintptr_t)(hmdma->Instance->CLAR))->CDAR += (p->half_middle_buffer_words << 3u);
+        }
+        else {
+            xEventGroupSetBitsFromISR(p->eg, SECOND_STAGE_DMA_CPLT, &should_yield);
+            xSemaphoreGiveFromISR(camera_new_message, &should_yield);
+        }
+    }
+
     portYIELD_FROM_ISR(should_yield);
 }
 
@@ -170,7 +185,6 @@ void camera_JPEG_MDMA_Abort_Cb(MDMA_HandleTypeDef *hmdma) {
     xSemaphoreGiveFromISR(camera_new_message, &should_yield);
     portYIELD_FROM_ISR(should_yield);
 }
-
 
 
 

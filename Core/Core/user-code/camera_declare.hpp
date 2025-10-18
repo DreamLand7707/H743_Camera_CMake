@@ -48,8 +48,13 @@ struct Camera_DCMI_Data {
     size_t    double_buffer_transmit_count;
     size_t    per_block_word;
     size_t    block_count;
+
+    size_t    jpeg_data_count_calculate;
+    bool      jpeg_sw_final;
+
     bool      single_buffer_fine;
     bool      dma_not_full;
+    bool      jpeg_mode;
     //
     EventGroupHandle_t eg;
 };
@@ -142,14 +147,16 @@ void              screen_image_operate(void *source);
 void              calculate_decompose(size_t &x, size_t &y, size_t &z, size_t y_max);
 
 void              resolution_parse(uint32_t &resolution, uint32_t &data_length, uint32_t &src_w, uint32_t &src_h, uint32_t &format);
-uint32_t          camera_RGB_YCbCr_capture_process(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format);
+uint32_t          camera_capture_process(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format);
 HAL_StatusTypeDef camera_start_capture(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format,
                                        uintptr_t middle_buffer, size_t middle_buffer_len,
                                        uintptr_t final_buffer, size_t final_buffer_len);
-HAL_StatusTypeDef camera_RGB_YCbCr_capture_resume(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format);
+HAL_StatusTypeDef camera_capture_resume(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format);
 void              camera_RGB_YCbCr_capture_stop(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format);
 void              camera_RGB_YCbCr_capture_abort_first_stage_dma(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format);
 
+void              camera_JPEG_capture_abort_first_stage_dma(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format);
+void              camera_JPEG_capture_stop(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format);
 void              MY_HAL_DCMI_IRQHandler(DCMI_HandleTypeDef *hdcmi);
 
 LV_FONT_DECLARE(photo_folder_setting)
