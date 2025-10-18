@@ -63,21 +63,28 @@ void camera_task_routine(void const *argument) {
     bool          camera_captured_end = false;
     QueueHandle_t the_queue {};
     uint32_t      resolution {}, format {}, data_length {}, src_w {}, src_h {};
-    uint32_t      use_full_buffer = 1;
+    uint32_t      use_full_buffer     = 1;
+    bool          screen_capture_mode = true;
+
     while (1) {
         // ?
         the_queue = xQueueSelectFromSet(camera_queue_set, portMAX_DELAY);
 
         if (the_queue == camera_interface_changed || the_queue == camera_interface_restart) {
             xSemaphoreTake(camera_interface_changed, 0);
+            if (!screen_capture_mode)
+                continue;
 
-            queue_enable            = true;
+            current_resolution = camera_resolution::reso_QVGA;
+            current_format     = camera_format::format_RGB;
+            resolution_parse(resolution, data_length, src_w, src_h, format);
+
             camera_deinit_have_done = false;
-            resolution_parse(resolution, data_length, src_w, src_h, format, can_catch_scene);
-
-            if (camera_init(can_catch_scene, resolution, format) != 0) {
+            if (camera_init(can_catch_scene, resolution, format, false) != 0) {
                 continue;
             }
+
+            queue_enable = true;
 
             if (can_catch_scene) {
                 camera_captured_end = false;
@@ -99,6 +106,8 @@ void camera_task_routine(void const *argument) {
 
                 can_catch_scene     = false;
                 camera_captured_end = false;
+                screen_capture_mode = true;
+                queue_enable        = false;
 
                 xSemaphoreGive(camera_interface_restart);
                 continue;
@@ -143,8 +152,6 @@ void camera_task_routine(void const *argument) {
         }
         else if (the_queue == camera_exit) {
             xSemaphoreTake(camera_exit, 0);
-            if (!queue_enable)
-                continue;
             queue_enable = false;
 
             camera_RGB_YCbCr_capture_stop(target_dcmi, current_format);
@@ -160,6 +167,29 @@ void camera_task_routine(void const *argument) {
             camera_deinit(error_message, nullptr);
 
             can_catch_scene = false;
+        }
+        else if (the_queue == camera_take_photo) {
+            xSemaphoreTake(camera_take_photo, 0);
+
+            if (screen_capture_mode) {
+                camera_RGB_YCbCr_capture_stop(target_dcmi, current_format);
+                screen_capture_mode = false;
+            }
+
+            current_resolution = camera_resolution::reso_1080p;
+            current_format     = camera_format::format_JPEG;
+            resolution_parse(resolution, data_length, src_w, src_h, format);
+
+            camera_deinit_have_done = false;
+            if (camera_init(can_catch_scene, resolution, format, true) != 0) {
+                xSemaphoreGive(camera_interface_restart);
+                continue;
+            }
+            queue_enable        = true;
+            camera_captured_end = false;
+            camera_start_capture(target_dcmi, current_format,
+                                 (uintptr_t)(&(D2_SRAM[0])), sizeof(D2_SRAM),
+                                 (uintptr_t)jpeg_before_buffer_rgb, 16 * 1024 * 1024); // JPEG Capture
         }
     }
 }
@@ -243,7 +273,9 @@ void lvgl_create_camera_interface() {
 void change_to_file_explorer_callback(lv_event_t *e) {
     xSemaphoreGive(camera_exit);
 }
-void take_photo_callback(lv_event_t *e) {}
+void take_photo_callback(lv_event_t *e) {
+    xSemaphoreGive(camera_take_photo);
+}
 void open_setting_callback(lv_event_t *e) {}
 
 void indicator_operate(const char *message) {

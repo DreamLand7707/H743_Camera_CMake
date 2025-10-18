@@ -9,3 +9,10 @@ backup/
 *.jpg
 
 *.py
+
+.bsp
+.metals
+.scala-build
+
+*.scala
+.scalafmt.conf

@@ -3,29 +3,57 @@
 
 bool PCF8574_init = false;
 
-int  camera_init(bool &can_catch_scene, uint32_t resolution, uint32_t format) {
+int  camera_init(bool &can_catch_scene, uint32_t resolution, uint32_t format, bool just_change) {
     // DCMI Init -> IO Init -> OV5640 Init -> OV5640 Start -> DCMI DMA
 
-    indicator_operate("Initialize DCMI Interface...");
     if (HAL_DCMI_Init(&(target_dcmi->data.instance)) != HAL_OK) {
-        indicator_operate("Initialize DCMI Interface Failed!");
+        if (!just_change) {
+            indicator_operate("Initialize DCMI Interface Failed!");
+        }
         can_catch_scene = false;
         return -1;
     }
 
-    indicator_operate("Initialize Camera...");
-    (void)OV5640_RegisterBusIO(&ov5640, &ov5640_io);
-    if (OV5640_Init_General_Mode(&ov5640, resolution, format) != OV5640_OK) {
-        indicator_operate("Initialize Camera Failed!");
-        can_catch_scene = false;
-        return -1;
+    if (!just_change) {
+        indicator_operate("Initialize DCMI Interface...");
+        if (HAL_DCMI_Init(&(target_dcmi->data.instance)) != HAL_OK) {
+            indicator_operate("Initialize DCMI Interface Failed!");
+            can_catch_scene = false;
+            return -1;
+        }
+        indicator_operate("Initialize Camera...");
+        (void)OV5640_RegisterBusIO(&ov5640, &ov5640_io);
+        if (OV5640_Init_General_Mode(&ov5640, resolution, format) != OV5640_OK) {
+            indicator_operate("Initialize Camera Failed!");
+            can_catch_scene = false;
+            return -1;
+        }
+        indicator_operate("Start Camera...");
+        OV5640_Start(&ov5640);
+        indicator_operate(nullptr);
+    }
+    else {
+        HAL_DCMI_DeInit(&(target_dcmi->data.instance));
+        if (HAL_DCMI_Init(&(target_dcmi->data.instance)) != HAL_OK) {
+            can_catch_scene = false;
+            return -1;
+        }
+        if (format == OV5640_RGB565) {
+            if (OV5640_RGB565_Mode(&ov5640) != OV5640_OK) {
+                return -1;
+            }
+        }
+        else {
+            if (OV5640_JPEG_Mode(&ov5640) != OV5640_OK) {
+                return -1;
+            }
+        }
+        if (OV5640_Set_Solution_More(&ov5640, resolution) != OV5640_OK) {
+            return -1;
+        }
     }
 
-    indicator_operate("Start Camera...");
-    OV5640_Start(&ov5640);
-
-    indicator_operate(nullptr);
-
+    can_catch_scene = true;
     return 0;
 }
 
