@@ -3,10 +3,20 @@
 #include "prj_header.hpp"
 
 enum class camera_resolution {
-    reso_max_resolution,
+    reso_5M,
+    reso_QXGA,
     reso_1080p,
-    reso_vga, // 640*480
-    reso_sreen
+    reso_UXGA,
+    reso_SXGA,
+    reso_WXGA_plus,
+    reso_WXGA,
+    reso_XGA,
+    reso_SVGA,
+    reso_WVGA,
+    reso_VGA, // 640*480
+    reso_PSP,
+    reso_QVGA,
+    reso_QQVGA
 };
 
 enum class camera_format {

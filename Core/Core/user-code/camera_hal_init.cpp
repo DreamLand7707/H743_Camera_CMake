@@ -78,7 +78,7 @@ void dcmi_data_structure_init() {
     ov5640_io.ReadReg  = ov5640_read_series_reg;
     ov5640_io.WriteReg = ov5640_write_series_reg;
 
-    current_resolution = camera_resolution::reso_sreen;
+    current_resolution = camera_resolution::reso_XGA;
     current_format     = camera_format::format_RGB;
 }
 

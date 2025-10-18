@@ -15,12 +15,11 @@ int  camera_init(bool &can_catch_scene, uint32_t resolution, uint32_t format) {
 
     indicator_operate("Initialize Camera...");
     (void)OV5640_RegisterBusIO(&ov5640, &ov5640_io);
-    if (OV5640_Init(&ov5640, resolution, format) != OV5640_OK) {
+    if (OV5640_Init_General_Mode(&ov5640, resolution, format) != OV5640_OK) {
         indicator_operate("Initialize Camera Failed!");
         can_catch_scene = false;
         return -1;
     }
-    OV5640_SetPCLK(&ov5640, OV5640_PCLK_24M);
 
     indicator_operate("Start Camera...");
     OV5640_Start(&ov5640);

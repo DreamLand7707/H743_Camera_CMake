@@ -50,11 +50,55 @@ HAL_StatusTypeDef camera_start_capture(Camera_DCMI_HandleType *Camera_DCMI, came
         const size_t mdma_single_block_max_words = 65536 / 4;
 
         bool         single_buffer_is_fine =
-            (middle_buffer_words >= final_buffer_words) &&
-            (middle_buffer_words <= mdma_single_block_max_words || final_buffer_words <= mdma_single_block_max_words);
+            (middle_buffer_words >= final_buffer_words) && (final_buffer_words <= mdma_single_block_max_words);
 
         Camera_DCMI->data.single_buffer_fine = single_buffer_is_fine;
         if (single_buffer_is_fine) { // single buffer is fine
+            Camera_DCMI->data.double_buffer_first          = middle_buffer;
+            Camera_DCMI->data.double_buffer_second         = 0;
+            Camera_DCMI->data.half_middle_buffer_words     = final_buffer_words;
+            Camera_DCMI->data.double_buffer_transmit_count = 1;
+            Camera_DCMI->data.per_block_word               = final_buffer_words;
+            Camera_DCMI->data.block_count                  = 1;
+            Camera_DCMI->data.final_buffer                 = final_buffer;
+            Camera_DCMI->data.final_buffer_len             = final_buffer_len;
+            Camera_DCMI->data.dma_not_full                 = false;
+
+            debug("Double Buffer Transmit Count: %u\n", 1);
+
+            HAL_MDMA_DeInit(&Camera_DCMI->data.second_stage_dma);
+            HAL_MDMA_Init(&Camera_DCMI->data.second_stage_dma);
+            HAL_MDMA_RegisterCallback(&Camera_DCMI->data.second_stage_dma, HAL_MDMA_XFER_REPBLOCKCPLT_CB_ID, camera_RGB_YCbCr_MDMA_RepeatBlock_Cplt_Cb);
+            HAL_MDMA_RegisterCallback(&Camera_DCMI->data.second_stage_dma, HAL_MDMA_XFER_CPLT_CB_ID, camera_RGB_YCbCr_MDMA_Cplt_Cb);
+            HAL_MDMA_RegisterCallback(&Camera_DCMI->data.second_stage_dma, HAL_MDMA_XFER_ERROR_CB_ID, camera_RGB_YCbCr_MDMA_Error_Cb);
+            HAL_MDMA_RegisterCallback(&Camera_DCMI->data.second_stage_dma, HAL_MDMA_XFER_ABORT_CB_ID, camera_RGB_YCbCr_MDMA_Abort_Cb);
+            HAL_MDMA_ConfigPostRequestMask(&Camera_DCMI->data.second_stage_dma,
+                                           uint32_t(&(((DMA_TypeDef *)(Camera_DCMI->data.first_stage_dma.Instance))->LIFCR)),
+                                           0b10000u);
+
+            HAL_MDMA_Start_IT(&Camera_DCMI->data.second_stage_dma,
+                              (uint32_t)(Camera_DCMI->data.double_buffer_first),
+                              (uint32_t)(Camera_DCMI->data.final_buffer),
+                              (uint32_t)(Camera_DCMI->data.per_block_word << 2u),
+                              (uint32_t)(Camera_DCMI->data.block_count));
+
+            taskENTER_CRITICAL();
+            {
+                target_dcmi_is_ok = true;
+            }
+            taskEXIT_CRITICAL();
+
+            // start dma and mdma
+            HAL_DMA_DeInit(&(Camera_DCMI->data.first_stage_dma));
+            HAL_DMA_Init(&(Camera_DCMI->data.first_stage_dma));
+            HAL_DMA_RegisterCallback(&(Camera_DCMI->data.first_stage_dma), HAL_DMA_XFER_CPLT_CB_ID, camera_RGB_YCbCr_DMA_Cplt_Cb);
+            HAL_DMA_RegisterCallback(&(Camera_DCMI->data.first_stage_dma), HAL_DMA_XFER_M1CPLT_CB_ID, camera_RGB_YCbCr_DMA_M1_Cplt_Cb);
+            HAL_DMA_RegisterCallback(&(Camera_DCMI->data.first_stage_dma), HAL_DMA_XFER_ERROR_CB_ID, camera_RGB_YCbCr_DMA_Error_Cb);
+            HAL_DMA_RegisterCallback(&(Camera_DCMI->data.first_stage_dma), HAL_DMA_XFER_ABORT_CB_ID, camera_RGB_YCbCr_DMA_Abort_Cb);
+            HAL_DMA_Start_IT(&(Camera_DCMI->data.first_stage_dma),
+                             (uint32_t)&(Camera_DCMI->data.instance.Instance->DR),
+                             (uint32_t)(Camera_DCMI->data.double_buffer_first),
+                             (uint32_t)(Camera_DCMI->data.half_middle_buffer_words));
         }
         else { // double buffer!
             size_t half_middle_buffer_words = (middle_buffer_words >> 1u) > 0xffff ? 0xffff : (middle_buffer_words >> 1u);
@@ -77,7 +121,7 @@ HAL_StatusTypeDef camera_start_capture(Camera_DCMI_HandleType *Camera_DCMI, came
             Camera_DCMI->data.final_buffer_len             = final_buffer_len;
             Camera_DCMI->data.dma_not_full                 = dma_not_full;
             Camera_DCMI->the_node_list.resize(double_buffer_transmit_count - 1);
-            debug("Double Buffer Transmit Count: %u\n", double_buffer_transmit_count - 1);
+            debug("Double Buffer Transmit Count: %u\n", double_buffer_transmit_count);
 
             HAL_MDMA_DeInit(&Camera_DCMI->data.second_stage_dma);
             HAL_MDMA_Init(&Camera_DCMI->data.second_stage_dma);
@@ -95,7 +139,7 @@ HAL_StatusTypeDef camera_start_capture(Camera_DCMI_HandleType *Camera_DCMI, came
             for (auto &x : Camera_DCMI->the_node_list) {
                 MDMA_LinkNodeConfTypeDef node_conf;
                 node_conf.Init = Camera_DCMI->data.second_stage_dma.Init;
-                if (&x == &(Camera_DCMI->the_node_list.back())) {
+                if (&x == &(Camera_DCMI->the_node_list.back()) && dma_not_full) {
                     node_conf.Init.Request = MDMA_REQUEST_SW;
                 }
                 node_conf.BlockCount             = block_count;
@@ -233,6 +277,29 @@ HAL_StatusTypeDef camera_RGB_YCbCr_capture_resume(Camera_DCMI_HandleType *Camera
     case camera_format::format_YCbCr: {
 
         if (Camera_DCMI->data.single_buffer_fine) { // single buffer is fine
+            HAL_MDMA_Init(&Camera_DCMI->data.second_stage_dma);
+            HAL_MDMA_ConfigPostRequestMask(&Camera_DCMI->data.second_stage_dma,
+                                           uint32_t(&(((DMA_TypeDef *)(Camera_DCMI->data.first_stage_dma.Instance))->LIFCR)),
+                                           0b10000u);
+
+            HAL_MDMA_Start_IT(&Camera_DCMI->data.second_stage_dma,
+                              (uint32_t)(Camera_DCMI->data.double_buffer_first),
+                              (uint32_t)(Camera_DCMI->data.final_buffer),
+                              (uint32_t)(Camera_DCMI->data.per_block_word << 2u),
+                              (uint32_t)(Camera_DCMI->data.block_count));
+
+            taskENTER_CRITICAL();
+            {
+                target_dcmi_is_ok = true;
+            }
+            taskEXIT_CRITICAL();
+
+            // start dma and mdma
+            HAL_DMA_Init(&(Camera_DCMI->data.first_stage_dma));
+            HAL_DMA_Start_IT(&(Camera_DCMI->data.first_stage_dma),
+                             (uint32_t)&(Camera_DCMI->data.instance.Instance->DR),
+                             (uint32_t)(Camera_DCMI->data.double_buffer_first),
+                             (uint32_t)(Camera_DCMI->data.half_middle_buffer_words));
         }
         else { // double buffer!
             HAL_MDMA_Init(&Camera_DCMI->data.second_stage_dma);
@@ -342,32 +409,102 @@ void calculate_decompose(size_t &x, size_t &y, size_t &z, size_t y_max) {
 
 void resolution_parse(uint32_t &resolution, uint32_t &data_length, uint32_t &src_w, uint32_t &src_h, uint32_t &format, bool &can_catch_scene) {
     switch (current_resolution) {
-    case camera_resolution::reso_max_resolution: {
-        resolution  = 0;
+    case camera_resolution::reso_5M: {
+        resolution  = OV5640_R2592x1944;
         data_length = 2592 * 1944;
         src_w       = 2592;
         src_h       = 1944;
         break;
     }
+    case camera_resolution::reso_QXGA: {
+        resolution  = OV5640_R2048x1536;
+        data_length = 2048 * 1536;
+        src_w       = 2048;
+        src_h       = 1536;
+        break;
+    }
     case camera_resolution::reso_1080p: {
-        resolution  = 1;
+        resolution  = OV5640_R1920x1080;
         data_length = 1920 * 1080;
         src_w       = 1920;
         src_h       = 1080;
         break;
     }
-    case camera_resolution::reso_vga: {
+    case camera_resolution::reso_UXGA: {
+        resolution  = OV5640_R1600x1200;
+        data_length = 1600 * 1200;
+        src_w       = 1600;
+        src_h       = 1200;
+        break;
+    }
+    case camera_resolution::reso_SXGA: {
+        resolution  = OV5640_R1280x1024;
+        data_length = 1280 * 1024;
+        src_w       = 1280;
+        src_h       = 1024;
+        break;
+    }
+    case camera_resolution::reso_WXGA_plus: {
+        resolution  = OV5640_R1440x900;
+        data_length = 1440 * 900;
+        src_w       = 1440;
+        src_h       = 900;
+        break;
+    }
+    case camera_resolution::reso_WXGA: {
+        resolution  = OV5640_R1280x800;
+        data_length = 1280 * 800;
+        src_w       = 1280;
+        src_h       = 800;
+        break;
+    }
+    case camera_resolution::reso_XGA: {
+        resolution  = OV5640_R1024x768;
+        data_length = 1024 * 768;
+        src_w       = 1024;
+        src_h       = 768;
+        break;
+    }
+    case camera_resolution::reso_SVGA: {
+        resolution  = OV5640_R800x600;
+        data_length = 800 * 600;
+        src_w       = 800;
+        src_h       = 600;
+        break;
+    }
+    case camera_resolution::reso_WVGA: {
+        resolution  = OV5640_R800x480;
+        data_length = 800 * 480;
+        src_w       = 800;
+        src_h       = 480;
+        break;
+    }
+    case camera_resolution::reso_VGA: {
         resolution  = OV5640_R640x480;
         data_length = 640 * 480;
         src_w       = 640;
         src_h       = 480;
         break;
     }
-    case camera_resolution::reso_sreen: {
+    case camera_resolution::reso_PSP: {
         resolution  = OV5640_R480x272;
         data_length = 480 * 272;
         src_w       = 480;
         src_h       = 272;
+        break;
+    }
+    case camera_resolution::reso_QVGA: {
+        resolution  = OV5640_R320x240;
+        data_length = 320 * 240;
+        src_w       = 320;
+        src_h       = 240;
+        break;
+    }
+    case camera_resolution::reso_QQVGA: {
+        resolution  = OV5640_R160x120;
+        data_length = 160 * 120;
+        src_w       = 160;
+        src_h       = 120;
         break;
     }
     }
