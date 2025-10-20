@@ -436,8 +436,9 @@ static void jpeg_rgb_exchange_init() {
 
 static void main_manage_task(void *args) {
     static main_manage_command message_to_send {};
-    main_manage_command        old_message {};
     main_manage_command        new_message {};
+    // temp
+    std::string old_message_path {};
     //
     bool can_click_pict = false;
     bool card_ok        = false;
@@ -462,12 +463,20 @@ static void main_manage_task(void *args) {
         xQueueReset(jpeg_decode_input_output_queueset);
     };
 
+    static auto safe_get_value = [](std::string *str) -> std::string
+    {
+        if (str)
+            return *str;
+        else
+            return {};
+    };
+
     while (true) {
         xQueueReceive(jpeg_manage_task_queue, &new_message, portMAX_DELAY);
 
         switch (new_message.type) {
         case manage_command_type::reload: {
-            if ((!new_message.path) || (old_message.path && new_message.path && *old_message.path == *new_message.path) || !card_ok) {
+            if ((!new_message.path) || (old_message_path == *new_message.path) || !card_ok) {
                 continue;
             }
             xSemaphoreTake(jpeg_decode_task_interrupt_mutex, portMAX_DELAY);
@@ -476,7 +485,7 @@ static void main_manage_task(void *args) {
                     recycle_resource();
                     delete message_to_send.path;
                     message_to_send.path = nullptr;
-                    old_message.path     = nullptr;
+                    old_message_path.clear();
                 }
             }
             xSemaphoreGive(jpeg_decode_task_interrupt_mutex);
@@ -487,8 +496,8 @@ static void main_manage_task(void *args) {
             if (xQueueSend(lvgl_manage_task_queue, &cm, pdMS_TO_TICKS(20)) == pdPASS) {
                 jpeg_decode_target_file_should_close = false;
                 can_click_pict                       = false;
-                old_message                          = new_message;
-                message_to_send                      = old_message;
+                old_message_path                     = safe_get_value(new_message.path);
+                message_to_send                      = new_message;
                 lastest_decode_time                  = new_message.decode_time;
                 xTaskCreate(jpeg_decode_task, "JPEG Decode Task", 2048, &message_to_send, 3, &jpeg_decode_task_handle);
             }
@@ -501,10 +510,10 @@ static void main_manage_task(void *args) {
                     recycle_resource();
                     delete message_to_send.path;
                     message_to_send.path = nullptr;
-                    old_message.path     = nullptr;
                     can_click_pict       = true;
+                    old_message_path.clear();
                 }
-                old_message = new_message;
+                old_message_path = safe_get_value(new_message.path);
             }
             xSemaphoreGive(jpeg_decode_task_interrupt_mutex);
 
@@ -520,10 +529,10 @@ static void main_manage_task(void *args) {
                     recycle_resource();
                     delete message_to_send.path;
                     message_to_send.path = nullptr;
-                    old_message.path     = nullptr;
                     can_click_pict       = false;
+                    old_message_path.clear();
                 }
-                old_message = new_message;
+                old_message_path = safe_get_value(new_message.path);
             }
             xSemaphoreGive(jpeg_decode_task_interrupt_mutex);
 
@@ -549,53 +558,53 @@ static void main_manage_task(void *args) {
             break;
         }
         case manage_command_type::ins_card: {
-            if (!card_ok) {
-                if (!sdcard_link_driver && FATFS_LinkDriver(&SD_Driver, SDPath) != 0) {
-                    continue;
-                }
-                sdcard_link_driver = 1;
-                if (!sdcard_is_mounted && f_mount(&SDFatFS, SDPath, 1) != FR_OK) {
-                    continue;
-                }
-                sdcard_is_mounted = 1;
-
-                old_message       = new_message;
-                lvgl_manage_command cm {};
-                cm.type = lvgl_command_type::ins_card;
-
-                if (xQueueSend(lvgl_manage_task_queue, &cm, pdMS_TO_TICKS(20)) == pdPASS)
-                    card_ok = true;
+            if (!sdcard_link_driver && FATFS_LinkDriver(&SD_Driver, SDPath) != 0) {
+                continue;
             }
+            sdcard_link_driver = 1;
+            if (!sdcard_is_mounted && f_mount(&SDFatFS, SDPath, 1) != FR_OK) {
+                f_mount(nullptr, SDPath, 1);
+                (void)HAL_SD_DeInit(&hsd2);
+                FATFS_UnLinkDriver(SDPath);
+                sdcard_link_driver = 0;
+                continue;
+            }
+            sdcard_is_mounted = 1;
+
+            old_message_path  = safe_get_value(new_message.path);
+            lvgl_manage_command cm {};
+            cm.type = lvgl_command_type::ins_card;
+
+            if (xQueueSend(lvgl_manage_task_queue, &cm, pdMS_TO_TICKS(20)) == pdPASS)
+                card_ok = true;
             break;
         }
         case manage_command_type::pop_card: {
-            if (card_ok) {
-                xSemaphoreTake(jpeg_decode_task_interrupt_mutex, portMAX_DELAY);
-                {
-                    if (jpeg_decode_task_handle) {
-                        recycle_resource();
-                        delete message_to_send.path;
-                        message_to_send.path = nullptr;
-                        old_message.path     = nullptr;
-                    }
-                    old_message = new_message;
+            xSemaphoreTake(jpeg_decode_task_interrupt_mutex, portMAX_DELAY);
+            {
+                if (jpeg_decode_task_handle) {
+                    recycle_resource();
+                    delete message_to_send.path;
+                    message_to_send.path = nullptr;
+                    old_message_path.clear();
                 }
-                xSemaphoreGive(jpeg_decode_task_interrupt_mutex);
+                old_message_path = safe_get_value(new_message.path);
+            }
+            xSemaphoreGive(jpeg_decode_task_interrupt_mutex);
 
-                lvgl_manage_command cm {};
-                cm.type = lvgl_command_type::pop_card;
-                if (xQueueSend(lvgl_manage_task_queue, &cm, pdMS_TO_TICKS(20)) == pdPASS) {
-                    if (sdcard_is_mounted && f_mount(nullptr, SDPath, 1) != FR_OK) {
-                        continue;
-                    }
-                    card_ok           = false;
-                    sdcard_is_mounted = 0;
-                    (void)HAL_SD_DeInit(&hsd2);
-                    if (sdcard_link_driver && FATFS_UnLinkDriver(SDPath) != 0) {
-                        continue;
-                    }
-                    sdcard_link_driver = 0;
+            lvgl_manage_command cm {};
+            cm.type = lvgl_command_type::pop_card;
+            if (xQueueSend(lvgl_manage_task_queue, &cm, pdMS_TO_TICKS(20)) == pdPASS) {
+                if (sdcard_is_mounted && f_mount(nullptr, SDPath, 1) != FR_OK) {
+                    continue;
                 }
+                card_ok           = false;
+                sdcard_is_mounted = 0;
+                (void)HAL_SD_DeInit(&hsd2);
+                if (sdcard_link_driver && FATFS_UnLinkDriver(SDPath) != 0) {
+                    continue;
+                }
+                sdcard_link_driver = 0;
             }
             break;
         }
@@ -606,9 +615,9 @@ static void main_manage_task(void *args) {
                     recycle_resource();
                     delete message_to_send.path;
                     message_to_send.path = nullptr;
-                    old_message.path     = nullptr;
+                    old_message_path.clear();
                 }
-                old_message = new_message;
+                old_message_path = safe_get_value(new_message.path);
             }
             xSemaphoreGive(jpeg_decode_task_interrupt_mutex);
 

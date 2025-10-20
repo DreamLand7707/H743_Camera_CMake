@@ -185,7 +185,6 @@ void camera_task_routine(void const *argument) {
                     }
 
                     // indicator and others..
-                    vTaskDelay(pdMS_TO_TICKS(500));
                     indicator_operate(nullptr);
 
                     // change to RGB
@@ -242,6 +241,7 @@ void camera_task_routine(void const *argument) {
                 xSemaphoreGive(camera_interface_restart);
                 continue;
             }
+            vTaskDelay(pdMS_TO_TICKS(500));
             queue_enable        = true;
             camera_captured_end = false;
             camera_start_capture(target_dcmi, current_format,
