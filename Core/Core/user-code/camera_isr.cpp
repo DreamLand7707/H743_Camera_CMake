@@ -96,6 +96,21 @@ void camera_JPEG_DMA_Cplt_Cb(DMA_HandleTypeDef *hdma) {
     Camera_DCMI_Data *p = container_of(hdma, Camera_DCMI_Data, first_stage_dma);
     //
     debug("[ISR] %u tick: camera_JPEG_DMA_Cplt_Cb\n", xTaskGetTickCountFromISR());
+
+    auto t = taskENTER_CRITICAL_FROM_ISR();
+    {
+        HAL_DMA_Abort(hdma);
+        for (size_t i = 0; i < p->half_middle_buffer_words; i++) {
+            if (i % 32 == 0)
+                debug("\n");
+            debug("%x ", ((uint32_t *)p->mdma_first_buffer)[i]);
+        }
+        while (1) {
+            ;
+        }
+    }
+    taskEXIT_CRITICAL_FROM_ISR(t);
+
     BaseType_t should_yield = pdFALSE;
     xEventGroupSetBitsFromISR(p->eg, FIRST_STAGE_DMA_CPLT, &should_yield);
     xQueueSendFromISR(p->MDMA_sync, nullptr, &should_yield);
@@ -159,7 +174,7 @@ void camera_JPEG_MDMA_RepeatBlock_Cplt_Cb(MDMA_HandleTypeDef *hmdma) {
     xSemaphoreGiveFromISR(camera_new_message, &should_yield);
 
     if (p->jpeg_mode) {
-        if (!p->jpeg_sw_final) {
+        if (p->jpeg_sw_final) {
             xEventGroupSetBitsFromISR(p->eg, SECOND_STAGE_DMA_CPLT, &should_yield);
             xSemaphoreGiveFromISR(camera_new_message, &should_yield);
         }

@@ -158,7 +158,7 @@ void camera_task_routine(void const *argument) {
                 }
                 else {
                     camera_JPEG_capture_stop(target_dcmi, current_format);
-                    size_t length = target_dcmi->jpeg_data_count_calculate;
+                    size_t length = (target_dcmi->jpeg_data_count_calculate << 2u);
                     MYSCB_InvalidateDCache_by_Addr((void *)jpeg_before_buffer_rgb, (int32_t)length);
 
                     // storage to file
@@ -233,7 +233,7 @@ void camera_task_routine(void const *argument) {
                 screen_RGB_mode = false;
             }
 
-            current_resolution = camera_resolution::reso_1080p;
+            current_resolution = camera_resolution::reso_QVGA;
             current_format     = camera_format::format_JPEG;
             resolution_parse(resolution, data_length, src_w, src_h, format);
 
