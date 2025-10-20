@@ -2,53 +2,59 @@
 #include "camera_declare.hpp"
 //
 void dcmi_data_structure_init() {
-    RGB_hdcmi.data.instance.Instance                = DCMI;
-    RGB_hdcmi.data.instance.Init.SynchroMode        = DCMI_SYNCHRO_HARDWARE;
-    RGB_hdcmi.data.instance.Init.PCKPolarity        = DCMI_PCKPOLARITY_RISING;
-    RGB_hdcmi.data.instance.Init.VSPolarity         = DCMI_VSPOLARITY_HIGH;
-    RGB_hdcmi.data.instance.Init.HSPolarity         = DCMI_HSPOLARITY_HIGH;
-    RGB_hdcmi.data.instance.Init.CaptureRate        = DCMI_CR_ALL_FRAME;
-    RGB_hdcmi.data.instance.Init.ExtendedDataMode   = DCMI_EXTEND_DATA_8B;
-    RGB_hdcmi.data.instance.Init.JPEGMode           = DCMI_JPEG_DISABLE;
-    RGB_hdcmi.data.instance.Init.ByteSelectMode     = DCMI_BSM_ALL;
-    RGB_hdcmi.data.instance.Init.ByteSelectStart    = DCMI_OEBS_ODD;
-    RGB_hdcmi.data.instance.Init.LineSelectMode     = DCMI_LSM_ALL;
-    RGB_hdcmi.data.instance.Init.LineSelectStart    = DCMI_OELS_ODD;
-    RGB_hdcmi.data.instance.MspInitCallback         = dcmi_rgb_mspinit;
-    RGB_hdcmi.data.instance.MspDeInitCallback       = dcmi_msp_deinit;
-    RGB_hdcmi.data.eg                               = xEventGroupCreate();
+    RGB_hdcmi.instance.Instance              = DCMI;
+    RGB_hdcmi.instance.Init.SynchroMode      = DCMI_SYNCHRO_HARDWARE;
+    RGB_hdcmi.instance.Init.PCKPolarity      = DCMI_PCKPOLARITY_RISING;
+    RGB_hdcmi.instance.Init.VSPolarity       = DCMI_VSPOLARITY_HIGH;
+    RGB_hdcmi.instance.Init.HSPolarity       = DCMI_HSPOLARITY_HIGH;
+    RGB_hdcmi.instance.Init.CaptureRate      = DCMI_CR_ALL_FRAME;
+    RGB_hdcmi.instance.Init.ExtendedDataMode = DCMI_EXTEND_DATA_8B;
+    RGB_hdcmi.instance.Init.JPEGMode         = DCMI_JPEG_DISABLE;
+    RGB_hdcmi.instance.Init.ByteSelectMode   = DCMI_BSM_ALL;
+    RGB_hdcmi.instance.Init.ByteSelectStart  = DCMI_OEBS_ODD;
+    RGB_hdcmi.instance.Init.LineSelectMode   = DCMI_LSM_ALL;
+    RGB_hdcmi.instance.Init.LineSelectStart  = DCMI_OELS_ODD;
+    RGB_hdcmi.instance.MspInitCallback       = dcmi_rgb_mspinit;
+    RGB_hdcmi.instance.MspDeInitCallback     = dcmi_msp_deinit;
+    RGB_hdcmi.eg                             = xEventGroupCreate();
+    RGB_hdcmi.MDMA_sync                      = xQueueCreate(1, 0);
+    RGB_hdcmi.the_node_list.reserve(256);
 
-    YCbCr_hdcmi.data.instance.Instance              = DCMI;
-    YCbCr_hdcmi.data.instance.Init.SynchroMode      = DCMI_SYNCHRO_HARDWARE;
-    YCbCr_hdcmi.data.instance.Init.PCKPolarity      = DCMI_PCKPOLARITY_RISING;
-    YCbCr_hdcmi.data.instance.Init.VSPolarity       = DCMI_VSPOLARITY_HIGH;
-    YCbCr_hdcmi.data.instance.Init.HSPolarity       = DCMI_HSPOLARITY_HIGH;
-    YCbCr_hdcmi.data.instance.Init.CaptureRate      = DCMI_CR_ALL_FRAME;
-    YCbCr_hdcmi.data.instance.Init.ExtendedDataMode = DCMI_EXTEND_DATA_8B;
-    YCbCr_hdcmi.data.instance.Init.JPEGMode         = DCMI_JPEG_DISABLE;
-    YCbCr_hdcmi.data.instance.Init.ByteSelectMode   = DCMI_BSM_ALL;
-    YCbCr_hdcmi.data.instance.Init.ByteSelectStart  = DCMI_OEBS_ODD;
-    YCbCr_hdcmi.data.instance.Init.LineSelectMode   = DCMI_LSM_ALL;
-    YCbCr_hdcmi.data.instance.Init.LineSelectStart  = DCMI_OELS_ODD;
-    YCbCr_hdcmi.data.instance.MspInitCallback       = dcmi_ycbcr_mspinit;
-    YCbCr_hdcmi.data.instance.MspDeInitCallback     = dcmi_msp_deinit;
-    YCbCr_hdcmi.data.eg                             = xEventGroupCreate();
+    YCbCr_hdcmi.instance.Instance              = DCMI;
+    YCbCr_hdcmi.instance.Init.SynchroMode      = DCMI_SYNCHRO_HARDWARE;
+    YCbCr_hdcmi.instance.Init.PCKPolarity      = DCMI_PCKPOLARITY_RISING;
+    YCbCr_hdcmi.instance.Init.VSPolarity       = DCMI_VSPOLARITY_HIGH;
+    YCbCr_hdcmi.instance.Init.HSPolarity       = DCMI_HSPOLARITY_HIGH;
+    YCbCr_hdcmi.instance.Init.CaptureRate      = DCMI_CR_ALL_FRAME;
+    YCbCr_hdcmi.instance.Init.ExtendedDataMode = DCMI_EXTEND_DATA_8B;
+    YCbCr_hdcmi.instance.Init.JPEGMode         = DCMI_JPEG_DISABLE;
+    YCbCr_hdcmi.instance.Init.ByteSelectMode   = DCMI_BSM_ALL;
+    YCbCr_hdcmi.instance.Init.ByteSelectStart  = DCMI_OEBS_ODD;
+    YCbCr_hdcmi.instance.Init.LineSelectMode   = DCMI_LSM_ALL;
+    YCbCr_hdcmi.instance.Init.LineSelectStart  = DCMI_OELS_ODD;
+    YCbCr_hdcmi.instance.MspInitCallback       = dcmi_ycbcr_mspinit;
+    YCbCr_hdcmi.instance.MspDeInitCallback     = dcmi_msp_deinit;
+    YCbCr_hdcmi.eg                             = xEventGroupCreate();
+    YCbCr_hdcmi.MDMA_sync                      = xQueueCreate(1, 0);
+    YCbCr_hdcmi.the_node_list.reserve(256);
 
-    JPEG_hdcmi.data.instance.Instance               = DCMI;
-    JPEG_hdcmi.data.instance.Init.SynchroMode       = DCMI_SYNCHRO_HARDWARE;
-    JPEG_hdcmi.data.instance.Init.PCKPolarity       = DCMI_PCKPOLARITY_RISING;
-    JPEG_hdcmi.data.instance.Init.VSPolarity        = DCMI_VSPOLARITY_HIGH;
-    JPEG_hdcmi.data.instance.Init.HSPolarity        = DCMI_HSPOLARITY_HIGH;
-    JPEG_hdcmi.data.instance.Init.CaptureRate       = DCMI_CR_ALL_FRAME;
-    JPEG_hdcmi.data.instance.Init.ExtendedDataMode  = DCMI_EXTEND_DATA_8B;
-    JPEG_hdcmi.data.instance.Init.JPEGMode          = DCMI_JPEG_ENABLE;
-    JPEG_hdcmi.data.instance.Init.ByteSelectMode    = DCMI_BSM_ALL;
-    JPEG_hdcmi.data.instance.Init.ByteSelectStart   = DCMI_OEBS_ODD;
-    JPEG_hdcmi.data.instance.Init.LineSelectMode    = DCMI_LSM_ALL;
-    JPEG_hdcmi.data.instance.Init.LineSelectStart   = DCMI_OELS_ODD;
-    JPEG_hdcmi.data.instance.MspInitCallback        = dcmi_jpeg_mspinit;
-    JPEG_hdcmi.data.instance.MspDeInitCallback      = dcmi_msp_deinit;
-    JPEG_hdcmi.data.eg                              = xEventGroupCreate();
+    JPEG_hdcmi.instance.Instance              = DCMI;
+    JPEG_hdcmi.instance.Init.SynchroMode      = DCMI_SYNCHRO_HARDWARE;
+    JPEG_hdcmi.instance.Init.PCKPolarity      = DCMI_PCKPOLARITY_RISING;
+    JPEG_hdcmi.instance.Init.VSPolarity       = DCMI_VSPOLARITY_HIGH;
+    JPEG_hdcmi.instance.Init.HSPolarity       = DCMI_HSPOLARITY_HIGH;
+    JPEG_hdcmi.instance.Init.CaptureRate      = DCMI_CR_ALL_FRAME;
+    JPEG_hdcmi.instance.Init.ExtendedDataMode = DCMI_EXTEND_DATA_8B;
+    JPEG_hdcmi.instance.Init.JPEGMode         = DCMI_JPEG_ENABLE;
+    JPEG_hdcmi.instance.Init.ByteSelectMode   = DCMI_BSM_ALL;
+    JPEG_hdcmi.instance.Init.ByteSelectStart  = DCMI_OEBS_ODD;
+    JPEG_hdcmi.instance.Init.LineSelectMode   = DCMI_LSM_ALL;
+    JPEG_hdcmi.instance.Init.LineSelectStart  = DCMI_OELS_ODD;
+    JPEG_hdcmi.instance.MspInitCallback       = dcmi_jpeg_mspinit;
+    JPEG_hdcmi.instance.MspDeInitCallback     = dcmi_msp_deinit;
+    JPEG_hdcmi.eg                             = xEventGroupCreate();
+    JPEG_hdcmi.MDMA_sync                      = xQueueCreate(1, 0);
+    JPEG_hdcmi.the_node_list.reserve(256);
     // Delay
     static auto delay_handle = [](uint32_t delay)
     {
@@ -176,9 +182,9 @@ void dcmi_rgb_mspinit(DCMI_HandleTypeDef *dcmiHandle) {
 void dcmi_ycbcr_mspinit(DCMI_HandleTypeDef *dcmiHandle) {
     dcmi_clk_pin_init();
 
-    Camera_DCMI_Data *p                       = container_of(dcmiHandle, Camera_DCMI_Data, instance);
-    DMA_HandleTypeDef      &camera_first_stage_dma  = p->first_stage_dma;
-    MDMA_HandleTypeDef     &camera_second_stage_dma = p->second_stage_dma;
+    Camera_DCMI_Data   *p                       = container_of(dcmiHandle, Camera_DCMI_Data, instance);
+    DMA_HandleTypeDef  &camera_first_stage_dma  = p->first_stage_dma;
+    MDMA_HandleTypeDef &camera_second_stage_dma = p->second_stage_dma;
     //
     camera_first_stage_dma.Instance                 = DMA1_Stream0;
     camera_first_stage_dma.Init.Request             = DMA_REQUEST_DCMI;
@@ -223,9 +229,9 @@ void dcmi_ycbcr_mspinit(DCMI_HandleTypeDef *dcmiHandle) {
 void dcmi_jpeg_mspinit(DCMI_HandleTypeDef *dcmiHandle) {
     dcmi_clk_pin_init();
 
-    Camera_DCMI_Data *p                       = container_of(dcmiHandle, Camera_DCMI_Data, instance);
-    DMA_HandleTypeDef      &camera_first_stage_dma  = p->first_stage_dma;
-    MDMA_HandleTypeDef     &camera_second_stage_dma = p->second_stage_dma;
+    Camera_DCMI_Data   *p                       = container_of(dcmiHandle, Camera_DCMI_Data, instance);
+    DMA_HandleTypeDef  &camera_first_stage_dma  = p->first_stage_dma;
+    MDMA_HandleTypeDef &camera_second_stage_dma = p->second_stage_dma;
     //
     camera_first_stage_dma.Instance                 = DMA1_Stream0;
     camera_first_stage_dma.Init.Request             = DMA_REQUEST_DCMI;
@@ -278,4 +284,3 @@ void dcmi_msp_deinit(DCMI_HandleTypeDef *dcmiHandle) {
     HAL_DMA_DeInit(dcmiHandle->DMA_Handle);
     HAL_NVIC_DisableIRQ(DCMI_IRQn);
 }
-

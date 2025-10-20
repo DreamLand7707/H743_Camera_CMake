@@ -5,8 +5,8 @@ bool PCF8574_init = false;
 
 int  camera_init(bool &can_catch_scene, uint32_t resolution, uint32_t format, bool just_change) {
     // DCMI Init -> IO Init -> OV5640 Init -> OV5640 Start -> DCMI DMA
-
-    if (HAL_DCMI_Init(&(target_dcmi->data.instance)) != HAL_OK) {
+    target_dcmi->parent = target_dcmi;
+    if (HAL_DCMI_Init(&(target_dcmi->instance)) != HAL_OK) {
         if (!just_change) {
             indicator_operate("Initialize DCMI Interface Failed!");
         }
@@ -16,7 +16,7 @@ int  camera_init(bool &can_catch_scene, uint32_t resolution, uint32_t format, bo
 
     if (!just_change) {
         indicator_operate("Initialize DCMI Interface...");
-        if (HAL_DCMI_Init(&(target_dcmi->data.instance)) != HAL_OK) {
+        if (HAL_DCMI_Init(&(target_dcmi->instance)) != HAL_OK) {
             indicator_operate("Initialize DCMI Interface Failed!");
             can_catch_scene = false;
             return -1;
@@ -33,8 +33,8 @@ int  camera_init(bool &can_catch_scene, uint32_t resolution, uint32_t format, bo
         indicator_operate(nullptr);
     }
     else {
-        HAL_DCMI_DeInit(&(target_dcmi->data.instance));
-        if (HAL_DCMI_Init(&(target_dcmi->data.instance)) != HAL_OK) {
+        HAL_DCMI_DeInit(&(target_dcmi->instance));
+        if (HAL_DCMI_Init(&(target_dcmi->instance)) != HAL_OK) {
             can_catch_scene = false;
             return -1;
         }
@@ -65,7 +65,7 @@ void camera_deinit(const char *error_message, void *error_picture) {
         OV5640_Stop(&ov5640);
         OV5640_DeInit(&ov5640);
         dcmi_io_deinit_ov5640();
-        HAL_DCMI_DeInit(&(target_dcmi->data.instance));
+        HAL_DCMI_DeInit(&(target_dcmi->instance));
         camera_deinit_have_done = true;
     }
 }

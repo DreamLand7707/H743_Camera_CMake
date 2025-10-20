@@ -35,10 +35,14 @@ enum class message_process : uint32_t {
     DATA_END    = 1 << 6
 };
 
+struct Camera_DCMI_HandleType;
+
 struct Camera_DCMI_Data {
-    DCMI_HandleTypeDef instance;
-    DMA_HandleTypeDef  first_stage_dma;
-    MDMA_HandleTypeDef second_stage_dma;
+    DCMI_HandleTypeDef      instance;
+    DMA_HandleTypeDef       first_stage_dma;
+    MDMA_HandleTypeDef      second_stage_dma;
+
+    Camera_DCMI_HandleType *parent;
     //
     uintptr_t double_buffer_first;
     uintptr_t double_buffer_second;
@@ -56,11 +60,12 @@ struct Camera_DCMI_Data {
     bool      dma_not_full;
     bool      jpeg_mode;
     //
+    bool               mdma_first_buffer;
     EventGroupHandle_t eg;
+    QueueHandle_t      MDMA_sync;
 };
 
-struct Camera_DCMI_HandleType {
-    Camera_DCMI_Data                  data;
+struct Camera_DCMI_HandleType : public Camera_DCMI_Data {
     std::vector<MDMA_LinkNodeTypeDef> the_node_list;
 };
 

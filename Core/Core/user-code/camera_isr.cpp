@@ -11,6 +11,7 @@ void camera_RGB_YCbCr_DMA_Cplt_Cb(DMA_HandleTypeDef *hdma) {
     debug("[ISR] %u tick: camera_RGB_YCbCr_DMA_Cplt_Cb\n", xTaskGetTickCountFromISR());
     BaseType_t should_yield = pdFALSE;
     xEventGroupSetBitsFromISR(p->eg, FIRST_STAGE_DMA_CPLT, &should_yield);
+    xQueueSendFromISR(p->MDMA_sync, nullptr, &should_yield);
     xSemaphoreGiveFromISR(camera_new_message, &should_yield);
     portYIELD_FROM_ISR(should_yield);
 }
@@ -21,6 +22,7 @@ void camera_RGB_YCbCr_DMA_M1_Cplt_Cb(DMA_HandleTypeDef *hdma) {
     debug("[ISR] %u tick: camera_RGB_YCbCr_DMA_M1_Cplt_Cb\n", xTaskGetTickCountFromISR());
     BaseType_t should_yield = pdFALSE;
     xEventGroupSetBitsFromISR(p->eg, FIRST_STAGE_DMA_M1_CPLT, &should_yield);
+    xQueueSendFromISR(p->MDMA_sync, nullptr, &should_yield);
     xSemaphoreGiveFromISR(camera_new_message, &should_yield);
     portYIELD_FROM_ISR(should_yield);
 }
@@ -62,6 +64,7 @@ void camera_RGB_YCbCr_MDMA_RepeatBlock_Cplt_Cb(MDMA_HandleTypeDef *hmdma) {
     debug("[ISR] %u tick: camera_RGB_YCbCr_MDMA_RepeatBlock_Cplt_Cb\n", xTaskGetTickCountFromISR());
     BaseType_t should_yield = pdFALSE;
     xEventGroupSetBitsFromISR(p->eg, SECOND_STAGE_DMA_REPEAT_CPLT, &should_yield);
+    xQueueReceiveFromISR(p->MDMA_sync, nullptr, &should_yield);
     xSemaphoreGiveFromISR(camera_new_message, &should_yield);
     portYIELD_FROM_ISR(should_yield);
 }
@@ -95,6 +98,7 @@ void camera_JPEG_DMA_Cplt_Cb(DMA_HandleTypeDef *hdma) {
     debug("[ISR] %u tick: camera_JPEG_DMA_Cplt_Cb\n", xTaskGetTickCountFromISR());
     BaseType_t should_yield = pdFALSE;
     xEventGroupSetBitsFromISR(p->eg, FIRST_STAGE_DMA_CPLT, &should_yield);
+    xQueueSendFromISR(p->MDMA_sync, nullptr, &should_yield);
     xSemaphoreGiveFromISR(camera_new_message, &should_yield);
 
     p->jpeg_data_count_calculate += p->half_middle_buffer_words;
@@ -107,6 +111,7 @@ void camera_JPEG_DMA_M1_Cplt_Cb(DMA_HandleTypeDef *hdma) {
     debug("[ISR] %u tick: camera_JPEG_DMA_M1_Cplt_Cb\n", xTaskGetTickCountFromISR());
     BaseType_t should_yield = pdFALSE;
     xEventGroupSetBitsFromISR(p->eg, FIRST_STAGE_DMA_M1_CPLT, &should_yield);
+    xQueueSendFromISR(p->MDMA_sync, nullptr, &should_yield);
     xSemaphoreGiveFromISR(camera_new_message, &should_yield);
 
     p->jpeg_data_count_calculate += p->half_middle_buffer_words;
@@ -150,13 +155,11 @@ void camera_JPEG_MDMA_RepeatBlock_Cplt_Cb(MDMA_HandleTypeDef *hmdma) {
     debug("[ISR] %u tick: camera_JPEG_MDMA_RepeatBlock_Cplt_Cb\n", xTaskGetTickCountFromISR());
     BaseType_t should_yield = pdFALSE;
     xEventGroupSetBitsFromISR(p->eg, SECOND_STAGE_DMA_REPEAT_CPLT, &should_yield);
+    xQueueReceiveFromISR(p->MDMA_sync, nullptr, &should_yield);
     xSemaphoreGiveFromISR(camera_new_message, &should_yield);
 
     if (p->jpeg_mode) {
         if (!p->jpeg_sw_final) {
-            ((MDMA_LinkNodeTypeDef *)(uintptr_t)(hmdma->Instance->CLAR))->CDAR += (p->half_middle_buffer_words << 3u);
-        }
-        else {
             xEventGroupSetBitsFromISR(p->eg, SECOND_STAGE_DMA_CPLT, &should_yield);
             xSemaphoreGiveFromISR(camera_new_message, &should_yield);
         }
@@ -216,7 +219,7 @@ extern "C" void HAL_DCMI_ErrorCallback(DCMI_HandleTypeDef *hdcmi) {
 
 void camera_mdma_IRQHandler() {
     if (target_dcmi_is_ok) {
-        HAL_MDMA_IRQHandler(&target_dcmi->data.second_stage_dma);
+        HAL_MDMA_IRQHandler(&target_dcmi->second_stage_dma);
     }
 }
 
@@ -305,9 +308,9 @@ void MY_HAL_DCMI_IRQHandler(DCMI_HandleTypeDef *hdcmi) {
 // original IRQ Handler
 
 extern "C" void DMA1_Stream0_IRQHandler(void) {
-    HAL_DMA_IRQHandler(&(target_dcmi->data.first_stage_dma));
+    HAL_DMA_IRQHandler(&(target_dcmi->first_stage_dma));
 }
 
 extern "C" void DCMI_IRQHandler(void) {
-    MY_HAL_DCMI_IRQHandler(&(target_dcmi->data.instance));
+    MY_HAL_DCMI_IRQHandler(&(target_dcmi->instance));
 }

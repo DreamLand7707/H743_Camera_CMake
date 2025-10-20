@@ -36,6 +36,7 @@ uint8_t D2_SRAM[128 * 1024] IN_SRAM2 __ALIGNED(32);
 // static variables
 
 static char error_message[128] {};
+static FIL  picture_file {};
 
 // functions
 
@@ -157,12 +158,35 @@ void camera_task_routine(void const *argument) {
                 }
                 else {
                     camera_JPEG_capture_stop(target_dcmi, current_format);
-                    size_t length = target_dcmi->data.jpeg_data_count_calculate;
+                    size_t length = target_dcmi->jpeg_data_count_calculate;
                     MYSCB_InvalidateDCache_by_Addr((void *)jpeg_before_buffer_rgb, (int32_t)length);
 
                     // storage to file
+                    FRESULT f_res       = FR_OK;
+                    UINT    write_bytes = 0;
+                    f_res               = f_open(&picture_file, "0:/1.jpeg", FA_WRITE | FA_CREATE_ALWAYS);
+                    if (f_res == FR_OK) {
+                        f_res = f_write(&picture_file, (void *)jpeg_before_buffer_rgb, length, &write_bytes);
+                        if (f_res == FR_OK && (length == write_bytes)) {
+                            f_res = f_close(&picture_file);
+                            if (f_res == FR_OK) {
+                                // pass
+                            }
+                            else {
+                                indicator_operate("Failed to save Picture!");
+                            }
+                        }
+                        else {
+                            indicator_operate("Failed to save Picture!");
+                        }
+                    }
+                    else {
+                        indicator_operate("Failed to Open SD Card File!");
+                    }
 
-                    // indicator and others...
+                    // indicator and others..
+                    vTaskDelay(pdMS_TO_TICKS(500));
+                    indicator_operate(nullptr);
 
                     // change to RGB
                     current_resolution = camera_resolution::reso_QVGA;
@@ -176,6 +200,7 @@ void camera_task_routine(void const *argument) {
                     }
                     queue_enable        = true;
                     camera_captured_end = false;
+                    screen_RGB_mode     = true;
                     camera_start_capture(target_dcmi, current_format,
                                          (uintptr_t)(&(D2_SRAM[0])), sizeof(D2_SRAM),
                                          (uintptr_t)jpeg_before_buffer_rgb, data_length); // RGB Capture
