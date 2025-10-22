@@ -46,6 +46,12 @@ int  camera_init(bool &can_catch_scene, framesize_t resolution, pixformat_t form
             return -1;
         }
 
+        if (ov5640_sensor.set_vflip(&ov5640_sensor, 1) != 0) {
+            indicator_operate("Initialize Camera Failed!");
+            can_catch_scene = false;
+            return -1;
+        }
+
         if (ov5640_sensor.init_status(&ov5640_sensor) != 0) {
             indicator_operate("Initialize Camera Failed!");
             can_catch_scene = false;
@@ -60,10 +66,14 @@ int  camera_init(bool &can_catch_scene, framesize_t resolution, pixformat_t form
             can_catch_scene = false;
             return -1;
         }
-        if (ov5640_sensor.set_pixformat(&ov5640_sensor, format) != 0) {
+
+        ov5640_sensor.status.framesize = resolution;
+        ov5640_sensor.pixformat        = format;
+
+        if (ov5640_sensor.set_framesize(&ov5640_sensor, resolution) != 0) {
             return -1;
         }
-        if (ov5640_sensor.set_framesize(&ov5640_sensor, resolution) != 0) {
+        if (ov5640_sensor.set_pixformat(&ov5640_sensor, format) != 0) {
             return -1;
         }
     }

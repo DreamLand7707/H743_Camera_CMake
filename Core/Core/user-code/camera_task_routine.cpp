@@ -236,11 +236,13 @@ void camera_task_routine(void const *argument) {
                 screen_RGB_mode = false;
             }
 
-            current_resolution = FRAMESIZE_QXGA;
+            current_resolution = FRAMESIZE_QSXGA;
             current_format     = PIXFORMAT_JPEG;
             resolution_parse(resolution, data_length, src_w, src_h, format);
 
             camera_deinit_have_done = false;
+
+            ov5640_sensor.set_quality(&ov5640_sensor, 0x0A);
             if (camera_init(can_catch_scene, resolution, format, true) != 0) {
                 xSemaphoreGive(camera_interface_restart);
                 continue;

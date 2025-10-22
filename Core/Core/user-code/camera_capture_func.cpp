@@ -593,8 +593,9 @@ void calculate_decompose(size_t &x, size_t &y, size_t &z, size_t y_max) {
 }
 
 void resolution_parse(framesize_t &the_resolution, uint32_t &data_length, uint32_t &src_w, uint32_t &src_h, pixformat_t &format) {
-    src_w = ::resolution[current_resolution].width;
-    src_h = ::resolution[current_resolution].height;
+    src_w          = ::resolution[current_resolution].width;
+    src_h          = ::resolution[current_resolution].height;
+    data_length    = src_w * src_h;
 
     the_resolution = current_resolution;
 

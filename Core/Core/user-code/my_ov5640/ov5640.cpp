@@ -36,7 +36,7 @@ static int read_reg(uint8_t slv_addr, const uint16_t reg) {
     int ret = SCCB_Read16(slv_addr, reg);
 #ifdef REG_DEBUG_ON
     if (ret < 0) {
-        debug("READ REG 0x%04x FAILED: %d", reg, ret);
+        debug("READ REG 0x%04x FAILED: %d\n", reg, ret);
     }
 #endif
     return ret;
@@ -122,15 +122,15 @@ static int write_reg(uint8_t slv_addr, const uint16_t reg, uint8_t value) {
         return old_value;
     }
     if ((uint8_t)old_value != value) {
-        debug("NEW REG 0x%04x: 0x%02x to 0x%02x", reg, (uint8_t)old_value, value);
+        debug("NEW REG 0x%04x: 0x%02x to 0x%02x\n", reg, (uint8_t)old_value, value);
         ret = SCCB_Write16(slv_addr, reg, value);
     }
     else {
-        debug("OLD REG 0x%04x: 0x%02x", reg, (uint8_t)old_value);
+        debug("OLD REG 0x%04x: 0x%02x\n", reg, (uint8_t)old_value);
         ret = SCCB_Write16(slv_addr, reg, value); // maybe not?
     }
     if (ret < 0) {
-        debug("WRITE REG 0x%04x FAILED: %d", reg, ret);
+        debug("WRITE REG 0x%04x FAILED: %d\n", reg, ret);
     }
 #endif
     return ret;
@@ -201,20 +201,20 @@ static int calc_sysclk(int xclk, bool pll_bypass, int pll_multiplier, int pll_sy
 
     unsigned int SYSCLK            = PLL_CLK / 4;
 
-    debug("Calculated XVCLK: %d Hz, REFIN: %u Hz, VCO: %u Hz, PLL_CLK: %u Hz, SYSCLK: %u Hz, PCLK: %u Hz", xclk, REFIN, VCO, PLL_CLK, SYSCLK, PCLK);
+    debug("Calculated XVCLK: %d Hz, REFIN: %u Hz, VCO: %u Hz, PLL_CLK: %u Hz, SYSCLK: %u Hz, PCLK: %u Hz\n", xclk, REFIN, VCO, PLL_CLK, SYSCLK, PCLK);
     return (int)SYSCLK;
 }
 
 static int set_pll(sensor_t *sensor, bool bypass, uint8_t multiplier, uint8_t sys_div, uint8_t pre_div, bool root_2x, uint8_t pclk_root_div, bool pclk_manual, uint8_t pclk_div) {
     int ret = 0;
     if (multiplier > 252 || multiplier < 4 || sys_div > 15 || pre_div > 8 || pclk_div > 31 || pclk_root_div > 3) {
-        debug("Invalid arguments");
+        debug("Invalid arguments\n");
         return -1;
     }
     if (multiplier > 127) {
         multiplier &= 0xFE; // only even integers above 127
     }
-    debug("Set PLL: bypass: %u, multiplier: %u, sys_div: %u, pre_div: %u, root_2x: %u, pclk_root_div: %u, pclk_manual: %u, pclk_div: %u", bypass, multiplier, sys_div, pre_div, root_2x, pclk_root_div, pclk_manual, pclk_div);
+    debug("Set PLL: bypass: %u, multiplier: %u, sys_div: %u, pre_div: %u, root_2x: %u, pclk_root_div: %u, pclk_manual: %u, pclk_div: %u\n", bypass, multiplier, sys_div, pre_div, root_2x, pclk_root_div, pclk_manual, pclk_div);
 
     calc_sysclk(sensor->xclk_freq_hz, bypass, multiplier, sys_div, pre_div, root_2x, pclk_root_div, pclk_manual, pclk_div);
 
@@ -244,7 +244,7 @@ static int set_pll(sensor_t *sensor, bool bypass, uint8_t multiplier, uint8_t sy
         ret = write_reg(sensor->slv_addr, 0x3103, 0x13); // system clock from pll, bit[1]
     }
     if (ret) {
-        debug("set_sensor_pll FAILED!");
+        debug("set_sensor_pll FAILED!\n");
     }
     return ret;
 }
@@ -258,13 +258,13 @@ static int reset(sensor_t *sensor) {
     // Software Reset: clear all registers and reset them to their default values
     ret = write_reg(sensor->slv_addr, SYSTEM_CTROL0, 0x82);
     if (ret) {
-        debug("Software Reset FAILED!");
+        debug("Software Reset FAILED!\n");
         return ret;
     }
     vTaskDelay(100 / portTICK_PERIOD_MS);
     ret = write_regs(sensor->slv_addr, sensor_default_regs);
     if (ret == 0) {
-        debug("Camera defaults loaded");
+        debug("Camera defaults loaded\n");
         vTaskDelay(100 / portTICK_PERIOD_MS);
         // write_regs(sensor->slv_addr, sensor_regs_awb0);
         // write_regs(sensor->slv_addr, sensor_regs_gamma1);
@@ -299,14 +299,14 @@ static int set_pixformat(sensor_t *sensor, pixformat_t pixformat) {
         break;
 
     default:
-        debug("Unsupported pixformat: %u", pixformat);
+        debug("Unsupported pixformat: %u\n", pixformat);
         return -1;
     }
 
     ret = write_regs(sensor->slv_addr, regs);
     if (ret == 0) {
         sensor->pixformat = pixformat;
-        debug("Set pixformat to: %u", pixformat);
+        debug("Set pixformat to: %u\n", pixformat);
     }
     return ret;
 }
@@ -375,7 +375,7 @@ static int set_image_options(sensor_t *sensor) {
     }
 
     if (write_reg(sensor->slv_addr, TIMING_TC_REG20, reg20) || write_reg(sensor->slv_addr, TIMING_TC_REG21, reg21) || write_reg(sensor->slv_addr, 0x4514, reg4514)) {
-        debug("Setting Image Options Failed");
+        debug("Setting Image Options Failed\n");
         return -1;
     }
 
@@ -388,7 +388,7 @@ static int set_image_options(sensor_t *sensor) {
               || write_reg(sensor->slv_addr, Y_INCREMENT, 0x31);                                          // odd:3, even: 1
     }
 
-    debug("Set Image Options: Compression: %u, Binning: %u, V-Flip: %u, H-Mirror: %u, Reg-4514: 0x%02x",
+    debug("Set Image Options: Compression: %u, Binning: %u, V-Flip: %u, H-Mirror: %u, Reg-4514: 0x%02x\n",
           sensor->pixformat == PIXFORMAT_JPEG, sensor->status.binning, sensor->status.vflip, sensor->status.hmirror, reg4514);
     return ret;
 }
@@ -399,7 +399,7 @@ static int set_framesize(sensor_t *sensor, framesize_t framesize) {
     sensor->status.framesize  = framesize;
 
     if (framesize > FRAMESIZE_QSXGA) {
-        debug("Invalid framesize: %u", framesize);
+        debug("Invalid framesize: %u\n", framesize);
         return -1;
     }
     uint16_t         w        = resolution[framesize].width;
@@ -469,13 +469,13 @@ static int set_framesize(sensor_t *sensor, framesize_t framesize) {
     }
 
     if (ret == 0) {
-        debug("Set framesize to: %ux%u", w, h);
+        debug("Set framesize to: %ux%u\n", w, h);
     }
     return ret;
 
 fail:
     sensor->status.framesize = old_framesize;
-    debug("Setting framesize to: %ux%u failed", w, h);
+    debug("Setting framesize to: %ux%u failed\n", w, h);
     return ret;
 }
 
@@ -484,7 +484,7 @@ static int set_hmirror(sensor_t *sensor, int enable) {
     sensor->status.hmirror = enable;
     ret                    = set_image_options(sensor);
     if (ret == 0) {
-        debug("Set h-mirror to: %d", enable);
+        debug("Set h-mirror to: %d\n", enable);
     }
     return ret;
 }
@@ -494,7 +494,7 @@ static int set_vflip(sensor_t *sensor, int enable) {
     sensor->status.vflip = enable;
     ret                  = set_image_options(sensor);
     if (ret == 0) {
-        debug("Set v-flip to: %d", enable);
+        debug("Set v-flip to: %d\n", enable);
     }
     return ret;
 }
@@ -504,7 +504,7 @@ static int set_quality(sensor_t *sensor, int qs) {
     ret     = write_reg(sensor->slv_addr, COMPRESSION_CTRL07, qs & 0x3f);
     if (ret == 0) {
         sensor->status.quality = qs;
-        debug("Set quality to: %d", qs);
+        debug("Set quality to: %d\n", qs);
     }
     return ret;
 }
@@ -514,7 +514,7 @@ static int set_colorbar(sensor_t *sensor, int enable) {
     ret     = write_reg_bits(sensor->slv_addr, PRE_ISP_TEST_SETTING_1, TEST_COLOR_BAR, enable);
     if (ret == 0) {
         sensor->status.colorbar = enable;
-        debug("Set colorbar to: %d", enable);
+        debug("Set colorbar to: %d\n", enable);
     }
     return ret;
 }
@@ -523,7 +523,7 @@ static int set_gain_ctrl(sensor_t *sensor, int enable) {
     int ret = 0;
     ret     = write_reg_bits(sensor->slv_addr, AEC_PK_MANUAL, AEC_PK_MANUAL_AGC_MANUALEN, !enable);
     if (ret == 0) {
-        debug("Set gain_ctrl to: %d", enable);
+        debug("Set gain_ctrl to: %d\n", enable);
         sensor->status.agc = enable;
     }
     return ret;
@@ -533,7 +533,7 @@ static int set_exposure_ctrl(sensor_t *sensor, int enable) {
     int ret = 0;
     ret     = write_reg_bits(sensor->slv_addr, AEC_PK_MANUAL, AEC_PK_MANUAL_AEC_MANUALEN, !enable);
     if (ret == 0) {
-        debug("Set exposure_ctrl to: %d", enable);
+        debug("Set exposure_ctrl to: %d\n", enable);
         sensor->status.aec = enable;
     }
     return ret;
@@ -543,7 +543,7 @@ static int set_whitebal(sensor_t *sensor, int enable) {
     int ret = 0;
     ret     = write_reg_bits(sensor->slv_addr, ISP_CONTROL_01, 0x01, enable);
     if (ret == 0) {
-        debug("Set awb to: %d", enable);
+        debug("Set awb to: %d\n", enable);
         sensor->status.awb = enable;
     }
     return ret;
@@ -554,7 +554,7 @@ static int set_dcw_dsp(sensor_t *sensor, int enable) {
     int ret = 0;
     ret     = write_reg_bits(sensor->slv_addr, 0x5183, 0x80, !enable);
     if (ret == 0) {
-        debug("Set dcw to: %d", enable);
+        debug("Set dcw to: %d\n", enable);
         sensor->status.dcw = enable;
     }
     return ret;
@@ -565,7 +565,7 @@ static int set_aec2(sensor_t *sensor, int enable) {
     int ret = 0;
     ret     = write_reg_bits(sensor->slv_addr, 0x3a00, 0x04, enable);
     if (ret == 0) {
-        debug("Set aec2 to: %d", enable);
+        debug("Set aec2 to: %d\n", enable);
         sensor->status.aec2 = enable;
     }
     return ret;
@@ -575,7 +575,7 @@ static int set_bpc_dsp(sensor_t *sensor, int enable) {
     int ret = 0;
     ret     = write_reg_bits(sensor->slv_addr, 0x5000, 0x04, enable);
     if (ret == 0) {
-        debug("Set bpc to: %d", enable);
+        debug("Set bpc to: %d\n", enable);
         sensor->status.bpc = enable;
     }
     return ret;
@@ -585,7 +585,7 @@ static int set_wpc_dsp(sensor_t *sensor, int enable) {
     int ret = 0;
     ret     = write_reg_bits(sensor->slv_addr, 0x5000, 0x02, enable);
     if (ret == 0) {
-        debug("Set wpc to: %d", enable);
+        debug("Set wpc to: %d\n", enable);
         sensor->status.wpc = enable;
     }
     return ret;
@@ -596,7 +596,7 @@ static int set_raw_gma_dsp(sensor_t *sensor, int enable) {
     int ret = 0;
     ret     = write_reg_bits(sensor->slv_addr, 0x5000, 0x20, enable);
     if (ret == 0) {
-        debug("Set raw_gma to: %d", enable);
+        debug("Set raw_gma to: %d\n", enable);
         sensor->status.raw_gma = enable;
     }
     return ret;
@@ -606,7 +606,7 @@ static int set_lenc_dsp(sensor_t *sensor, int enable) {
     int ret = 0;
     ret     = write_reg_bits(sensor->slv_addr, 0x5000, 0x80, enable);
     if (ret == 0) {
-        debug("Set lenc to: %d", enable);
+        debug("Set lenc to: %d\n", enable);
         sensor->status.lenc = enable;
     }
     return ret;
@@ -647,7 +647,7 @@ static int set_agc_gain(sensor_t *sensor, int gain) {
 
     ret = write_reg(sensor->slv_addr, 0x350a, gainv >> 8) || write_reg(sensor->slv_addr, 0x350b, gainv & 0xff);
     if (ret == 0) {
-        debug("Set agc_gain to: %d", gain);
+        debug("Set agc_gain to: %d\n", gain);
         sensor->status.agc_gain = gain;
     }
     return ret;
@@ -674,7 +674,7 @@ static int set_aec_value(sensor_t *sensor, int value) {
     int ret = 0, max_val = 0;
     max_val = read_reg16(sensor->slv_addr, 0x380e);
     if (max_val < 0) {
-        debug("Could not read max aec_value");
+        debug("Could not read max aec_value\n");
         return -1;
     }
     if (value > max_val) {
@@ -684,7 +684,7 @@ static int set_aec_value(sensor_t *sensor, int value) {
     ret = write_reg(sensor->slv_addr, 0x3500, (value >> 12) & 0x0F) || write_reg(sensor->slv_addr, 0x3501, (value >> 4) & 0xFF) || write_reg(sensor->slv_addr, 0x3502, (value << 4) & 0xF0);
 
     if (ret == 0) {
-        debug("Set aec_value to: %d / %d", value, max_val);
+        debug("Set aec_value to: %d / %d\n", value, max_val);
         sensor->status.aec_value = value;
     }
     return ret;
@@ -714,7 +714,7 @@ static int set_ae_level(sensor_t *sensor, int level) {
     ret = write_reg(sensor->slv_addr, 0x3a0f, level_high) || write_reg(sensor->slv_addr, 0x3a10, level_low) || write_reg(sensor->slv_addr, 0x3a1b, level_high) || write_reg(sensor->slv_addr, 0x3a1e, level_low) || write_reg(sensor->slv_addr, 0x3a11, fast_high) || write_reg(sensor->slv_addr, 0x3a1f, fast_low);
 
     if (ret == 0) {
-        debug("Set ae_level to: %d", level);
+        debug("Set ae_level to: %d\n", level);
         sensor->status.ae_level = (int8_t)level;
     }
     return ret;
@@ -756,7 +756,7 @@ static int set_wb_mode(sensor_t *sensor, int mode) {
     }
 
     if (ret == 0) {
-        debug("Set wb_mode to: %d", mode);
+        debug("Set wb_mode to: %d\n", mode);
         sensor->status.wb_mode = mode;
     }
     return ret;
@@ -771,7 +771,7 @@ static int set_awb_gain_dsp(sensor_t *sensor, int enable) {
 
     if (ret == 0) {
         sensor->status.wb_mode = old_mode;
-        debug("Set awb_gain to: %d", enable);
+        debug("Set awb_gain to: %d\n", enable);
         sensor->status.awb_gain = enable;
     }
     return ret;
@@ -787,7 +787,7 @@ static int set_special_effect(sensor_t *sensor, int effect) {
     ret           = write_reg(sensor->slv_addr, 0x5580, regs[0]) || write_reg(sensor->slv_addr, 0x5583, regs[1]) || write_reg(sensor->slv_addr, 0x5584, regs[2]) || write_reg(sensor->slv_addr, 0x5003, regs[3]);
 
     if (ret == 0) {
-        debug("Set special_effect to: %d", effect);
+        debug("Set special_effect to: %d\n", effect);
         sensor->status.special_effect = effect;
     }
     return ret;
@@ -830,7 +830,7 @@ static int set_brightness(sensor_t *sensor, int level) {
     }
 
     if (ret == 0) {
-        debug("Set brightness to: %d", level);
+        debug("Set brightness to: %d\n", level);
         sensor->status.brightness = (int8_t)level;
     }
     return ret;
@@ -844,7 +844,7 @@ static int set_contrast(sensor_t *sensor, int level) {
     ret = write_reg(sensor->slv_addr, 0x5586, (level + 4) << 3);
 
     if (ret == 0) {
-        debug("Set contrast to: %d", level);
+        debug("Set contrast to: %d\n", level);
         sensor->status.contrast = (int8_t)level;
     }
     return ret;
@@ -865,7 +865,7 @@ static int set_saturation(sensor_t *sensor, int level) {
     }
 
     if (ret == 0) {
-        debug("Set saturation to: %d", level);
+        debug("Set saturation to: %d\n", level);
         sensor->status.saturation = (int8_t)level;
     }
     return ret;
@@ -884,7 +884,7 @@ static int set_sharpness(sensor_t *sensor, int level) {
           || write_reg(sensor->slv_addr, 0x5300, 0x10) || write_reg(sensor->slv_addr, 0x5301, 0x10) || write_reg(sensor->slv_addr, 0x5302, mt_offset_1) || write_reg(sensor->slv_addr, 0x5303, mt_offset_2) || write_reg(sensor->slv_addr, 0x5309, 0x10) || write_reg(sensor->slv_addr, 0x530a, 0x10) || write_reg(sensor->slv_addr, 0x530b, 0x04) || write_reg(sensor->slv_addr, 0x530c, 0x06);
 
     if (ret == 0) {
-        debug("Set sharpness to: %d", level);
+        debug("Set sharpness to: %d\n", level);
         sensor->status.sharpness = (int8_t)level;
     }
     return ret;
@@ -896,7 +896,7 @@ static int set_gainceiling(sensor_t *sensor, gainceiling_t level) {
     ret = write_reg(sensor->slv_addr, 0x3A18, (l >> 8) & 3) || write_reg(sensor->slv_addr, 0x3A19, l & 0xFF);
 
     if (ret == 0) {
-        debug("Set gainceiling to: %d", l);
+        debug("Set gainceiling to: %d\n", l);
         sensor->status.gainceiling = l;
     }
     return ret;
@@ -921,7 +921,7 @@ static int set_denoise(sensor_t *sensor, int level) {
     }
 
     if (ret == 0) {
-        debug("Set denoise to: %d", level);
+        debug("Set denoise to: %d\n", level);
         sensor->status.denoise = level;
     }
     return ret;
@@ -1048,7 +1048,7 @@ int ov5640_detect(int slv_addr, sensor_id_t *id) {
             return PID;
         }
         else {
-            debug("Mismatch PID=0x%x", PID);
+            debug("Mismatch PID=0x%x\n", PID);
         }
     }
     return 0;
