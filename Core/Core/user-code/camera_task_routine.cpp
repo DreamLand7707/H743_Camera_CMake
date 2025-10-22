@@ -158,34 +158,44 @@ void camera_task_routine(void const *argument) {
                 }
                 else {
                     camera_JPEG_capture_stop(target_dcmi, current_format);
-                    size_t length = (target_dcmi->jpeg_data_count_calculate << 2u);
-                    MYSCB_InvalidateDCache_by_Addr((void *)jpeg_before_buffer_rgb, (int32_t)length);
+                    if (sdcard_is_mounted) {
+                        size_t length = (target_dcmi->jpeg_data_count_calculate << 2u);
+                        MYSCB_InvalidateDCache_by_Addr((void *)jpeg_before_buffer_rgb, (int32_t)length);
 
-                    // storage to file
-                    FRESULT f_res       = FR_OK;
-                    UINT    write_bytes = 0;
-                    f_res               = f_open(&picture_file, "0:/1.jpeg", FA_WRITE | FA_CREATE_ALWAYS);
-                    if (f_res == FR_OK) {
-                        f_res = f_write(&picture_file, (void *)jpeg_before_buffer_rgb, length, &write_bytes);
-                        if (f_res == FR_OK && (length == write_bytes)) {
-                            f_res = f_close(&picture_file);
-                            if (f_res == FR_OK) {
-                                // pass
+                        // storage to file
+                        FRESULT f_res       = FR_OK;
+                        UINT    write_bytes = 0;
+                        f_res               = f_open(&picture_file, "0:/1.jpeg", FA_WRITE | FA_CREATE_ALWAYS);
+                        if (f_res == FR_OK) {
+                            f_res = f_write(&picture_file, (void *)jpeg_before_buffer_rgb, length, &write_bytes);
+                            if (f_res == FR_OK && (length == write_bytes)) {
+                                f_res = f_close(&picture_file);
+                                if (f_res == FR_OK) {
+                                    // pass
+                                }
+                                else {
+                                    indicator_operate("Failed to save Picture!");
+                                    vTaskDelay(pdMS_TO_TICKS(500));
+                                }
                             }
                             else {
                                 indicator_operate("Failed to save Picture!");
+                                vTaskDelay(pdMS_TO_TICKS(500));
                             }
                         }
                         else {
-                            indicator_operate("Failed to save Picture!");
+                            indicator_operate("Failed to Open SD Card File!");
+                            vTaskDelay(pdMS_TO_TICKS(500));
                         }
+
+                        // indicator and others..
+                        indicator_operate(nullptr);
                     }
                     else {
-                        indicator_operate("Failed to Open SD Card File!");
+                        indicator_operate("SD Card Not Inserted!");
+                        vTaskDelay(pdMS_TO_TICKS(500));
+                        indicator_operate(nullptr);
                     }
-
-                    // indicator and others..
-                    indicator_operate(nullptr);
 
                     // change to RGB
                     current_resolution = camera_resolution::reso_QVGA;
