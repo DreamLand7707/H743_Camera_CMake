@@ -232,7 +232,7 @@ void camera_task_routine(void const *argument) {
                 screen_RGB_mode = false;
             }
 
-            current_resolution = camera_resolution::reso_QVGA;
+            current_resolution = camera_resolution::reso_QXGA;
             current_format     = camera_format::format_JPEG;
             resolution_parse(resolution, data_length, src_w, src_h, format);
 
