@@ -589,9 +589,9 @@ void resolution_parse(uint32_t &resolution, uint32_t &data_length, uint32_t &src
     switch (current_resolution) {
     case camera_resolution::reso_5M: {
         resolution  = OV5640_R2592x1944;
-        data_length = 2592 * 1944;
-        src_w       = 2592;
-        src_h       = 1944;
+        data_length = 2100 * 1575;
+        src_w       = 2100;
+        src_h       = 1575;
         break;
     }
     case camera_resolution::reso_QXGA: {
