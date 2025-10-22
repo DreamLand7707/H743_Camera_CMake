@@ -87,18 +87,7 @@ int32_t ov5640_init() {
     timer_delay_ms(5);
     OV5640_RST(1);
     timer_delay_ms(20);
-
     timer_delay_ms(5);
-    if (OV5640_RD_Reg(&my_sccb, OV5640_CHIP_ID_HIGH_BYTE, &reg1))
-        return OV5640_ERROR;
-    if (OV5640_RD_Reg(&my_sccb, OV5640_CHIP_ID_LOW_BYTE, &reg2))
-        return OV5640_ERROR;
-    reg = reg1;
-    reg <<= 8u;
-    reg |= reg2;
-    if (reg != OV5640_ID) {
-        return OV5640_ERROR;
-    }
 
     return OV5640_OK;
 }
