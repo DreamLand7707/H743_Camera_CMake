@@ -307,8 +307,8 @@ static const uint16_t sensor_default_regs[][2] = {
     {           0x3634, 0x40}, //!!IMPORTANT
 
     // AEC/AGC
-    {           0x3a02, 0x03},
-    {           0x3a03, 0xd8},
+    {           0x3a02, 0x02},
+    {           0x3a03, 0xe0},
     {           0x3a08, 0x01},
     {           0x3a09, 0x27},
     {           0x3a0a, 0x00},
@@ -319,8 +319,8 @@ static const uint16_t sensor_default_regs[][2] = {
     {           0x3a10, 0x28}, //  ae_level
     {           0x3a11, 0x60}, //  ae_level
     {           0x3a13, 0x43},
-    {           0x3a14, 0x03},
-    {           0x3a15, 0xd8},
+    {           0x3a14, 0x02},
+    {           0x3a15, 0xe0},
     {           0x3a18, 0x00}, //  gainceiling
     {           0x3a19, 0xf8}, //  gainceiling
     {           0x3a1b, 0x30}, //  ae_level
@@ -409,22 +409,22 @@ static const uint16_t sensor_default_regs[][2] = {
     {           0x530c, 0x06}, // CIP sharpen TH offset 2
 
     // GAMMA
-    {           0x5480, 0x01},
-    {           0x5481, 0x00},
-    {           0x5482, 0x1e},
-    {           0x5483, 0x3b},
-    {           0x5484, 0x58},
-    {           0x5485, 0x66},
+    {           0x5480, 0x01}, // Gamma bias plus on, bit[0]
+    {           0x5481, 0x08},
+    {           0x5482, 0x14},
+    {           0x5483, 0x28},
+    {           0x5484, 0x51},
+    {           0x5485, 0x65},
     {           0x5486, 0x71},
     {           0x5487, 0x7d},
-    {           0x5488, 0x83},
-    {           0x5489, 0x8f},
-    {           0x548a, 0x98},
-    {           0x548b, 0xa6},
+    {           0x5488, 0x87},
+    {           0x5489, 0x91},
+    {           0x548a, 0x9a},
+    {           0x548b, 0xaa},
     {           0x548c, 0xb8},
-    {           0x548d, 0xca},
-    {           0x548e, 0xd7},
-    {           0x548f, 0xe3},
+    {           0x548d, 0xcd},
+    {           0x548e, 0xdd},
+    {           0x548f, 0xea},
     {           0x5490, 0x1d},
 
     // Special Digital Effects (SDE) (UV adjust)
