@@ -34,7 +34,7 @@ static const uint16_t sensor_default_regs[][2] = {
     {           0x3018, 0xff},
 
     { DRIVE_CAPABILITY, 0xc3},
-    {CLOCK_POL_CONTROL, 0x21},
+    {CLOCK_POL_CONTROL, 0x20},
 
     {           0x4713, 0x02}, //  jpg mode select
 

@@ -2,29 +2,6 @@
 
 #include "prj_header.hpp"
 
-enum class camera_resolution {
-    reso_5M,
-    reso_QXGA,
-    reso_1080p,
-    reso_UXGA,
-    reso_SXGA,
-    reso_WXGA_plus,
-    reso_WXGA,
-    reso_XGA,
-    reso_SVGA,
-    reso_WVGA,
-    reso_VGA, // 640*480
-    reso_PSP,
-    reso_QVGA,
-    reso_QQVGA
-};
-
-enum class camera_format {
-    format_RGB,
-    format_YCbCr,
-    format_JPEG
-};
-
 enum class message_process : uint32_t {
     ERROR_STOP  = 1 << 0,
     CANNOT_GET  = 1 << 1,
@@ -69,13 +46,15 @@ struct Camera_DCMI_HandleType : public Camera_DCMI_Data {
     std::vector<MDMA_LinkNodeTypeDef> the_node_list;
 };
 
-extern OV5640_IO_t             ov5640_io;
-extern OV5640_Object_t         ov5640;
+// extern OV5640_IO_t             ov5640_io;
+// extern OV5640_Object_t         ov5640;
+
+extern sensor_t                ov5640_sensor;
 extern soft_sccb_handle        my_sccb;
 extern Camera_DCMI_HandleType *target_dcmi;
 
-extern camera_resolution       current_resolution;
-extern camera_format           current_format;
+extern framesize_t       current_resolution;
+extern pixformat_t           current_format;
 extern bool                    PCF8574_init;
 extern bool                    camera_deinit_have_done;
 extern bool                    target_dcmi_is_ok;
@@ -114,7 +93,7 @@ void              dcmi_jpeg_mspinit(DCMI_HandleTypeDef *dcmiHandle);
 void              dcmi_msp_deinit(DCMI_HandleTypeDef *dcmiHandle);
 void              dcmi_data_structure_init();
 void              dcmi_io_deinit_ov5640();
-int32_t           ov5640_init();
+int32_t           ov5640_low_level_init();
 int32_t           ov5640_deinit();
 void              OV5640_PWDN_Set(uint8_t sta);
 int32_t           ov5640_write_series_reg(uint16_t address, uint16_t reg, uint8_t *data, uint16_t length);
@@ -122,7 +101,7 @@ int32_t           ov5640_read_series_reg(uint16_t address, uint16_t reg, uint8_t
 
 void              lvgl_create_camera_interface();
 void              dcmi_capture_resource_init();
-int               camera_init(bool &can_catch_scene, uint32_t resolution, uint32_t format, bool just_change);
+int               camera_init(bool &can_catch_scene, framesize_t resolution, pixformat_t format, bool just_change);
 void              camera_deinit(const char *error_message, void *error_picture);
 
 void              camera_RGB_YCbCr_DMA_Cplt_Cb(DMA_HandleTypeDef *hdma);
@@ -151,17 +130,17 @@ void              indicator_operate(const char *message);
 void              screen_image_operate(void *source);
 void              calculate_decompose(size_t &x, size_t &y, size_t &z, size_t y_max);
 
-void              resolution_parse(uint32_t &resolution, uint32_t &data_length, uint32_t &src_w, uint32_t &src_h, uint32_t &format);
-uint32_t          camera_capture_process(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format);
-HAL_StatusTypeDef camera_start_capture(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format,
+void              resolution_parse(framesize_t &resolution, uint32_t &data_length, uint32_t &src_w, uint32_t &src_h, pixformat_t &format);
+uint32_t          camera_capture_process(Camera_DCMI_HandleType *Camera_DCMI, pixformat_t target_format);
+HAL_StatusTypeDef camera_start_capture(Camera_DCMI_HandleType *Camera_DCMI, pixformat_t target_format,
                                        uintptr_t middle_buffer, size_t middle_buffer_len,
                                        uintptr_t final_buffer, size_t final_buffer_len);
-HAL_StatusTypeDef camera_capture_resume(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format);
-void              camera_RGB_YCbCr_capture_stop(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format);
-void              camera_RGB_YCbCr_capture_abort_first_stage_dma(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format);
+HAL_StatusTypeDef camera_capture_resume(Camera_DCMI_HandleType *Camera_DCMI, pixformat_t target_format);
+void              camera_RGB_YCbCr_capture_stop(Camera_DCMI_HandleType *Camera_DCMI, pixformat_t target_format);
+void              camera_RGB_YCbCr_capture_abort_first_stage_dma(Camera_DCMI_HandleType *Camera_DCMI, pixformat_t target_format);
 
-void              camera_JPEG_capture_abort_first_stage_dma(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format);
-void              camera_JPEG_capture_stop(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format);
+void              camera_JPEG_capture_abort_first_stage_dma(Camera_DCMI_HandleType *Camera_DCMI, pixformat_t target_format);
+void              camera_JPEG_capture_stop(Camera_DCMI_HandleType *Camera_DCMI, pixformat_t target_format);
 void              MY_HAL_DCMI_IRQHandler(DCMI_HandleTypeDef *hdcmi);
 
 LV_FONT_DECLARE(photo_folder_setting)

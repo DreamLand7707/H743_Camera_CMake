@@ -59,7 +59,9 @@ void dcmi_data_structure_init() {
     static auto delay_handle = [](uint32_t delay)
     {
         volatile uint32_t i;
-        while (delay--) {
+        volatile uint32_t delay2 = delay;
+        while (delay2) {
+            delay2 = delay2 - 1;
             i = 200;
             while (i)
                 i = i - 1;
@@ -73,19 +75,26 @@ void dcmi_data_structure_init() {
     my_sccb.port_setting.SDA_port   = DCMI_SDA_GPIO_Port;
     my_sccb.port_setting.SDA_pin    = DCMI_SDA_Pin;
 
-    static auto get_tick            = []()
-    {
-        return (int32_t)(HAL_GetTick());
-    };
-    ov5640_io.Address  = OV5640_ADDR;
-    ov5640_io.GetTick  = get_tick;
-    ov5640_io.Init     = ov5640_init;
-    ov5640_io.DeInit   = ov5640_deinit;
-    ov5640_io.ReadReg  = ov5640_read_series_reg;
-    ov5640_io.WriteReg = ov5640_write_series_reg;
+    // static auto get_tick            = []()
+    // {
+    //     return (int32_t)(HAL_GetTick());
+    // };
 
-    current_resolution = camera_resolution::reso_QVGA;
-    current_format     = camera_format::format_RGB;
+    // ov5640_io.Address  = OV5640_ADDR;
+    // ov5640_io.GetTick  = get_tick;
+    // ov5640_io.Init     = ov5640_init;
+    // ov5640_io.DeInit   = ov5640_deinit;
+    // ov5640_io.ReadReg  = ov5640_read_series_reg;
+    // ov5640_io.WriteReg = ov5640_write_series_reg;
+
+    // Initialize sensor basic parameters BEFORE calling ov5640_init
+    ov5640_sensor.slv_addr = OV5640_ADDR >> 1;  // Convert to 7-bit address (ESP32 driver expects 7-bit)
+    ov5640_sensor.xclk_freq_hz = 24000000;      // Set XCLK frequency to 24MHz (common for OV5640)
+
+    ov5640_init(&ov5640_sensor);
+
+    current_resolution = FRAMESIZE_QVGA;
+    current_format     = PIXFORMAT_RGB565;
 }
 
 static void dcmi_clk_pin_init() {

@@ -9,27 +9,29 @@ Camera_DCMI_HandleType  JPEG_hdcmi {};  // JPEG(4:2:2)
 Camera_DCMI_HandleType *target_dcmi {};
 bool                    target_dcmi_is_ok = false;
 
-OV5640_IO_t             ov5640_io {};
-OV5640_Object_t         ov5640 {};
-soft_sccb_handle        my_sccb {};
+// OV5640_IO_t             ov5640_io {};
+// OV5640_Object_t         ov5640 {};
 
-camera_resolution       current_resolution {};
-camera_format           current_format {};
+sensor_t          ov5640_sensor;
+soft_sccb_handle  my_sccb {};
 
-SemaphoreHandle_t       camera_interface_changed {};
-SemaphoreHandle_t       camera_interface_restart {};
-bool                    camera_deinit_have_done = true;
+framesize_t       current_resolution {};
+pixformat_t       current_format {};
 
-lv_obj_t               *screen_container {};
-lv_obj_t               *camera_capture_image {};
-lv_obj_t               *button_container {};
-lv_obj_t               *take_photo_button {};
-lv_obj_t               *change_to_file_explorer_button {};
-lv_obj_t               *open_setting_button {};
-lv_obj_t               *take_photo_label {};
-lv_obj_t               *change_to_file_explorer_label {};
-lv_obj_t               *open_setting_label {};
-lv_obj_t               *indicator_label {};
+SemaphoreHandle_t camera_interface_changed {};
+SemaphoreHandle_t camera_interface_restart {};
+bool              camera_deinit_have_done = true;
+
+lv_obj_t         *screen_container {};
+lv_obj_t         *camera_capture_image {};
+lv_obj_t         *button_container {};
+lv_obj_t         *take_photo_button {};
+lv_obj_t         *change_to_file_explorer_button {};
+lv_obj_t         *open_setting_button {};
+lv_obj_t         *take_photo_label {};
+lv_obj_t         *change_to_file_explorer_label {};
+lv_obj_t         *open_setting_label {};
+lv_obj_t         *indicator_label {};
 
 uint8_t D2_SRAM[128 * 1024] IN_SRAM2 __ALIGNED(32);
 
@@ -63,7 +65,9 @@ void camera_task_routine(void const *argument) {
     bool          can_catch_scene     = false;
     bool          camera_captured_end = false;
     QueueHandle_t the_queue {};
-    uint32_t      resolution {}, format {}, data_length {}, src_w {}, src_h {};
+    framesize_t   resolution {};
+    pixformat_t   format {};
+    uint32_t      data_length {}, src_w {}, src_h {};
     uint32_t      use_full_buffer = 1;
     bool          screen_RGB_mode = true;
 
@@ -76,8 +80,8 @@ void camera_task_routine(void const *argument) {
             if (!screen_RGB_mode)
                 continue;
 
-            current_resolution = camera_resolution::reso_QVGA;
-            current_format     = camera_format::format_RGB;
+            current_resolution = FRAMESIZE_QVGA;
+            current_format     = PIXFORMAT_RGB565;
             resolution_parse(resolution, data_length, src_w, src_h, format);
 
             camera_deinit_have_done = false;
@@ -188,8 +192,8 @@ void camera_task_routine(void const *argument) {
                     indicator_operate(nullptr);
 
                     // change to RGB
-                    current_resolution = camera_resolution::reso_QVGA;
-                    current_format     = camera_format::format_RGB;
+                    current_resolution = FRAMESIZE_QVGA;
+                    current_format     = PIXFORMAT_RGB565;
                     resolution_parse(resolution, data_length, src_w, src_h, format);
 
                     camera_deinit_have_done = false;
@@ -232,8 +236,8 @@ void camera_task_routine(void const *argument) {
                 screen_RGB_mode = false;
             }
 
-            current_resolution = camera_resolution::reso_QXGA;
-            current_format     = camera_format::format_JPEG;
+            current_resolution = FRAMESIZE_QXGA;
+            current_format     = PIXFORMAT_JPEG;
             resolution_parse(resolution, data_length, src_w, src_h, format);
 
             camera_deinit_have_done = false;

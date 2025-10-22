@@ -3,7 +3,7 @@
 
 bool PCF8574_init = false;
 
-int  camera_init(bool &can_catch_scene, uint32_t resolution, uint32_t format, bool just_change) {
+int  camera_init(bool &can_catch_scene, framesize_t resolution, pixformat_t format, bool just_change) {
     // DCMI Init -> IO Init -> OV5640 Init -> OV5640 Start -> DCMI DMA
     target_dcmi->parent = target_dcmi;
     if (HAL_DCMI_Init(&(target_dcmi->instance)) != HAL_OK) {
@@ -22,14 +22,36 @@ int  camera_init(bool &can_catch_scene, uint32_t resolution, uint32_t format, bo
             return -1;
         }
         indicator_operate("Initialize Camera...");
-        (void)OV5640_RegisterBusIO(&ov5640, &ov5640_io);
-        if (OV5640_Init_General_Mode(&ov5640, resolution, format) != OV5640_OK) {
+
+        ov5640_low_level_init();
+
+        if (ov5640_sensor.reset(&ov5640_sensor) != 0) {
             indicator_operate("Initialize Camera Failed!");
             can_catch_scene = false;
             return -1;
         }
-        indicator_operate("Start Camera...");
-        OV5640_Start(&ov5640);
+
+        ov5640_sensor.status.framesize = resolution;
+        ov5640_sensor.pixformat        = format;
+
+        if (ov5640_sensor.set_framesize(&ov5640_sensor, resolution) != 0) {
+            indicator_operate("Initialize Camera Failed!");
+            can_catch_scene = false;
+            return -1;
+        }
+
+        if (ov5640_sensor.set_pixformat(&ov5640_sensor, format) != 0) {
+            indicator_operate("Initialize Camera Failed!");
+            can_catch_scene = false;
+            return -1;
+        }
+
+        if (ov5640_sensor.init_status(&ov5640_sensor) != 0) {
+            indicator_operate("Initialize Camera Failed!");
+            can_catch_scene = false;
+            return -1;
+        }
+
         indicator_operate(nullptr);
     }
     else {
@@ -38,17 +60,10 @@ int  camera_init(bool &can_catch_scene, uint32_t resolution, uint32_t format, bo
             can_catch_scene = false;
             return -1;
         }
-        if (format == OV5640_RGB565) {
-            if (OV5640_RGB565_Mode(&ov5640) != OV5640_OK) {
-                return -1;
-            }
+        if (ov5640_sensor.set_pixformat(&ov5640_sensor, format) != 0) {
+            return -1;
         }
-        else {
-            if (OV5640_JPEG_Mode(&ov5640) != OV5640_OK) {
-                return -1;
-            }
-        }
-        if (OV5640_Set_Solution_More(&ov5640, resolution) != OV5640_OK) {
+        if (ov5640_sensor.set_framesize(&ov5640_sensor, resolution) != 0) {
             return -1;
         }
     }
@@ -62,18 +77,13 @@ void camera_deinit(const char *error_message, void *error_picture) {
         indicator_operate(error_message);
         screen_image_operate(error_picture);
 
-        OV5640_Stop(&ov5640);
-        OV5640_DeInit(&ov5640);
         dcmi_io_deinit_ov5640();
         HAL_DCMI_DeInit(&(target_dcmi->instance));
         camera_deinit_have_done = true;
     }
 }
 
-int32_t ov5640_init() {
-    uint8_t  reg1, reg2;
-    uint16_t reg;
-
+int32_t ov5640_low_level_init() {
 #ifdef ALINTEK_BOARD
     if (!PCF8574_init) {
         PCF8574_Init();

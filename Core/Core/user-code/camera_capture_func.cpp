@@ -26,7 +26,7 @@ void              dcmi_capture_resource_init() {
     xQueueAddToSet(camera_take_photo, camera_queue_set);
 }
 
-HAL_StatusTypeDef camera_start_capture(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format,
+HAL_StatusTypeDef camera_start_capture(Camera_DCMI_HandleType *Camera_DCMI, pixformat_t target_format,
                                        uintptr_t middle_buffer, size_t middle_buffer_len,
                                        uintptr_t final_buffer, size_t final_buffer_len) {
     __HAL_LOCK(&Camera_DCMI->instance);
@@ -39,8 +39,8 @@ HAL_StatusTypeDef camera_start_capture(Camera_DCMI_HandleType *Camera_DCMI, came
     Camera_DCMI->instance.Instance->CR |= (uint32_t)(DCMI_MODE_SNAPSHOT);
 
     switch (target_format) {
-    case camera_format::format_RGB:
-    case camera_format::format_YCbCr: {
+    case PIXFORMAT_RGB565:
+    case PIXFORMAT_YUV422: {
 
         configASSERT(middle_buffer % 4 == 0);
         configASSERT(middle_buffer_len % 32 == 0);
@@ -213,7 +213,7 @@ HAL_StatusTypeDef camera_start_capture(Camera_DCMI_HandleType *Camera_DCMI, came
 
         break;
     }
-    case camera_format::format_JPEG: {
+    case PIXFORMAT_JPEG: {
         configASSERT(middle_buffer % 4 == 0);
         configASSERT(middle_buffer_len % 32 == 0);
         configASSERT(final_buffer % 4 == 0);
@@ -314,6 +314,9 @@ HAL_StatusTypeDef camera_start_capture(Camera_DCMI_HandleType *Camera_DCMI, came
 
         break;
     }
+    default: {
+        break;
+    }
     }
 
     Camera_DCMI->instance.State = HAL_DCMI_STATE_READY;
@@ -325,7 +328,7 @@ HAL_StatusTypeDef camera_start_capture(Camera_DCMI_HandleType *Camera_DCMI, came
     return HAL_OK;
 }
 
-uint32_t camera_capture_process(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format) {
+uint32_t camera_capture_process(Camera_DCMI_HandleType *Camera_DCMI, pixformat_t target_format) {
     EventBits_t message;
     uint32_t    ret = 0;
     message         = xEventGroupWaitBits(Camera_DCMI->eg, CAMERA_CAPTURE_ALL_MASK, pdTRUE, pdFALSE, 0);
@@ -368,7 +371,7 @@ uint32_t camera_capture_process(Camera_DCMI_HandleType *Camera_DCMI, camera_form
     return ret;
 }
 
-HAL_StatusTypeDef camera_capture_resume(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format) {
+HAL_StatusTypeDef camera_capture_resume(Camera_DCMI_HandleType *Camera_DCMI, pixformat_t target_format) {
     __HAL_LOCK(&Camera_DCMI->instance);
 
     Camera_DCMI->instance.State = HAL_DCMI_STATE_BUSY;
@@ -379,8 +382,8 @@ HAL_StatusTypeDef camera_capture_resume(Camera_DCMI_HandleType *Camera_DCMI, cam
     Camera_DCMI->instance.Instance->CR |= (uint32_t)(DCMI_MODE_SNAPSHOT);
 
     switch (target_format) {
-    case camera_format::format_RGB:
-    case camera_format::format_YCbCr: {
+    case PIXFORMAT_RGB565:
+    case PIXFORMAT_YUV422: {
 
         if (Camera_DCMI->single_buffer_fine) { // single buffer is fine
             HAL_MDMA_Init(&Camera_DCMI->second_stage_dma);
@@ -450,7 +453,11 @@ HAL_StatusTypeDef camera_capture_resume(Camera_DCMI_HandleType *Camera_DCMI, cam
 
         break;
     }
-    case camera_format::format_JPEG: {
+    case PIXFORMAT_JPEG: {
+        break;
+    }
+    default: {
+        debug("Error!\n");
         break;
     }
     }
@@ -464,7 +471,7 @@ HAL_StatusTypeDef camera_capture_resume(Camera_DCMI_HandleType *Camera_DCMI, cam
     return HAL_OK;
 }
 
-void camera_RGB_YCbCr_capture_abort_first_stage_dma(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format) {
+void camera_RGB_YCbCr_capture_abort_first_stage_dma(Camera_DCMI_HandleType *Camera_DCMI, pixformat_t target_format) {
     HAL_DMA_Abort_IT(&Camera_DCMI->first_stage_dma);
 
     while (Camera_DCMI->instance.Instance->SR & DCMI_SR_FNE_Msk) {
@@ -478,7 +485,7 @@ void camera_RGB_YCbCr_capture_abort_first_stage_dma(Camera_DCMI_HandleType *Came
     __HAL_DCMI_DISABLE(&Camera_DCMI->instance);
 }
 
-void camera_RGB_YCbCr_capture_stop(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format) {
+void camera_RGB_YCbCr_capture_stop(Camera_DCMI_HandleType *Camera_DCMI, pixformat_t target_format) {
     __HAL_DCMI_DISABLE_IT(&Camera_DCMI->instance, DCMI_IT_FRAME);
     Camera_DCMI->instance.Instance->CR &= ~DCMI_CR_CAPTURE;
 
@@ -505,7 +512,7 @@ void camera_RGB_YCbCr_capture_stop(Camera_DCMI_HandleType *Camera_DCMI, camera_f
 }
 
 
-void camera_JPEG_capture_abort_first_stage_dma(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format) {
+void camera_JPEG_capture_abort_first_stage_dma(Camera_DCMI_HandleType *Camera_DCMI, pixformat_t target_format) {
     while (Camera_DCMI->instance.Instance->SR & DCMI_SR_FNE_Msk) {
         vTaskDelay(1); // yield 1 time slice
     }
@@ -541,7 +548,7 @@ void camera_JPEG_capture_abort_first_stage_dma(Camera_DCMI_HandleType *Camera_DC
     __HAL_DCMI_DISABLE(&Camera_DCMI->instance);
 }
 
-void camera_JPEG_capture_stop(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format) {
+void camera_JPEG_capture_stop(Camera_DCMI_HandleType *Camera_DCMI, pixformat_t target_format) {
     __HAL_DCMI_DISABLE_IT(&Camera_DCMI->instance, DCMI_IT_FRAME);
     Camera_DCMI->instance.Instance->CR &= ~DCMI_CR_CAPTURE;
 
@@ -585,124 +592,33 @@ void calculate_decompose(size_t &x, size_t &y, size_t &z, size_t y_max) {
     x -= t2;
 }
 
-void resolution_parse(uint32_t &resolution, uint32_t &data_length, uint32_t &src_w, uint32_t &src_h, uint32_t &format) {
-    switch (current_resolution) {
-    case camera_resolution::reso_5M: {
-        resolution  = OV5640_R2592x1944;
-        data_length = 2100 * 1575;
-        src_w       = 2100;
-        src_h       = 1575;
-        break;
-    }
-    case camera_resolution::reso_QXGA: {
-        resolution  = OV5640_R2048x1536;
-        data_length = 2048 * 1536;
-        src_w       = 2048;
-        src_h       = 1536;
-        break;
-    }
-    case camera_resolution::reso_1080p: {
-        resolution  = OV5640_R1920x1080;
-        data_length = 1920 * 1080;
-        src_w       = 1920;
-        src_h       = 1080;
-        break;
-    }
-    case camera_resolution::reso_UXGA: {
-        resolution  = OV5640_R1600x1200;
-        data_length = 1600 * 1200;
-        src_w       = 1600;
-        src_h       = 1200;
-        break;
-    }
-    case camera_resolution::reso_SXGA: {
-        resolution  = OV5640_R1280x1024;
-        data_length = 1280 * 1024;
-        src_w       = 1280;
-        src_h       = 1024;
-        break;
-    }
-    case camera_resolution::reso_WXGA_plus: {
-        resolution  = OV5640_R1440x900;
-        data_length = 1440 * 900;
-        src_w       = 1440;
-        src_h       = 900;
-        break;
-    }
-    case camera_resolution::reso_WXGA: {
-        resolution  = OV5640_R1280x800;
-        data_length = 1280 * 800;
-        src_w       = 1280;
-        src_h       = 800;
-        break;
-    }
-    case camera_resolution::reso_XGA: {
-        resolution  = OV5640_R1024x768;
-        data_length = 1024 * 768;
-        src_w       = 1024;
-        src_h       = 768;
-        break;
-    }
-    case camera_resolution::reso_SVGA: {
-        resolution  = OV5640_R800x600;
-        data_length = 800 * 600;
-        src_w       = 800;
-        src_h       = 600;
-        break;
-    }
-    case camera_resolution::reso_WVGA: {
-        resolution  = OV5640_R800x480;
-        data_length = 800 * 480;
-        src_w       = 800;
-        src_h       = 480;
-        break;
-    }
-    case camera_resolution::reso_VGA: {
-        resolution  = OV5640_R640x480;
-        data_length = 640 * 480;
-        src_w       = 640;
-        src_h       = 480;
-        break;
-    }
-    case camera_resolution::reso_PSP: {
-        resolution  = OV5640_R480x272;
-        data_length = 480 * 272;
-        src_w       = 480;
-        src_h       = 272;
-        break;
-    }
-    case camera_resolution::reso_QVGA: {
-        resolution  = OV5640_R320x240;
-        data_length = 320 * 240;
-        src_w       = 320;
-        src_h       = 240;
-        break;
-    }
-    case camera_resolution::reso_QQVGA: {
-        resolution  = OV5640_R160x120;
-        data_length = 160 * 120;
-        src_w       = 160;
-        src_h       = 120;
-        break;
-    }
-    }
+void resolution_parse(framesize_t &the_resolution, uint32_t &data_length, uint32_t &src_w, uint32_t &src_h, pixformat_t &format) {
+    src_w = ::resolution[current_resolution].width;
+    src_h = ::resolution[current_resolution].height;
 
+    the_resolution = current_resolution;
 
     switch (current_format) {
-    case camera_format::format_RGB: {
-        format = OV5640_RGB565;
+    case PIXFORMAT_RGB565: {
+        format = PIXFORMAT_RGB565;
         data_length *= 2;
         target_dcmi = &(RGB_hdcmi);
         break;
     }
-    case camera_format::format_YCbCr: {
-        format = OV5640_YUV422;
+    case PIXFORMAT_YUV422: {
+        format = PIXFORMAT_YUV422;
         data_length *= 2;
         target_dcmi = &(YCbCr_hdcmi);
         break;
     }
-    case camera_format::format_JPEG: {
-        format      = OV5640_JPEG;
+    case PIXFORMAT_JPEG: {
+        format      = PIXFORMAT_JPEG;
+        data_length = 0;
+        target_dcmi = &(JPEG_hdcmi);
+        break;
+    }
+    default: {
+        format      = PIXFORMAT_RAW;
         data_length = 0;
         target_dcmi = &(JPEG_hdcmi);
         break;

@@ -52,12 +52,16 @@ target_sources(${Core_Name} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/photo_folder_setting.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/memory_pool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/std_new_delete.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/ov5640/ov5640_reg.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/ov5640/ov5640.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/ov5640/ov5640_reg.c
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/ov5640/ov5640.c
 
     ${CMAKE_CURRENT_SOURCE_DIR}/SEGGER-RTT/SEGGER_RTT_ASM_ARMv7M.S
     ${CMAKE_CURRENT_SOURCE_DIR}/SEGGER-RTT/SEGGER_RTT_printf.c
     ${CMAKE_CURRENT_SOURCE_DIR}/SEGGER-RTT/SEGGER_RTT.c
+
+    # Sensor abstraction layer
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/my_ov5640/ov5640.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/my_ov5640/sensor.cpp
 
     # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcAssert.c
     # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/Src/trcCounter.c
@@ -95,6 +99,9 @@ target_include_directories(${Core_Name} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/soft_iic
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/ov5640
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/ov5640-esp32/sensors
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/ov5640-esp32/sensors/private_include
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/ov5640-esp32/driver/include
 
     # ${CMAKE_CURRENT_SOURCE_DIR}/Conflict-Code/Core/Inc
     # ${CMAKE_CURRENT_SOURCE_DIR}/Conflict-Code/Driver/Inc
@@ -105,6 +112,7 @@ target_include_directories(${Core_Name} PRIVATE
     # ${CMAKE_CURRENT_SOURCE_DIR}/Core/trace/streamport/include
 
     ${CMAKE_CURRENT_SOURCE_DIR}/SEGGER-RTT
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/user-code/my_ov5640
 
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/lvgl/examples/porting
     ${CMAKE_CURRENT_SOURCE_DIR}/../LVGL
