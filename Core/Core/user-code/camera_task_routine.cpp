@@ -561,8 +561,29 @@ void camera_task_routine(void const *argument) {
                 screen_RGB_mode = false;
             }
 
-            current_resolution = camera_resolution::reso_QXGA;
-            current_format     = camera_format::format_JPEG;
+            uint32_t select_index = lv_dropdown_get_selected(camera_settings_picture_size_box_list);
+            switch (select_index) {
+            case 0: {
+                current_resolution = camera_resolution::reso_QXGA;
+                break;
+            }
+            case 1: {
+                current_resolution = camera_resolution::reso_SXGA;
+                break;
+            }
+            case 2: {
+                current_resolution = camera_resolution::reso_XGA;
+                break;
+            }
+            case 3: {
+                current_resolution = camera_resolution::reso_VGA;
+                break;
+            }
+            default:
+                break;
+            }
+
+            current_format = camera_format::format_JPEG;
             resolution_parse(resolution, data_length, src_w, src_h, format);
 
             camera_deinit_have_done = false;

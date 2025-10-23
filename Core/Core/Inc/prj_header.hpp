@@ -41,6 +41,7 @@
 #include "ov5640_reg.h"
 #include "soft_sccb.hpp"
 #include "pcf8574.hpp"
+#include "atomic.h"
 
 enum class manage_command_type : uint32_t {
     reload,
