@@ -4,6 +4,8 @@
 #include "jpeg_utils.h"
 #include "file_explorer.hpp"
 
+#include <sstream>
+
 // extern Variable Definition
 void             *SDRAM_GRAM1;
 void             *SDRAM_GRAM2;
@@ -28,6 +30,7 @@ uint8_t   segger_data_upload[64 * 1024] __attribute((section(".dtcmicm")));
 
 lv_obj_t *file_explorer_main_screen;
 lv_obj_t *full_screen_pict_screen;
+lv_obj_t *pict_message_screen;
 lv_obj_t *camera_screen;
 
 // static variable Definition
@@ -59,8 +62,9 @@ static void    click_picture_indicator_call(lv_event_t *e);
 static void    click_picture_call(lv_event_t *e);
 static void    lvgl_create_main_interface();
 static void    lvgl_create_full_screen_pict_interface();
+static void    lvgl_create_pict_message_interface();
 static void    change_to_camera(lv_event_t *event);
-static void    click_one_file(lv_event_t *e, const char *path, bool change_dir);
+static void    click_one_file(lv_event_t *e, const char *path, bool change_dir, FILINFO *file_info);
 static void    main_manage_init();
 static void    jpeg_rgb_exchange_init();
 
@@ -121,6 +125,7 @@ static int routine(int argc, char **argv) {
     jpeg_rgb_exchange_init();
     lvgl_create_main_interface();
     lvgl_create_full_screen_pict_interface();
+    lvgl_create_pict_message_interface();
     main_manage_init();
 
     if (sdcard_is_mounted && sdcard_link_driver) {
@@ -365,6 +370,54 @@ static void lvgl_create_full_screen_pict_interface() {
     lv_obj_add_event_cb(full_pict_screen_container, click_full_screen_picture_call, LV_EVENT_CLICKED, nullptr);
 }
 
+namespace
+{
+    lv_obj_t         *pict_message_container;
+    lv_obj_t         *pict_message_text_box;
+    lv_obj_t         *pict_message_text;
+    lv_obj_t         *pict_message_full_pict_image;
+
+    std::string       text_buffer;
+    std::stringstream text_builder;
+
+    FILINFO           curr_file_info;
+
+} // namespace
+
+static void click_pict_message_call(lv_event_t *e);
+
+static void lvgl_create_pict_message_interface() {
+    pict_message_screen    = lv_obj_create(nullptr);
+
+    pict_message_container = lv_obj_create(pict_message_screen);
+    lv_obj_set_size(pict_message_container, LV_PCT(100), LV_PCT(100));
+    lv_obj_set_style_pad_all(pict_message_container, 0, LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(pict_message_container, 0, LV_STATE_DEFAULT);
+    lv_obj_set_style_radius(pict_message_container, 0, LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(pict_message_container, lv_color_white(), LV_STATE_DEFAULT);
+
+    pict_message_full_pict_image = lv_image_create(pict_message_container);
+    lv_obj_set_size(pict_message_full_pict_image, LV_PCT(100), LV_PCT(100));
+    lv_obj_set_align(pict_message_full_pict_image, LV_ALIGN_CENTER);
+
+    pict_message_text_box = lv_obj_create(pict_message_container);
+    lv_obj_set_size(pict_message_text_box, LV_PCT(100), LV_PCT(100));
+    lv_obj_set_align(pict_message_text_box, LV_ALIGN_CENTER);
+    lv_obj_set_style_bg_color(pict_message_container, lv_color_white(), LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(pict_message_text_box, 200, LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(pict_message_text_box, 0, LV_STATE_DEFAULT);
+
+    pict_message_text = lv_label_create(pict_message_text_box);
+    lv_obj_set_align(pict_message_text, LV_ALIGN_CENTER);
+    lv_obj_set_style_text_color(pict_message_text, lv_color_black(), LV_STATE_DEFAULT);
+    lv_label_set_text_static(pict_message_text, "Nothing");
+
+    lv_obj_remove_flag(pict_message_text_box, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_remove_flag(pict_message_text, LV_OBJ_FLAG_CLICKABLE);
+
+    lv_obj_add_event_cb(pict_message_container, click_pict_message_call, LV_EVENT_CLICKED, nullptr);
+}
+
 uint8_t *file_exchange_buffer           = nullptr;
 uint8_t *jpeg_after_buffer              = nullptr; // YCbCr
 uint8_t *jpeg_before_buffer_rgb         = nullptr; // YCbCr -> RGB
@@ -523,22 +576,28 @@ static void main_manage_task(void *args) {
             break;
         }
         case manage_command_type::terminate: {
-            xSemaphoreTake(jpeg_decode_task_interrupt_mutex, portMAX_DELAY);
-            {
-                if (jpeg_decode_task_handle) {
+            if (jpeg_decode_task_handle) {
+                xSemaphoreTake(jpeg_decode_task_interrupt_mutex, portMAX_DELAY);
+                {
                     recycle_resource();
                     delete message_to_send.path;
                     message_to_send.path = nullptr;
                     can_click_pict       = false;
                     old_message_path.clear();
                 }
+                xSemaphoreGive(jpeg_decode_task_interrupt_mutex);
+                can_click_pict = false;
+                lvgl_manage_command cm {};
+                cm.type = lvgl_command_type::nothing;
+                xQueueSend(lvgl_manage_task_queue, &cm, pdMS_TO_TICKS(20));
                 old_message_path = safe_get_value(new_message.path);
             }
-            xSemaphoreGive(jpeg_decode_task_interrupt_mutex);
+            else {
+                lvgl_manage_command cm {};
+                cm.type = lvgl_command_type::show_pict_message;
+                xQueueSend(lvgl_manage_task_queue, &cm, pdMS_TO_TICKS(20));
+            }
 
-            lvgl_manage_command cm {};
-            cm.type = lvgl_command_type::nothing;
-            xQueueSend(lvgl_manage_task_queue, &cm, pdMS_TO_TICKS(20));
             break;
         }
         case manage_command_type::full_picture: {
@@ -637,11 +696,12 @@ static void main_manage_task(void *args) {
 }
 
 static void lvgl_manage_task(void *arg) {
-    static lv_image_dsc_t img_dsc;
+    static lv_image_dsc_t img_dsc, img_dsc_2;
     img_dsc.header.magic      = LV_IMAGE_HEADER_MAGIC;
     img_dsc.header.cf         = LV_COLOR_FORMAT_RGB565;
     img_dsc.header.flags      = 0;
     img_dsc.header.reserved_2 = 0;
+    img_dsc_2                 = img_dsc;
     lvgl_manage_command cm {};
     while (true) {
         xQueueReceive(lvgl_manage_task_queue, &cm, portMAX_DELAY);
@@ -680,6 +740,7 @@ static void lvgl_manage_task(void *arg) {
             lv_lock();
             {
                 lv_image_set_src(image, LV_SYMBOL_LOOP "\nLoading...");
+                lv_obj_set_style_text_align(image, LV_TEXT_ALIGN_CENTER, 0);
             }
             lv_unlock();
             xSemaphoreGive(pict_show_begin_loading);
@@ -689,6 +750,7 @@ static void lvgl_manage_task(void *arg) {
             lv_lock();
             {
                 lv_image_set_src(image, nullptr);
+                lv_label_set_text_static(image_indicator_label, "");
             }
             lv_unlock();
             break;
@@ -726,6 +788,59 @@ static void lvgl_manage_task(void *arg) {
                 lv_screen_load(file_explorer_main_screen);
             }
             lv_unlock();
+            break;
+        }
+        case lvgl_command_type::show_pict_message: {
+            text_builder.str("");
+            FSIZE_t     fsize    = curr_file_info.fsize;
+            double      use_size = 0;
+            const char *suffix   = nullptr;
+            if (fsize > 1024 * 1024) {
+                use_size = (double)fsize / 1024.0 / 1024.0;
+                suffix   = "MB";
+            }
+            else if (fsize > 1024) {
+                use_size = (double)fsize / 1024.0;
+                suffix   = "KB";
+            }
+            else {
+                use_size = (double)fsize;
+                suffix   = "B";
+            }
+
+            text_builder << "File Name: " << curr_file_info.fname << "\n";
+            text_builder << "File Date: " << curr_file_info.fdate << "\n";
+            text_builder << "File Time: " << curr_file_info.ftime << "\n";
+            text_builder << "File Size: " << use_size << suffix << "\n";
+            text_builder << "Picture Size: "
+                         << jpeg_decode_conf.ImageWidth
+                         << " x "
+                         << jpeg_decode_conf.ImageHeight
+                         << " = "
+                         << jpeg_decode_conf.ImageWidth * jpeg_decode_conf.ImageHeight << "\n";
+            text_builder << "Picture Quality: " << jpeg_decode_conf.ImageQuality << "\n";
+            text_builder << "Picture Subsampling: " << jpeg_decode_conf.ChromaSubsampling << "\n";
+            text_builder << "Picture Color Space: " << jpeg_decode_conf.ColorSpace << "\n";
+
+
+            img_dsc_2.header.stride = 0;
+            img_dsc_2.header.w      = full_pict_show_size[0];
+            img_dsc_2.header.h      = full_pict_show_size[1];
+            img_dsc_2.data          = full_screen_pict_show_buffer;
+            img_dsc_2.data_size     = full_pict_show_size[0] * full_pict_show_size[1] * 2;
+
+            lv_lock();
+            {
+                text_buffer = text_builder.str();
+                lv_label_set_text_static(pict_message_text, text_buffer.c_str());
+
+                lv_image_set_src(pict_message_full_pict_image, &img_dsc_2);
+                lv_image_set_align(pict_message_full_pict_image, LV_IMAGE_ALIGN_CENTER);
+
+                lv_screen_load(pict_message_screen);
+            }
+            lv_unlock();
+            break;
         }
         }
     }
@@ -858,7 +973,7 @@ static void jpeg_decode_task(void *args) {
     }
 }
 
-static void click_one_file(lv_event_t *e, const char *path, bool change_dir) {
+static void click_one_file(lv_event_t *e, const char *path, bool change_dir, FILINFO *file_info) {
     char extension[8] = {};
     if (!change_dir) {
         path_get_file_extension(path, extension);
@@ -866,6 +981,11 @@ static void click_one_file(lv_event_t *e, const char *path, bool change_dir) {
             !strcmp(extension, ".JPEG") || !strcmp(extension, ".JPG")) {
 
             auto *the_file_path = new std::string(path);
+
+            if (file_info) {
+                curr_file_info = *file_info;
+            }
+
             if (send_command_to_main_manage(the_file_path, 1, manage_command_type::reload, 0) == pdPASS) {
                 const char *name = path_get_file_name_static(path);
                 lv_label_set_text(image_indicator_label, name);
@@ -889,9 +1009,6 @@ static void click_picture_indicator_call(lv_event_t *e) {
     if (send_command_to_main_manage(nullptr, 0, manage_command_type::terminate, 0) != pdPASS) {
         debug("The Queue is Full!\n");
     }
-    else {
-        lv_label_set_text_static(image_indicator_label, "");
-    }
 }
 
 static void click_picture_call(lv_event_t *e) {
@@ -902,6 +1019,12 @@ static void click_picture_call(lv_event_t *e) {
 
 static void click_full_screen_picture_call(lv_event_t *e) {
     if (send_command_to_main_manage(nullptr, 0, manage_command_type::small_picture, 0) != pdPASS) {
+        debug("The Queue is Full!\n");
+    }
+}
+
+static void click_pict_message_call(lv_event_t *e) {
+    if (send_command_to_main_manage(nullptr, 0, manage_command_type::to_file_explorer, 0) != pdPASS) {
         debug("The Queue is Full!\n");
     }
 }

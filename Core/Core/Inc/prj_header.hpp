@@ -62,7 +62,8 @@ enum class lvgl_command_type : uint32_t {
     ins_card,
     pop_card,
     to_camera,
-    to_file_explorer
+    to_file_explorer,
+    show_pict_message
 };
 
 struct jpeg_output_buffer_req {

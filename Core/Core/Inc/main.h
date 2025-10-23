@@ -142,6 +142,7 @@ extern "C"
     extern lv_obj_t         *file_explorer_main_screen;
     extern lv_obj_t         *full_screen_pict_screen;
     extern lv_obj_t         *camera_screen;
+    extern lv_obj_t         *pict_message_screen;
 
     // extern traceString       trace_analyzer_channel1;
     // extern traceString       trace_analyzer_channel2;
