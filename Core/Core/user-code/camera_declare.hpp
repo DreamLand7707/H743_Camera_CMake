@@ -59,6 +59,9 @@ struct Camera_DCMI_Data {
     bool      single_buffer_fine;
     bool      dma_not_full;
     bool      jpeg_mode;
+
+    bool      jpeg_use_strobe;
+    bool      always_use_strobe;
     //
     bool               mdma_first_buffer;
     EventGroupHandle_t eg;
@@ -146,6 +149,8 @@ void              camera_JPEG_MDMA_Abort_Cb(MDMA_HandleTypeDef *hmdma);
 void              change_to_file_explorer_callback(lv_event_t *e);
 void              take_photo_callback(lv_event_t *e);
 void              open_setting_callback(lv_event_t *e);
+void              indicator_return_btn_callback(lv_event_t *e);
+void              checkboxs_callback(lv_event_t *e);
 
 void              indicator_operate(const char *message);
 void              screen_image_operate(void *source);
@@ -167,6 +172,7 @@ void              MY_HAL_DCMI_IRQHandler(DCMI_HandleTypeDef *hdcmi);
 LV_FONT_DECLARE(photo_folder_setting)
 #define OV5640_ADDR          0x78
 #define OV5640_RST(n)        (HAL_GPIO_WritePin(DCMI_RESET_GPIO_Port, DCMI_RESET_Pin, (n) ? GPIO_PIN_SET : GPIO_PIN_RESET))
+#define OV5640_STROBE(n)     (HAL_GPIO_WritePin(DCMI_XCLK_GPIO_Port, DCMI_XCLK_Pin, (n) ? GPIO_PIN_SET : GPIO_PIN_RESET))
 #define DCMI_PWDN_IO         2
 #define MY_TAKE_PHOTO_SYMBOL "\xE2\x97\x89"
 

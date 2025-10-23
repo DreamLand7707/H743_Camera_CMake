@@ -39,6 +39,324 @@ static char error_message[128] {};
 static FIL  picture_file {};
 
 // functions
+void lvgl_create_camera_interface() {
+    camera_screen    = lv_obj_create(nullptr);
+
+    screen_container = lv_obj_create(camera_screen);
+    lv_obj_set_style_size(screen_container, LV_PCT(100), LV_PCT(100), LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_all(screen_container, 0, LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(screen_container, 0, LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(screen_container, lv_color_black(), LV_STATE_DEFAULT);
+    lv_obj_set_style_radius(screen_container, 0, LV_STATE_DEFAULT);
+
+    camera_capture_image = lv_image_create(camera_screen);
+    lv_obj_set_style_size(camera_capture_image, LV_PCT(100), LV_PCT(100), LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_all(camera_capture_image, 0, LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(camera_capture_image, 0, LV_STATE_DEFAULT);
+
+    button_container = lv_obj_create(camera_screen);
+    lv_obj_set_style_size(button_container, LV_PCT(15), LV_PCT(100), LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_all(button_container, 10, LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(button_container, 0, LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(button_container, lv_color_hex(0x555555), LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(button_container, 64, LV_STATE_DEFAULT);
+    lv_obj_set_style_align(button_container, LV_ALIGN_RIGHT_MID, LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_gap(button_container, 40, LV_STATE_DEFAULT);
+    lv_obj_set_style_radius(button_container, 0, LV_STATE_DEFAULT);
+
+    lv_obj_set_layout(button_container, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(button_container, LV_FLEX_FLOW_COLUMN);
+
+    take_photo_button              = lv_button_create(button_container);
+    open_setting_button            = lv_button_create(button_container);
+    change_to_file_explorer_button = lv_button_create(button_container);
+
+    lv_obj_move_to_index(open_setting_button, 0);
+    lv_obj_move_to_index(take_photo_button, 1);
+    lv_obj_move_to_index(change_to_file_explorer_button, 2);
+
+    lv_obj_set_style_bg_color(take_photo_button, lv_color_hex(0x5ac3dd), LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(open_setting_button, lv_color_hex(0x5ac3dd), LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(change_to_file_explorer_button, lv_color_hex(0x5ac3dd), LV_STATE_DEFAULT);
+
+    lv_obj_set_style_width(open_setting_button, LV_PCT(100), LV_STATE_DEFAULT);
+    lv_obj_set_style_width(take_photo_button, LV_PCT(100), LV_STATE_DEFAULT);
+    lv_obj_set_style_width(change_to_file_explorer_button, LV_PCT(100), LV_STATE_DEFAULT);
+
+    lv_obj_set_style_flex_grow(open_setting_button, 1, LV_STATE_DEFAULT);
+    lv_obj_set_style_flex_grow(take_photo_button, 1, LV_STATE_DEFAULT);
+    lv_obj_set_style_flex_grow(change_to_file_explorer_button, 1, LV_STATE_DEFAULT);
+
+
+    take_photo_label              = lv_label_create(take_photo_button);
+    change_to_file_explorer_label = lv_label_create(change_to_file_explorer_button);
+    open_setting_label            = lv_label_create(open_setting_button);
+
+    lv_obj_set_style_text_font(take_photo_label, &photo_folder_setting, LV_STATE_DEFAULT);
+
+    lv_label_set_text_static(take_photo_label, MY_TAKE_PHOTO_SYMBOL);
+    lv_label_set_text_static(change_to_file_explorer_label, LV_SYMBOL_FILE);
+    lv_label_set_text_static(open_setting_label, LV_SYMBOL_HOME);
+
+    lv_obj_set_align(change_to_file_explorer_label, LV_ALIGN_CENTER);
+    lv_obj_set_align(take_photo_label, LV_ALIGN_CENTER);
+    lv_obj_set_align(open_setting_label, LV_ALIGN_CENTER);
+
+    lv_obj_add_event_cb(change_to_file_explorer_button, change_to_file_explorer_callback, LV_EVENT_CLICKED, nullptr);
+    lv_obj_add_event_cb(take_photo_button, take_photo_callback, LV_EVENT_CLICKED, nullptr);
+    lv_obj_add_event_cb(open_setting_button, open_setting_callback, LV_EVENT_CLICKED, nullptr);
+
+    indicator_label = lv_label_create(camera_screen);
+    lv_obj_set_align(indicator_label, LV_ALIGN_CENTER);
+    lv_label_set_text_static(indicator_label, "");
+    lv_obj_add_flag(indicator_label, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_style_text_color(indicator_label, lv_color_hex(0xdddddd), LV_STATE_DEFAULT);
+}
+
+namespace
+{
+    lv_obj_t *camera_settings_screen;
+    lv_obj_t *camera_settings_container;
+
+    lv_obj_t *camera_settings_indicator_container;
+    lv_obj_t *camera_settings_indicator_text_box;
+    lv_obj_t *camera_settings_indicator_text;
+    lv_obj_t *camera_settings_indicator_return_btn;
+    lv_obj_t *camera_settings_indicator_return_btn_label;
+
+    lv_obj_t *camera_settings_functions_container;
+
+    lv_obj_t *camera_settings_strobe_setting_box;
+    lv_obj_t *camera_settings_strobe_setting_box_text_box;
+    lv_obj_t *camera_settings_strobe_setting_box_text;
+    lv_obj_t *camera_settings_strobe_setting_box_btns_box;
+    lv_obj_t *camera_settings_strobe_settings_btns[3];
+
+    lv_obj_t *camera_settings_picture_size_box;
+    lv_obj_t *camera_settings_picture_size_box_text_box;
+    lv_obj_t *camera_settings_picture_size_box_text;
+    lv_obj_t *camera_settings_picture_size_box_list_spacer;
+    lv_obj_t *camera_settings_picture_size_box_list;
+} // namespace
+
+void lvgl_create_setting_interface() {
+
+    static const char *options = "QXGA\n"
+                                 "SXGA\n"
+                                 "XGA\n"
+                                 "VGA";
+
+    camera_settings_screen     = lv_obj_create(nullptr);
+
+    camera_settings_container  = lv_obj_create(camera_settings_screen);
+    lv_obj_set_style_size(camera_settings_container, LV_PCT(100), LV_PCT(100), LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(camera_settings_container, 0, LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_all(camera_settings_container, 0, LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(camera_settings_container, lv_color_white(), LV_STATE_DEFAULT);
+    lv_obj_set_style_radius(camera_settings_container, 0, LV_STATE_DEFAULT);
+    lv_obj_set_layout(camera_settings_container, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(camera_settings_container, LV_FLEX_FLOW_COLUMN);
+    {
+        camera_settings_indicator_container = lv_obj_create(camera_settings_container);
+        lv_obj_set_style_width(camera_settings_indicator_container, LV_PCT(100), LV_STATE_DEFAULT);
+        lv_obj_set_style_border_width(camera_settings_indicator_container, 0, LV_STATE_DEFAULT);
+        lv_obj_set_style_pad_all(camera_settings_indicator_container, 8, LV_STATE_DEFAULT);
+        lv_obj_set_style_bg_color(camera_settings_indicator_container, lv_color_white(), LV_STATE_DEFAULT);
+        lv_obj_set_style_radius(camera_settings_indicator_container, 0, LV_STATE_DEFAULT);
+        lv_obj_set_layout(camera_settings_indicator_container, LV_LAYOUT_FLEX);
+        lv_obj_set_flex_flow(camera_settings_indicator_container, LV_FLEX_FLOW_ROW);
+        lv_obj_set_style_flex_grow(camera_settings_indicator_container, 1, LV_STATE_DEFAULT);
+
+        camera_settings_indicator_text_box = lv_obj_create(camera_settings_indicator_container);
+        lv_obj_set_style_height(camera_settings_indicator_text_box, LV_PCT(100), LV_STATE_DEFAULT);
+        lv_obj_set_style_border_width(camera_settings_indicator_text_box, 0, LV_STATE_DEFAULT);
+        lv_obj_set_style_pad_all(camera_settings_indicator_text_box, 0, LV_STATE_DEFAULT);
+        lv_obj_set_style_bg_color(camera_settings_indicator_text_box, lv_color_white(), LV_STATE_DEFAULT);
+        lv_obj_set_style_radius(camera_settings_indicator_text_box, 0, LV_STATE_DEFAULT);
+        lv_obj_set_style_flex_grow(camera_settings_indicator_text_box, 9, LV_STATE_DEFAULT);
+        lv_obj_remove_flag(camera_settings_indicator_text_box, LV_OBJ_FLAG_SCROLLABLE);
+
+        camera_settings_indicator_text = lv_label_create(camera_settings_indicator_text_box);
+        lv_obj_set_style_text_color(camera_settings_indicator_text, lv_color_black(), LV_STATE_DEFAULT);
+        lv_label_set_text_static(camera_settings_indicator_text, "Camera Settings");
+        lv_obj_set_align(camera_settings_indicator_text, LV_ALIGN_CENTER);
+        lv_obj_set_style_text_font(camera_settings_indicator_text, &lv_font_montserrat_18, LV_STATE_DEFAULT);
+
+        camera_settings_indicator_return_btn = lv_btn_create(camera_settings_indicator_container);
+        lv_obj_set_style_height(camera_settings_indicator_return_btn, LV_PCT(100), LV_STATE_DEFAULT);
+        lv_obj_set_style_bg_color(camera_settings_indicator_return_btn, lv_color_hex(0x34a3e7), LV_STATE_DEFAULT);
+        lv_obj_set_style_flex_grow(camera_settings_indicator_return_btn, 1, LV_STATE_DEFAULT);
+        lv_obj_remove_flag(camera_settings_indicator_return_btn, LV_OBJ_FLAG_SCROLLABLE);
+
+        camera_settings_indicator_return_btn_label = lv_label_create(camera_settings_indicator_return_btn);
+        lv_obj_set_align(camera_settings_indicator_return_btn_label, LV_ALIGN_CENTER);
+        lv_obj_set_style_text_color(camera_settings_indicator_return_btn_label, lv_color_black(), LV_STATE_DEFAULT);
+        lv_label_set_text_static(camera_settings_indicator_return_btn_label, LV_SYMBOL_LEFT);
+    }
+
+    {
+        camera_settings_functions_container = lv_obj_create(camera_settings_container);
+        lv_obj_set_style_width(camera_settings_functions_container, LV_PCT(100), LV_STATE_DEFAULT);
+        lv_obj_set_style_border_width(camera_settings_functions_container, 0, LV_STATE_DEFAULT);
+        lv_obj_set_style_pad_all(camera_settings_functions_container, 8, LV_STATE_DEFAULT);
+        lv_obj_set_style_bg_color(camera_settings_functions_container, lv_color_white(), LV_STATE_DEFAULT);
+        lv_obj_set_style_radius(camera_settings_functions_container, 0, LV_STATE_DEFAULT);
+        lv_obj_set_layout(camera_settings_functions_container, LV_LAYOUT_FLEX);
+        lv_obj_set_flex_flow(camera_settings_functions_container, LV_FLEX_FLOW_ROW);
+        lv_obj_set_style_flex_grow(camera_settings_functions_container, 4, LV_STATE_DEFAULT);
+        lv_obj_add_flag(camera_settings_functions_container, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+
+        {
+            camera_settings_strobe_setting_box = lv_obj_create(camera_settings_functions_container);
+            lv_obj_set_style_height(camera_settings_strobe_setting_box, LV_PCT(70), LV_STATE_DEFAULT);
+            lv_obj_set_style_border_width(camera_settings_strobe_setting_box, 0, LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_all(camera_settings_strobe_setting_box, 0, LV_STATE_DEFAULT);
+            lv_obj_set_style_bg_color(camera_settings_strobe_setting_box, lv_color_white(), LV_STATE_DEFAULT);
+            // lv_obj_set_style_radius(camera_settings_strobe_setting_box, 0, LV_STATE_DEFAULT);
+            lv_obj_set_layout(camera_settings_strobe_setting_box, LV_LAYOUT_FLEX);
+            lv_obj_set_flex_flow(camera_settings_strobe_setting_box, LV_FLEX_FLOW_COLUMN);
+            lv_obj_set_style_flex_grow(camera_settings_strobe_setting_box, 1, LV_STATE_DEFAULT);
+
+            {
+                camera_settings_strobe_setting_box_text_box = lv_obj_create(camera_settings_strobe_setting_box);
+                lv_obj_set_style_width(camera_settings_strobe_setting_box_text_box, LV_PCT(100), LV_STATE_DEFAULT);
+                lv_obj_set_style_border_width(camera_settings_strobe_setting_box_text_box, 0, LV_STATE_DEFAULT);
+                lv_obj_set_style_pad_all(camera_settings_strobe_setting_box_text_box, 0, LV_STATE_DEFAULT);
+                lv_obj_set_style_flex_grow(camera_settings_strobe_setting_box_text_box, 1, LV_STATE_DEFAULT);
+
+                camera_settings_strobe_setting_box_text = lv_label_create(camera_settings_strobe_setting_box_text_box);
+                lv_obj_set_style_align(camera_settings_strobe_setting_box_text, LV_ALIGN_CENTER, LV_STATE_DEFAULT);
+                lv_obj_set_style_text_color(camera_settings_strobe_setting_box_text, lv_color_black(), LV_STATE_DEFAULT);
+                lv_label_set_text(camera_settings_strobe_setting_box_text, "strobe setting");
+            }
+
+            {
+                camera_settings_strobe_setting_box_btns_box = lv_obj_create(camera_settings_strobe_setting_box);
+                lv_obj_set_style_width(camera_settings_strobe_setting_box_btns_box, LV_PCT(100), LV_STATE_DEFAULT);
+                lv_obj_set_style_border_width(camera_settings_strobe_setting_box_btns_box, 0, LV_STATE_DEFAULT);
+                lv_obj_set_style_pad_all(camera_settings_strobe_setting_box_btns_box, 0, LV_STATE_DEFAULT);
+                lv_obj_set_style_flex_grow(camera_settings_strobe_setting_box_btns_box, 4, LV_STATE_DEFAULT);
+                lv_obj_set_layout(camera_settings_strobe_setting_box_btns_box, LV_LAYOUT_FLEX);
+                lv_obj_set_flex_flow(camera_settings_strobe_setting_box_btns_box, LV_FLEX_FLOW_COLUMN);
+                lv_obj_set_flex_align(camera_settings_strobe_setting_box_btns_box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER);
+
+                {
+                    for (int i = 0; i < 3; i++) {
+                        camera_settings_strobe_settings_btns[i] = lv_checkbox_create(camera_settings_strobe_setting_box_btns_box);
+                        lv_obj_set_style_radius(camera_settings_strobe_settings_btns[i], LV_RADIUS_CIRCLE, LV_PART_INDICATOR);
+                        lv_obj_add_flag(camera_settings_strobe_settings_btns[i], LV_OBJ_FLAG_EVENT_BUBBLE);
+                        lv_obj_set_user_data(camera_settings_strobe_settings_btns[i], (void *)(uintptr_t)i);
+                    }
+                    lv_checkbox_set_text_static(camera_settings_strobe_settings_btns[0], "close");
+                    lv_checkbox_set_text_static(camera_settings_strobe_settings_btns[1], "once");
+                    lv_checkbox_set_text_static(camera_settings_strobe_settings_btns[1], "after shot");
+                }
+            }
+        }
+
+        {
+            camera_settings_picture_size_box = lv_obj_create(camera_settings_functions_container);
+            lv_obj_set_style_height(camera_settings_picture_size_box, LV_PCT(70), LV_STATE_DEFAULT);
+            lv_obj_set_style_border_width(camera_settings_picture_size_box, 0, LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_all(camera_settings_picture_size_box, 0, LV_STATE_DEFAULT);
+            lv_obj_set_style_bg_color(camera_settings_picture_size_box, lv_color_white(), LV_STATE_DEFAULT);
+            // lv_obj_set_style_radius(camera_settings_picture_size_box, 0, LV_STATE_DEFAULT);
+            lv_obj_set_layout(camera_settings_picture_size_box, LV_LAYOUT_FLEX);
+            lv_obj_set_flex_flow(camera_settings_picture_size_box, LV_FLEX_FLOW_COLUMN);
+            lv_obj_set_style_flex_grow(camera_settings_picture_size_box, 1, LV_STATE_DEFAULT);
+
+            {
+                camera_settings_picture_size_box_text_box = lv_obj_create(camera_settings_picture_size_box);
+                lv_obj_set_style_width(camera_settings_picture_size_box_text_box, LV_PCT(100), LV_STATE_DEFAULT);
+                lv_obj_set_style_border_width(camera_settings_picture_size_box_text_box, 0, LV_STATE_DEFAULT);
+                lv_obj_set_style_pad_all(camera_settings_picture_size_box_text_box, 0, LV_STATE_DEFAULT);
+                lv_obj_set_style_flex_grow(camera_settings_picture_size_box_text_box, 1, LV_STATE_DEFAULT);
+
+                camera_settings_picture_size_box_text = lv_label_create(camera_settings_picture_size_box_text_box);
+                lv_obj_set_style_align(camera_settings_picture_size_box_text, LV_ALIGN_CENTER, LV_STATE_DEFAULT);
+                lv_obj_set_style_text_color(camera_settings_picture_size_box_text, lv_color_black(), LV_STATE_DEFAULT);
+                lv_label_set_text(camera_settings_picture_size_box_text, "output file size");
+            }
+
+            {
+                camera_settings_picture_size_box_list_spacer = lv_obj_create(camera_settings_picture_size_box);
+                lv_obj_set_style_width(camera_settings_picture_size_box_list_spacer, LV_PCT(100), LV_STATE_DEFAULT);
+                lv_obj_set_style_border_width(camera_settings_picture_size_box_list_spacer, 0, LV_STATE_DEFAULT);
+                lv_obj_set_style_pad_all(camera_settings_picture_size_box_list_spacer, 0, LV_STATE_DEFAULT);
+                lv_obj_set_style_flex_grow(camera_settings_picture_size_box_list_spacer, 4, LV_STATE_DEFAULT);
+
+                camera_settings_picture_size_box_list = lv_dropdown_create(camera_settings_picture_size_box_list_spacer);
+                lv_obj_set_style_size(camera_settings_picture_size_box_list, LV_PCT(100), LV_PCT(33), LV_STATE_DEFAULT);
+                lv_dropdown_set_options_static(camera_settings_picture_size_box_list, options);
+            }
+        }
+    }
+
+    lv_obj_set_user_data(camera_settings_strobe_setting_box_btns_box, camera_settings_strobe_settings_btns[0]);
+    lv_obj_add_state(camera_settings_strobe_settings_btns[0], LV_STATE_CHECKED);
+
+    lv_obj_add_event_cb(camera_settings_indicator_return_btn, indicator_return_btn_callback, LV_EVENT_CLICKED, nullptr);
+    lv_obj_add_event_cb(camera_settings_strobe_setting_box_btns_box, checkboxs_callback, LV_EVENT_CLICKED, nullptr);
+}
+
+
+void change_to_file_explorer_callback(lv_event_t *e) {
+    xSemaphoreGive(camera_exit);
+}
+void take_photo_callback(lv_event_t *e) {
+    xSemaphoreGive(camera_take_photo);
+}
+void open_setting_callback(lv_event_t *e) {
+    lv_screen_load(camera_settings_screen);
+}
+void indicator_return_btn_callback(lv_event_t *e) {
+    lv_screen_load(camera_screen);
+}
+
+void checkboxs_callback(lv_event_t *e) {
+    lv_obj_t *target       = lv_event_get_target_obj(e);
+    lv_obj_t *curr_target  = lv_event_get_current_target_obj(e);
+
+    auto      prev_checked = (lv_obj_t *)lv_obj_get_user_data(curr_target);
+
+    if (curr_target == target) {
+        return;
+    }
+
+    lv_obj_set_user_data(curr_target, target);
+    lv_obj_remove_state(prev_checked, LV_STATE_CHECKED);
+    lv_obj_add_state(target, LV_STATE_CHECKED);
+}
+
+void indicator_operate(const char *message) {
+    if (!message) {
+        lv_lock();
+        {
+            lv_obj_add_flag(indicator_label, LV_OBJ_FLAG_HIDDEN);
+            lv_label_set_text_static(indicator_label, "");
+        }
+        lv_unlock();
+    }
+    else {
+        lv_lock();
+        {
+            lv_obj_remove_flag(indicator_label, LV_OBJ_FLAG_HIDDEN);
+            lv_label_set_text_static(indicator_label, message);
+        }
+        lv_unlock();
+    }
+}
+
+void screen_image_operate(void *source) {
+    lv_lock();
+    {
+        lv_image_set_src(camera_capture_image, source);
+        if (source) {
+            lv_image_set_align(camera_capture_image, LV_IMAGE_ALIGN_CENTER);
+        }
+    }
+    lv_unlock();
+}
 
 void camera_task_routine(void const *argument) {
     static lv_image_dsc_t img_dsc;
@@ -55,6 +373,7 @@ void camera_task_routine(void const *argument) {
     xSemaphoreGive(sema_camera_ov5640_unable_done);
 
     lvgl_create_camera_interface();
+    lvgl_create_setting_interface();
     dcmi_capture_resource_init();
 
     xSemaphoreGive(sema_camera_routine_init_done);
@@ -259,118 +578,4 @@ void camera_task_routine(void const *argument) {
                                  (uintptr_t)jpeg_before_buffer_rgb, 16 * 1024 * 1024); // JPEG Capture
         }
     }
-}
-
-
-void lvgl_create_camera_interface() {
-    camera_screen    = lv_obj_create(nullptr);
-
-    screen_container = lv_obj_create(camera_screen);
-    lv_obj_set_style_size(screen_container, LV_PCT(100), LV_PCT(100), LV_STATE_DEFAULT);
-    lv_obj_set_style_pad_all(screen_container, 0, LV_STATE_DEFAULT);
-    lv_obj_set_style_border_width(screen_container, 0, LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_color(screen_container, lv_color_black(), LV_STATE_DEFAULT);
-    lv_obj_set_style_radius(screen_container, 0, LV_STATE_DEFAULT);
-
-    camera_capture_image = lv_image_create(camera_screen);
-    lv_obj_set_style_size(camera_capture_image, LV_PCT(100), LV_PCT(100), LV_STATE_DEFAULT);
-    lv_obj_set_style_pad_all(camera_capture_image, 0, LV_STATE_DEFAULT);
-    lv_obj_set_style_border_width(camera_capture_image, 0, LV_STATE_DEFAULT);
-
-    button_container = lv_obj_create(camera_screen);
-    lv_obj_set_style_size(button_container, LV_PCT(15), LV_PCT(100), LV_STATE_DEFAULT);
-    lv_obj_set_style_pad_all(button_container, 10, LV_STATE_DEFAULT);
-    lv_obj_set_style_border_width(button_container, 0, LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_color(button_container, lv_color_hex(0x555555), LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(button_container, 64, LV_STATE_DEFAULT);
-    lv_obj_set_style_align(button_container, LV_ALIGN_RIGHT_MID, LV_STATE_DEFAULT);
-    lv_obj_set_style_pad_gap(button_container, 40, LV_STATE_DEFAULT);
-    lv_obj_set_style_radius(button_container, 0, LV_STATE_DEFAULT);
-
-    lv_obj_set_layout(button_container, LV_LAYOUT_FLEX);
-    lv_obj_set_flex_flow(button_container, LV_FLEX_FLOW_COLUMN);
-
-    take_photo_button              = lv_button_create(button_container);
-    open_setting_button            = lv_button_create(button_container);
-    change_to_file_explorer_button = lv_button_create(button_container);
-
-    lv_obj_move_to_index(open_setting_button, 0);
-    lv_obj_move_to_index(take_photo_button, 1);
-    lv_obj_move_to_index(change_to_file_explorer_button, 2);
-
-    lv_obj_set_style_bg_color(take_photo_button, lv_color_hex(0x5ac3dd), LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_color(open_setting_button, lv_color_hex(0x5ac3dd), LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_color(change_to_file_explorer_button, lv_color_hex(0x5ac3dd), LV_STATE_DEFAULT);
-
-    lv_obj_set_style_width(open_setting_button, LV_PCT(100), LV_STATE_DEFAULT);
-    lv_obj_set_style_width(take_photo_button, LV_PCT(100), LV_STATE_DEFAULT);
-    lv_obj_set_style_width(change_to_file_explorer_button, LV_PCT(100), LV_STATE_DEFAULT);
-
-    lv_obj_set_style_flex_grow(open_setting_button, 1, LV_STATE_DEFAULT);
-    lv_obj_set_style_flex_grow(take_photo_button, 1, LV_STATE_DEFAULT);
-    lv_obj_set_style_flex_grow(change_to_file_explorer_button, 1, LV_STATE_DEFAULT);
-
-
-    take_photo_label              = lv_label_create(take_photo_button);
-    change_to_file_explorer_label = lv_label_create(change_to_file_explorer_button);
-    open_setting_label            = lv_label_create(open_setting_button);
-
-    lv_obj_set_style_text_font(take_photo_label, &photo_folder_setting, LV_STATE_DEFAULT);
-
-    lv_label_set_text_static(take_photo_label, MY_TAKE_PHOTO_SYMBOL);
-    lv_label_set_text_static(change_to_file_explorer_label, LV_SYMBOL_FILE);
-    lv_label_set_text_static(open_setting_label, LV_SYMBOL_HOME);
-
-    lv_obj_set_align(change_to_file_explorer_label, LV_ALIGN_CENTER);
-    lv_obj_set_align(take_photo_label, LV_ALIGN_CENTER);
-    lv_obj_set_align(open_setting_label, LV_ALIGN_CENTER);
-
-    lv_obj_add_event_cb(change_to_file_explorer_button, change_to_file_explorer_callback, LV_EVENT_CLICKED, nullptr);
-    lv_obj_add_event_cb(take_photo_button, take_photo_callback, LV_EVENT_CLICKED, nullptr);
-    lv_obj_add_event_cb(open_setting_button, open_setting_callback, LV_EVENT_CLICKED, nullptr);
-
-    indicator_label = lv_label_create(camera_screen);
-    lv_obj_set_align(indicator_label, LV_ALIGN_CENTER);
-    lv_label_set_text_static(indicator_label, "");
-    lv_obj_add_flag(indicator_label, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_set_style_text_color(indicator_label, lv_color_hex(0xdddddd), LV_STATE_DEFAULT);
-}
-
-
-void change_to_file_explorer_callback(lv_event_t *e) {
-    xSemaphoreGive(camera_exit);
-}
-void take_photo_callback(lv_event_t *e) {
-    xSemaphoreGive(camera_take_photo);
-}
-void open_setting_callback(lv_event_t *e) {}
-
-void indicator_operate(const char *message) {
-    if (!message) {
-        lv_lock();
-        {
-            lv_obj_add_flag(indicator_label, LV_OBJ_FLAG_HIDDEN);
-            lv_label_set_text_static(indicator_label, "");
-        }
-        lv_unlock();
-    }
-    else {
-        lv_lock();
-        {
-            lv_obj_remove_flag(indicator_label, LV_OBJ_FLAG_HIDDEN);
-            lv_label_set_text_static(indicator_label, message);
-        }
-        lv_unlock();
-    }
-}
-
-void screen_image_operate(void *source) {
-    lv_lock();
-    {
-        lv_image_set_src(camera_capture_image, source);
-        if (source) {
-            lv_image_set_align(camera_capture_image, LV_IMAGE_ALIGN_CENTER);
-        }
-    }
-    lv_unlock();
 }

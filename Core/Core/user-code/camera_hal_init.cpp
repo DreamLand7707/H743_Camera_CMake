@@ -60,7 +60,7 @@ void dcmi_data_structure_init() {
     {
         volatile uint32_t i;
         while (delay--) {
-            i = 200;
+            i = 30;
             while (i)
                 i = i - 1;
         }
