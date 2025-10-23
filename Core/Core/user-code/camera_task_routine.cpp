@@ -130,7 +130,7 @@ namespace
     lv_obj_t *camera_settings_strobe_setting_box_text_box;
     lv_obj_t *camera_settings_strobe_setting_box_text;
     lv_obj_t *camera_settings_strobe_setting_box_btns_box;
-    lv_obj_t *camera_settings_strobe_settings_btns[3];
+    lv_obj_t *camera_settings_strobe_settings_btns[4];
 
     lv_obj_t *camera_settings_picture_size_box;
     lv_obj_t *camera_settings_picture_size_box_text_box;
@@ -208,7 +208,7 @@ void lvgl_create_setting_interface() {
 
         {
             camera_settings_strobe_setting_box = lv_obj_create(camera_settings_functions_container);
-            lv_obj_set_style_height(camera_settings_strobe_setting_box, LV_PCT(70), LV_STATE_DEFAULT);
+            lv_obj_set_style_height(camera_settings_strobe_setting_box, LV_PCT(90), LV_STATE_DEFAULT);
             lv_obj_set_style_border_width(camera_settings_strobe_setting_box, 0, LV_STATE_DEFAULT);
             lv_obj_set_style_pad_all(camera_settings_strobe_setting_box, 0, LV_STATE_DEFAULT);
             lv_obj_set_style_bg_color(camera_settings_strobe_setting_box, lv_color_white(), LV_STATE_DEFAULT);
@@ -241,22 +241,23 @@ void lvgl_create_setting_interface() {
                 lv_obj_set_flex_align(camera_settings_strobe_setting_box_btns_box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER);
 
                 {
-                    for (int i = 0; i < 3; i++) {
+                    for (int i = 0; i < 4; i++) {
                         camera_settings_strobe_settings_btns[i] = lv_checkbox_create(camera_settings_strobe_setting_box_btns_box);
                         lv_obj_set_style_radius(camera_settings_strobe_settings_btns[i], LV_RADIUS_CIRCLE, LV_PART_INDICATOR);
                         lv_obj_add_flag(camera_settings_strobe_settings_btns[i], LV_OBJ_FLAG_EVENT_BUBBLE);
                         lv_obj_set_user_data(camera_settings_strobe_settings_btns[i], (void *)(uintptr_t)i);
                     }
                     lv_checkbox_set_text_static(camera_settings_strobe_settings_btns[0], "close");
-                    lv_checkbox_set_text_static(camera_settings_strobe_settings_btns[1], "once");
-                    lv_checkbox_set_text_static(camera_settings_strobe_settings_btns[1], "after shot");
+                    lv_checkbox_set_text_static(camera_settings_strobe_settings_btns[1], "always");
+                    lv_checkbox_set_text_static(camera_settings_strobe_settings_btns[2], "once");
+                    lv_checkbox_set_text_static(camera_settings_strobe_settings_btns[3], "after shot");
                 }
             }
         }
 
         {
             camera_settings_picture_size_box = lv_obj_create(camera_settings_functions_container);
-            lv_obj_set_style_height(camera_settings_picture_size_box, LV_PCT(70), LV_STATE_DEFAULT);
+            lv_obj_set_style_height(camera_settings_picture_size_box, LV_PCT(90), LV_STATE_DEFAULT);
             lv_obj_set_style_border_width(camera_settings_picture_size_box, 0, LV_STATE_DEFAULT);
             lv_obj_set_style_pad_all(camera_settings_picture_size_box, 0, LV_STATE_DEFAULT);
             lv_obj_set_style_bg_color(camera_settings_picture_size_box, lv_color_white(), LV_STATE_DEFAULT);
@@ -326,6 +327,8 @@ void checkboxs_callback(lv_event_t *e) {
     lv_obj_set_user_data(curr_target, target);
     lv_obj_remove_state(prev_checked, LV_STATE_CHECKED);
     lv_obj_add_state(target, LV_STATE_CHECKED);
+
+    xSemaphoreGive(camera_strobe_setting_changed);
 }
 
 void indicator_operate(const char *message) {
@@ -385,12 +388,38 @@ void camera_task_routine(void const *argument) {
     uint32_t      resolution {}, format {}, data_length {}, src_w {}, src_h {};
     uint32_t      use_full_buffer = 1;
     bool          screen_RGB_mode = true;
+    uint32_t      strobe_state    = 0;
 
     while (1) {
         // ?
         the_queue = xQueueSelectFromSet(camera_queue_set, portMAX_DELAY);
 
-        if (the_queue == camera_interface_changed || the_queue == camera_interface_restart) {
+        if (the_queue == camera_strobe_setting_changed) {
+            uint32_t new_strobe_state;
+            xSemaphoreTake(camera_strobe_setting_changed, 0);
+            lv_lock();
+            {
+                new_strobe_state = (uint32_t)lv_obj_get_user_data((lv_obj_t *)lv_obj_get_user_data(camera_settings_strobe_setting_box_btns_box));
+            }
+            lv_unlock();
+            if (new_strobe_state == 0) {
+                OV5640_STROBE(0);
+                strobe_state = 0;
+            }
+            else if (new_strobe_state == 1) {
+                OV5640_STROBE(1);
+                strobe_state = 1;
+            }
+            else if (new_strobe_state == 2) {
+                OV5640_STROBE(0);
+                strobe_state = 2;
+            }
+            else if (new_strobe_state == 3) {
+                OV5640_STROBE(1);
+                strobe_state = 3;
+            }
+        }
+        else if (the_queue == camera_interface_changed || the_queue == camera_interface_restart) {
             xSemaphoreTake(camera_interface_changed, 0);
             if (!screen_RGB_mode)
                 continue;
@@ -438,8 +467,28 @@ void camera_task_routine(void const *argument) {
 
                 if (screen_RGB_mode)
                     camera_RGB_YCbCr_capture_abort_first_stage_dma(target_dcmi, current_format);
-                else
+                else {
                     camera_JPEG_capture_abort_first_stage_dma(target_dcmi, current_format);
+                    if (strobe_state == 2 && target_dcmi->jpeg_use_strobe) {
+                        OV5640_STROBE(0);
+                        target_dcmi->jpeg_use_strobe = false;
+                    }
+                    else if (strobe_state == 3) {
+                        OV5640_STROBE(0);
+                        target_dcmi->jpeg_use_strobe = false;
+                        //
+                        strobe_state = 0;
+                        lv_lock();
+                        {
+                            lv_obj_t *obj_have_checked = (lv_obj_t *)lv_obj_get_user_data(camera_settings_strobe_setting_box_btns_box);
+                            lv_obj_remove_state(obj_have_checked, LV_STATE_CHECKED);
+                            lv_obj_add_state(camera_settings_strobe_settings_btns[0], LV_STATE_CHECKED);
+                            lv_obj_set_user_data(camera_settings_strobe_setting_box_btns_box, camera_settings_strobe_settings_btns[0]);
+                        }
+                        lv_unlock();
+                    }
+
+                }
             }
 
             if (ret & (uint32_t)message_process::DATA_END) {
@@ -594,6 +643,12 @@ void camera_task_routine(void const *argument) {
             vTaskDelay(pdMS_TO_TICKS(500));
             queue_enable        = true;
             camera_captured_end = false;
+            if (strobe_state == 2) {
+                target_dcmi->jpeg_use_strobe = true;
+            }
+            else {
+                target_dcmi->jpeg_use_strobe = false;
+            }
             camera_start_capture(target_dcmi, current_format,
                                  (uintptr_t)(&(D2_SRAM[0])), sizeof(D2_SRAM),
                                  (uintptr_t)jpeg_before_buffer_rgb, 16 * 1024 * 1024); // JPEG Capture

@@ -93,6 +93,7 @@ extern SemaphoreHandle_t       camera_exit;
 extern SemaphoreHandle_t       camera_error;
 extern SemaphoreHandle_t       camera_take_photo;
 extern QueueSetHandle_t        camera_queue_set;
+extern SemaphoreHandle_t       camera_strobe_setting_changed;
 
 extern lv_obj_t               *screen_container;
 extern lv_obj_t               *camera_capture_image;

@@ -7,16 +7,18 @@ SemaphoreHandle_t camera_new_message {};
 SemaphoreHandle_t camera_exit {};
 SemaphoreHandle_t camera_error {};
 SemaphoreHandle_t camera_take_photo {};
+SemaphoreHandle_t camera_strobe_setting_changed {};
 QueueSetHandle_t  camera_queue_set {};
 
 void              dcmi_capture_resource_init() {
-    camera_queue_set         = xQueueCreateSet(6);
-    camera_interface_changed = xSemaphoreCreateBinary();
-    camera_new_message       = xSemaphoreCreateBinary();
-    camera_exit              = xSemaphoreCreateBinary();
-    camera_error             = xSemaphoreCreateBinary();
-    camera_interface_restart = xSemaphoreCreateBinary();
-    camera_take_photo        = xSemaphoreCreateBinary();
+    camera_queue_set              = xQueueCreateSet(7);
+    camera_interface_changed      = xSemaphoreCreateBinary();
+    camera_new_message            = xSemaphoreCreateBinary();
+    camera_exit                   = xSemaphoreCreateBinary();
+    camera_error                  = xSemaphoreCreateBinary();
+    camera_interface_restart      = xSemaphoreCreateBinary();
+    camera_take_photo             = xSemaphoreCreateBinary();
+    camera_strobe_setting_changed = xSemaphoreCreateBinary();
 
     xQueueAddToSet(camera_new_message, camera_queue_set);
     xQueueAddToSet(camera_exit, camera_queue_set);
@@ -24,6 +26,7 @@ void              dcmi_capture_resource_init() {
     xQueueAddToSet(camera_interface_changed, camera_queue_set);
     xQueueAddToSet(camera_interface_restart, camera_queue_set);
     xQueueAddToSet(camera_take_photo, camera_queue_set);
+    xQueueAddToSet(camera_strobe_setting_changed, camera_queue_set);
 }
 
 HAL_StatusTypeDef camera_start_capture(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format,
@@ -312,6 +315,9 @@ HAL_StatusTypeDef camera_start_capture(Camera_DCMI_HandleType *Camera_DCMI, came
                                       (uint32_t)double_buffer_second,
                                       (uint32_t)half_middle_buffer_words);
 
+        if (Camera_DCMI->jpeg_use_strobe) {
+            OV5640_STROBE(1);
+        }
         break;
     }
     }
