@@ -1,4 +1,4 @@
-#define FILE_DEBUG 1
+#define FILE_DEBUG 0
 
 #include "camera_declare.hpp"
 

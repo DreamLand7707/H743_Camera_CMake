@@ -60,6 +60,7 @@ static void    ins_card_call();
 static void    pop_card_call();
 static void    click_picture_indicator_call(lv_event_t *e);
 static void    click_picture_call(lv_event_t *e);
+static void    click_delete_call(lv_event_t *event);
 static void    lvgl_create_main_interface();
 static void    lvgl_create_full_screen_pict_interface();
 static void    lvgl_create_pict_message_interface();
@@ -373,6 +374,11 @@ static void lvgl_create_full_screen_pict_interface() {
 namespace
 {
     lv_obj_t         *pict_message_container;
+    lv_obj_t         *pict_message_function_box;
+
+    lv_obj_t         *pict_message_delete;
+    lv_obj_t         *pict_message_delete_text;
+
     lv_obj_t         *pict_message_text_box;
     lv_obj_t         *pict_message_text;
     lv_obj_t         *pict_message_full_pict_image;
@@ -400,22 +406,45 @@ static void lvgl_create_pict_message_interface() {
     lv_obj_set_size(pict_message_full_pict_image, LV_PCT(100), LV_PCT(100));
     lv_obj_set_align(pict_message_full_pict_image, LV_ALIGN_CENTER);
 
-    pict_message_text_box = lv_obj_create(pict_message_container);
+    pict_message_function_box = lv_obj_create(pict_message_container);
+    lv_obj_set_size(pict_message_function_box, LV_PCT(100), LV_PCT(100));
+    lv_obj_set_style_pad_all(pict_message_function_box, 0, LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_hor(pict_message_function_box, 20, LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(pict_message_function_box, 0, LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(pict_message_function_box, lv_color_white(), LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(pict_message_function_box, 200, LV_STATE_DEFAULT);
+    lv_obj_set_layout(pict_message_function_box, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(pict_message_function_box, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(pict_message_function_box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
+    lv_obj_add_flag(pict_message_function_box, LV_OBJ_FLAG_EVENT_BUBBLE);
+
+    pict_message_text_box = lv_obj_create(pict_message_function_box);
     lv_obj_set_size(pict_message_text_box, LV_PCT(100), LV_PCT(100));
     lv_obj_set_align(pict_message_text_box, LV_ALIGN_CENTER);
-    lv_obj_set_style_bg_color(pict_message_container, lv_color_white(), LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(pict_message_text_box, 200, LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(pict_message_text_box, 0, LV_STATE_DEFAULT);
     lv_obj_set_style_border_width(pict_message_text_box, 0, LV_STATE_DEFAULT);
+    lv_obj_set_flex_grow(pict_message_text_box, 4);
 
     pict_message_text = lv_label_create(pict_message_text_box);
     lv_obj_set_align(pict_message_text, LV_ALIGN_CENTER);
     lv_obj_set_style_text_color(pict_message_text, lv_color_black(), LV_STATE_DEFAULT);
     lv_label_set_text_static(pict_message_text, "Nothing");
 
+    pict_message_delete = lv_button_create(pict_message_function_box);
+    lv_obj_set_height(pict_message_delete, 50);
+    lv_obj_set_flex_grow(pict_message_delete, 1);
+    lv_obj_set_style_bg_color(pict_message_delete, lv_color_hex(0xe61931), LV_STATE_DEFAULT);
+
+    pict_message_delete_text = lv_label_create(pict_message_delete);
+    lv_label_set_text_static(pict_message_delete_text, "Delete");
+    lv_obj_set_align(pict_message_delete_text, LV_ALIGN_CENTER);
+    lv_obj_set_style_text_color(pict_message_delete_text, lv_color_hex(0xc7c2a3), LV_STATE_DEFAULT);
+
     lv_obj_remove_flag(pict_message_text_box, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_remove_flag(pict_message_text, LV_OBJ_FLAG_CLICKABLE);
 
     lv_obj_add_event_cb(pict_message_container, click_pict_message_call, LV_EVENT_CLICKED, nullptr);
+    lv_obj_add_event_cb(pict_message_delete, click_delete_call, LV_EVENT_CLICKED, nullptr);
 }
 
 uint8_t *file_exchange_buffer           = nullptr;
@@ -492,6 +521,7 @@ static void main_manage_task(void *args) {
     main_manage_command        new_message {};
     // temp
     std::string old_message_path {};
+    std::string curr_open_path {};
     //
     bool can_click_pict = false;
     bool card_ok        = false;
@@ -559,14 +589,14 @@ static void main_manage_task(void *args) {
         case manage_command_type::decode_complete: {
             xSemaphoreTake(jpeg_decode_task_interrupt_mutex, portMAX_DELAY);
             {
+                old_message_path = safe_get_value(new_message.path);
+                curr_open_path   = safe_get_value(new_message.path);
                 if (jpeg_decode_task_handle) {
                     recycle_resource();
                     delete message_to_send.path;
                     message_to_send.path = nullptr;
                     can_click_pict       = true;
-                    old_message_path.clear();
                 }
-                old_message_path = safe_get_value(new_message.path);
             }
             xSemaphoreGive(jpeg_decode_task_interrupt_mutex);
 
@@ -577,20 +607,23 @@ static void main_manage_task(void *args) {
         }
         case manage_command_type::terminate: {
             if (jpeg_decode_task_handle) {
+                old_message_path = safe_get_value(new_message.path);
+                curr_open_path.clear();
+
                 xSemaphoreTake(jpeg_decode_task_interrupt_mutex, portMAX_DELAY);
                 {
                     recycle_resource();
                     delete message_to_send.path;
                     message_to_send.path = nullptr;
                     can_click_pict       = false;
-                    old_message_path.clear();
                 }
                 xSemaphoreGive(jpeg_decode_task_interrupt_mutex);
+
                 can_click_pict = false;
+
                 lvgl_manage_command cm {};
                 cm.type = lvgl_command_type::nothing;
                 xQueueSend(lvgl_manage_task_queue, &cm, pdMS_TO_TICKS(20));
-                old_message_path = safe_get_value(new_message.path);
             }
             else {
                 lvgl_manage_command cm {};
@@ -631,6 +664,8 @@ static void main_manage_task(void *args) {
             sdcard_is_mounted = 1;
 
             old_message_path  = safe_get_value(new_message.path);
+            curr_open_path.clear();
+
             lvgl_manage_command cm {};
             cm.type = lvgl_command_type::ins_card;
 
@@ -641,13 +676,14 @@ static void main_manage_task(void *args) {
         case manage_command_type::pop_card: {
             xSemaphoreTake(jpeg_decode_task_interrupt_mutex, portMAX_DELAY);
             {
+                old_message_path = safe_get_value(new_message.path);
+                curr_open_path.clear();
+
                 if (jpeg_decode_task_handle) {
                     recycle_resource();
                     delete message_to_send.path;
                     message_to_send.path = nullptr;
-                    old_message_path.clear();
                 }
-                old_message_path = safe_get_value(new_message.path);
             }
             xSemaphoreGive(jpeg_decode_task_interrupt_mutex);
 
@@ -670,13 +706,13 @@ static void main_manage_task(void *args) {
         case manage_command_type::to_camera: {
             xSemaphoreTake(jpeg_decode_task_interrupt_mutex, portMAX_DELAY);
             {
+                old_message_path = safe_get_value(new_message.path);
+
                 if (jpeg_decode_task_handle) {
                     recycle_resource();
                     delete message_to_send.path;
                     message_to_send.path = nullptr;
-                    old_message_path.clear();
                 }
-                old_message_path = safe_get_value(new_message.path);
             }
             xSemaphoreGive(jpeg_decode_task_interrupt_mutex);
 
@@ -688,6 +724,20 @@ static void main_manage_task(void *args) {
         case manage_command_type::to_file_explorer: {
             lvgl_manage_command cm {};
             cm.type = lvgl_command_type::to_file_explorer;
+            xQueueSend(lvgl_manage_task_queue, &cm, portMAX_DELAY);
+            break;
+        }
+        case manage_command_type::delete_curr_file: {
+            can_click_pict = false;
+
+            if (!curr_open_path.empty()) {
+                f_unlink(curr_open_path.c_str());
+            }
+            old_message_path = safe_get_value(new_message.path);
+            curr_open_path.clear();
+
+            lvgl_manage_command cm {};
+            cm.type = lvgl_command_type::delete_curr_file;
             xQueueSend(lvgl_manage_task_queue, &cm, portMAX_DELAY);
             break;
         }
@@ -786,6 +836,7 @@ static void lvgl_manage_task(void *arg) {
             lv_lock();
             {
                 lv_screen_load(file_explorer_main_screen);
+                file_explorer_reload_force(file_explorer_obj);
             }
             lv_unlock();
             break;
@@ -841,6 +892,19 @@ static void lvgl_manage_task(void *arg) {
             }
             lv_unlock();
             break;
+        }
+        case lvgl_command_type::delete_curr_file: {
+            lv_lock();
+            {
+                lv_label_set_text_static(pict_message_text, "");
+                lv_label_set_text_static(image_indicator_label, "");
+                lv_image_set_src(pict_message_full_pict_image, nullptr);
+                lv_image_set_src(image, nullptr);
+
+                lv_screen_load(file_explorer_main_screen);
+                file_explorer_reload_force(file_explorer_obj);
+            }
+            lv_unlock();
         }
         }
     }
@@ -1037,6 +1101,15 @@ static void insbtn_call(lv_event_t *event) {
 
 static void popbtn_call(lv_event_t *event) {
     if (send_command_to_main_manage(nullptr, 0, manage_command_type::pop_card, 0) == pdPASS) {
+        lv_label_set_text_static(image_indicator_label, "");
+    }
+    else {
+        debug("The Queue is Full!\n");
+    }
+}
+
+static void click_delete_call(lv_event_t *event) {
+    if (send_command_to_main_manage(nullptr, 0, manage_command_type::delete_curr_file, 0) == pdPASS) {
         lv_label_set_text_static(image_indicator_label, "");
     }
     else {
