@@ -391,6 +391,7 @@ void camera_task_routine(void const *argument) {
     bool          queue_enable        = false;
     bool          can_catch_scene     = false;
     bool          camera_captured_end = false;
+    bool          can_take_photo      = false;
     QueueHandle_t the_queue {};
     uint32_t      resolution {}, format {}, data_length {}, src_w {}, src_h {};
     uint32_t      use_full_buffer = 1;
@@ -440,7 +441,8 @@ void camera_task_routine(void const *argument) {
                 continue;
             }
 
-            queue_enable = true;
+            queue_enable   = true;
+            can_take_photo = true;
 
             if (can_catch_scene) {
                 camera_captured_end = false;
@@ -470,10 +472,13 @@ void camera_task_routine(void const *argument) {
             }
 
             if (ret & (uint32_t)message_process::CAPTURE_END) {
-                camera_captured_end = true;
+                if (camera_captured_end)
+                    continue;
 
-                if (screen_RGB_mode)
+                camera_captured_end = true;
+                if (screen_RGB_mode) {
                     camera_RGB_YCbCr_capture_abort_first_stage_dma(target_dcmi, current_format);
+                }
                 else {
                     camera_JPEG_capture_abort_first_stage_dma(target_dcmi, current_format);
                     if (strobe_state == 2 && target_dcmi->jpeg_use_strobe) {
@@ -593,6 +598,7 @@ void camera_task_routine(void const *argument) {
                     queue_enable        = true;
                     camera_captured_end = false;
                     screen_RGB_mode     = true;
+                    can_take_photo      = true;
                     camera_start_capture(target_dcmi, current_format,
                                          (uintptr_t)(&(D2_SRAM[0])), sizeof(D2_SRAM),
                                          (uintptr_t)jpeg_before_buffer_rgb, data_length); // RGB Capture
@@ -607,6 +613,7 @@ void camera_task_routine(void const *argument) {
             camera_deinit(nullptr, nullptr);
             vTaskDelay(pdMS_TO_TICKS(20));
 
+            screen_RGB_mode = true;
             send_command_to_main_manage(nullptr, 0, manage_command_type::to_file_explorer, portMAX_DELAY);
         }
         else if (the_queue == camera_error) {
@@ -619,6 +626,9 @@ void camera_task_routine(void const *argument) {
         }
         else if (the_queue == camera_take_photo) {
             xSemaphoreTake(camera_take_photo, 0);
+            if (!can_take_photo)
+                continue;
+            can_take_photo = false;
 
             if (screen_RGB_mode) {
                 camera_RGB_YCbCr_capture_stop(target_dcmi, current_format);

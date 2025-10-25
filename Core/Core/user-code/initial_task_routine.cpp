@@ -121,7 +121,7 @@ static int routine(int argc, char **argv) {
     // trace_analyzer_channel3 = xTraceRegisterString("User_Channel_3");
     // trace_analyzer_channel4 = xTraceRegisterString("User_Channel_4");
 
-    SEGGER_RTT_ConfigUpBuffer(1, "DataLog", segger_data_upload, sizeof(segger_data_upload), SEGGER_RTT_MODE_NO_BLOCK_SKIP);
+    SEGGER_RTT_SetFlagsUpBuffer(0, SEGGER_RTT_MODE_NO_BLOCK_TRIM);
 
     jpeg_rgb_exchange_init();
     lvgl_create_main_interface();
@@ -605,6 +605,7 @@ static void main_manage_task(void *args) {
             xQueueSend(lvgl_manage_task_queue, &cm, pdMS_TO_TICKS(20));
             break;
         }
+        case manage_command_type::indicator_terminate:
         case manage_command_type::terminate: {
             if (jpeg_decode_task_handle) {
                 old_message_path = safe_get_value(new_message.path);
@@ -626,9 +627,22 @@ static void main_manage_task(void *args) {
                 xQueueSend(lvgl_manage_task_queue, &cm, pdMS_TO_TICKS(20));
             }
             else {
-                lvgl_manage_command cm {};
-                cm.type = lvgl_command_type::show_pict_message;
-                xQueueSend(lvgl_manage_task_queue, &cm, pdMS_TO_TICKS(20));
+                if (new_message.type == manage_command_type::indicator_terminate) {
+                    old_message_path = safe_get_value(new_message.path);
+                    curr_open_path.clear();
+                    can_click_pict = false;
+
+                    lvgl_manage_command cm {};
+                    cm.type = lvgl_command_type::nothing;
+                    xQueueSend(lvgl_manage_task_queue, &cm, pdMS_TO_TICKS(20));
+                }
+                else {
+                    if (can_click_pict) {
+                        lvgl_manage_command cm {};
+                        cm.type = lvgl_command_type::show_pict_message;
+                        xQueueSend(lvgl_manage_task_queue, &cm, pdMS_TO_TICKS(20));
+                    }
+                }
             }
 
             break;
@@ -735,6 +749,7 @@ static void main_manage_task(void *args) {
             }
             old_message_path = safe_get_value(new_message.path);
             curr_open_path.clear();
+            curr_file_info = {};
 
             lvgl_manage_command cm {};
             cm.type = lvgl_command_type::delete_curr_file;
@@ -1060,7 +1075,7 @@ static void click_one_file(lv_event_t *e, const char *path, bool change_dir, FIL
         }
     }
     else {
-        if (send_command_to_main_manage(nullptr, 0, manage_command_type::terminate, 0) == pdPASS) {
+        if (send_command_to_main_manage(nullptr, 0, manage_command_type::indicator_terminate, 0) == pdPASS) {
             lv_label_set_text_static(image_indicator_label, "");
         }
         else {

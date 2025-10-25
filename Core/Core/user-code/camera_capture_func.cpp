@@ -1,4 +1,4 @@
-#define FILE_DEBUG 0
+#define FILE_DEBUG 1
 
 #include "camera_declare.hpp"
 
@@ -540,6 +540,7 @@ void camera_JPEG_capture_abort_first_stage_dma(Camera_DCMI_HandleType *Camera_DC
         }
     }
     else {
+        debug("JPEG No SW Request!\n");
         xEventGroupSetBits(Camera_DCMI->eg, SECOND_STAGE_DMA_CPLT);
         xSemaphoreGive(camera_new_message);
     }

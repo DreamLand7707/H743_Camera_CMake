@@ -47,6 +47,7 @@ enum class manage_command_type : uint32_t {
     reload,
     decode_complete,
     terminate,
+    indicator_terminate,
     full_picture,
     small_picture,
     ins_card,

@@ -1,4 +1,4 @@
-#define FILE_DEBUG 0
+#define FILE_DEBUG 1
 
 #include "camera_declare.hpp"
 
@@ -8,7 +8,7 @@
 void camera_RGB_YCbCr_DMA_Cplt_Cb(DMA_HandleTypeDef *hdma) {
     Camera_DCMI_Data *p = container_of(hdma, Camera_DCMI_Data, first_stage_dma);
     //
-    debug("[ISR] %u tick: camera_RGB_YCbCr_DMA_Cplt_Cb\n", xTaskGetTickCountFromISR());
+    // debug("[ISR] %u tick: camera_RGB_YCbCr_DMA_Cplt_Cb\n", xTaskGetTickCountFromISR());
     BaseType_t should_yield = pdFALSE;
     xEventGroupSetBitsFromISR(p->eg, FIRST_STAGE_DMA_CPLT, &should_yield);
     xQueueSendFromISR(p->MDMA_sync, nullptr, &should_yield);
@@ -19,7 +19,7 @@ void camera_RGB_YCbCr_DMA_Cplt_Cb(DMA_HandleTypeDef *hdma) {
 void camera_RGB_YCbCr_DMA_M1_Cplt_Cb(DMA_HandleTypeDef *hdma) {
     Camera_DCMI_Data *p = container_of(hdma, Camera_DCMI_Data, first_stage_dma);
     //
-    debug("[ISR] %u tick: camera_RGB_YCbCr_DMA_M1_Cplt_Cb\n", xTaskGetTickCountFromISR());
+    // debug("[ISR] %u tick: camera_RGB_YCbCr_DMA_M1_Cplt_Cb\n", xTaskGetTickCountFromISR());
     BaseType_t should_yield = pdFALSE;
     xEventGroupSetBitsFromISR(p->eg, FIRST_STAGE_DMA_M1_CPLT, &should_yield);
     xQueueSendFromISR(p->MDMA_sync, nullptr, &should_yield);
@@ -30,8 +30,8 @@ void camera_RGB_YCbCr_DMA_M1_Cplt_Cb(DMA_HandleTypeDef *hdma) {
 void camera_RGB_YCbCr_DMA_Error_Cb(DMA_HandleTypeDef *hdma) {
     Camera_DCMI_Data *p = container_of(hdma, Camera_DCMI_Data, first_stage_dma);
     //
-    debug(ANSI_COLOR_FG_RED "[ISR] %u tick: camera_RGB_YCbCr_DMA_Error_Cb, ErrorCode: %u\n" ANSI_COLOR_RESET,
-          xTaskGetTickCountFromISR(), hdma->ErrorCode);
+    // debug(ANSI_COLOR_FG_RED "[ISR] %u tick: camera_RGB_YCbCr_DMA_Error_Cb, ErrorCode: %u\n" ANSI_COLOR_RESET,
+    //       xTaskGetTickCountFromISR(), hdma->ErrorCode);
     BaseType_t should_yield = pdFALSE;
     xEventGroupSetBitsFromISR(p->eg, FIRST_STAGE_DMA_ERROR, &should_yield);
     xSemaphoreGiveFromISR(camera_new_message, &should_yield);
@@ -41,7 +41,7 @@ void camera_RGB_YCbCr_DMA_Error_Cb(DMA_HandleTypeDef *hdma) {
 void camera_RGB_YCbCr_DMA_Abort_Cb(DMA_HandleTypeDef *hdma) {
     Camera_DCMI_Data *p = container_of(hdma, Camera_DCMI_Data, first_stage_dma);
     //
-    debug(ANSI_COLOR_FG_CYAN "[ISR] %u tick: camera_RGB_YCbCr_DMA_Abort_Cb\n" ANSI_COLOR_RESET, xTaskGetTickCountFromISR());
+    // debug(ANSI_COLOR_FG_CYAN "[ISR] %u tick: camera_RGB_YCbCr_DMA_Abort_Cb\n" ANSI_COLOR_RESET, xTaskGetTickCountFromISR());
     BaseType_t should_yield = pdFALSE;
     xEventGroupSetBitsFromISR(p->eg, FIRST_STAGE_DMA_ABORT, &should_yield);
     xSemaphoreGiveFromISR(camera_new_message, &should_yield);
@@ -51,7 +51,7 @@ void camera_RGB_YCbCr_DMA_Abort_Cb(DMA_HandleTypeDef *hdma) {
 void camera_RGB_YCbCr_MDMA_Cplt_Cb(MDMA_HandleTypeDef *hmdma) {
     Camera_DCMI_Data *p = container_of(hmdma, Camera_DCMI_Data, second_stage_dma);
     //
-    debug(ANSI_COLOR_FG_GREEN "[ISR] %u tick: camera_RGB_YCbCr_MDMA_Cplt_Cb\n" ANSI_COLOR_RESET, xTaskGetTickCountFromISR());
+    // debug(ANSI_COLOR_FG_GREEN "[ISR] %u tick: camera_RGB_YCbCr_MDMA_Cplt_Cb\n" ANSI_COLOR_RESET, xTaskGetTickCountFromISR());
     BaseType_t should_yield = pdFALSE;
     xEventGroupSetBitsFromISR(p->eg, SECOND_STAGE_DMA_CPLT, &should_yield);
     xSemaphoreGiveFromISR(camera_new_message, &should_yield);
@@ -61,7 +61,7 @@ void camera_RGB_YCbCr_MDMA_Cplt_Cb(MDMA_HandleTypeDef *hmdma) {
 void camera_RGB_YCbCr_MDMA_RepeatBlock_Cplt_Cb(MDMA_HandleTypeDef *hmdma) {
     Camera_DCMI_Data *p = container_of(hmdma, Camera_DCMI_Data, second_stage_dma);
     //
-    debug("[ISR] %u tick: camera_RGB_YCbCr_MDMA_RepeatBlock_Cplt_Cb\n", xTaskGetTickCountFromISR());
+    // debug("[ISR] %u tick: camera_RGB_YCbCr_MDMA_RepeatBlock_Cplt_Cb\n", xTaskGetTickCountFromISR());
     BaseType_t should_yield = pdFALSE;
     xEventGroupSetBitsFromISR(p->eg, SECOND_STAGE_DMA_REPEAT_CPLT, &should_yield);
     xQueueReceiveFromISR(p->MDMA_sync, nullptr, &should_yield);
@@ -72,8 +72,8 @@ void camera_RGB_YCbCr_MDMA_RepeatBlock_Cplt_Cb(MDMA_HandleTypeDef *hmdma) {
 void camera_RGB_YCbCr_MDMA_Error_Cb(MDMA_HandleTypeDef *hmdma) {
     Camera_DCMI_Data *p = container_of(hmdma, Camera_DCMI_Data, second_stage_dma);
     //
-    debug(ANSI_COLOR_FG_RED "[ISR] %u tick: camera_RGB_YCbCr_MDMA_Error_Cb, ErrorCode: %u\n" ANSI_COLOR_RESET,
-          xTaskGetTickCountFromISR(), hmdma->ErrorCode);
+    // debug(ANSI_COLOR_FG_RED "[ISR] %u tick: camera_RGB_YCbCr_MDMA_Error_Cb, ErrorCode: %u\n" ANSI_COLOR_RESET,
+    //       xTaskGetTickCountFromISR(), hmdma->ErrorCode);
     BaseType_t should_yield = pdFALSE;
     xEventGroupSetBitsFromISR(p->eg, SECOND_STAGE_DMA_ERROR, &should_yield);
     xSemaphoreGiveFromISR(camera_new_message, &should_yield);
@@ -83,7 +83,7 @@ void camera_RGB_YCbCr_MDMA_Error_Cb(MDMA_HandleTypeDef *hmdma) {
 void camera_RGB_YCbCr_MDMA_Abort_Cb(MDMA_HandleTypeDef *hmdma) {
     Camera_DCMI_Data *p = container_of(hmdma, Camera_DCMI_Data, second_stage_dma);
     //
-    debug(ANSI_COLOR_FG_CYAN "[ISR] %u tick: camera_RGB_YCbCr_MDMA_Abort_Cb\n" ANSI_COLOR_RESET, xTaskGetTickCountFromISR());
+    // debug(ANSI_COLOR_FG_CYAN "[ISR] %u tick: camera_RGB_YCbCr_MDMA_Abort_Cb\n" ANSI_COLOR_RESET, xTaskGetTickCountFromISR());
     BaseType_t should_yield = pdFALSE;
     xEventGroupSetBitsFromISR(p->eg, SECOND_STAGE_DMA_ABORT, &should_yield);
     xSemaphoreGiveFromISR(camera_new_message, &should_yield);
