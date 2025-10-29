@@ -8,10 +8,14 @@ SemaphoreHandle_t camera_exit {};
 SemaphoreHandle_t camera_error {};
 SemaphoreHandle_t camera_take_photo {};
 SemaphoreHandle_t camera_strobe_setting_changed {};
+SemaphoreHandle_t camera_focus_begin {};
+SemaphoreHandle_t camera_focus_success {};
+SemaphoreHandle_t camera_focus_failed {};
+SemaphoreHandle_t camera_focus_need_restart {};
 QueueSetHandle_t  camera_queue_set {};
 
 void              dcmi_capture_resource_init() {
-    camera_queue_set              = xQueueCreateSet(7);
+    camera_queue_set              = xQueueCreateSet(11);
     camera_interface_changed      = xSemaphoreCreateBinary();
     camera_new_message            = xSemaphoreCreateBinary();
     camera_exit                   = xSemaphoreCreateBinary();
@@ -19,6 +23,10 @@ void              dcmi_capture_resource_init() {
     camera_interface_restart      = xSemaphoreCreateBinary();
     camera_take_photo             = xSemaphoreCreateBinary();
     camera_strobe_setting_changed = xSemaphoreCreateBinary();
+    camera_focus_success          = xSemaphoreCreateBinary();
+    camera_focus_failed           = xSemaphoreCreateBinary();
+    camera_focus_need_restart     = xSemaphoreCreateBinary();
+    camera_focus_begin            = xSemaphoreCreateBinary();
 
     xQueueAddToSet(camera_new_message, camera_queue_set);
     xQueueAddToSet(camera_exit, camera_queue_set);
@@ -27,6 +35,13 @@ void              dcmi_capture_resource_init() {
     xQueueAddToSet(camera_interface_restart, camera_queue_set);
     xQueueAddToSet(camera_take_photo, camera_queue_set);
     xQueueAddToSet(camera_strobe_setting_changed, camera_queue_set);
+    xQueueAddToSet(camera_focus_success, camera_queue_set);
+    xQueueAddToSet(camera_focus_failed, camera_queue_set);
+    xQueueAddToSet(camera_focus_need_restart, camera_queue_set);
+    xQueueAddToSet(camera_focus_begin, camera_queue_set);
+
+    camera_single_focus_timer   = xTimerCreate("single focus timer", pdMS_TO_TICKS(5), false, nullptr, camera_single_focus_timer_callback);
+    camera_constant_focus_timer = xTimerCreate("multiple focus timer", pdMS_TO_TICKS(5), true, nullptr, camera_constant_focus_timer_callback);
 }
 
 HAL_StatusTypeDef camera_start_capture(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format,
@@ -714,5 +729,30 @@ void resolution_parse(uint32_t &resolution, uint32_t &data_length, uint32_t &src
         target_dcmi = &(JPEG_hdcmi);
         break;
     }
+    }
+}
+
+void camera_single_focus_timer_callback(TimerHandle_t xTimer) {
+    static size_t focus_time = 0;
+
+    if (OV5640_Focus_Read_Single(&ov5640)) {
+        focus_time = 0;
+        xSemaphoreGive(camera_focus_success);
+    }
+    else {
+        focus_time++;
+        if (focus_time > 200) {
+            focus_time = 0;
+            xSemaphoreGive(camera_focus_failed);
+        }
+        else {
+            xSemaphoreGive(camera_focus_need_restart);
+        }
+    }
+}
+
+void camera_constant_focus_timer_callback(TimerHandle_t xTimer) {
+    if (OV5640_Focus_Read_Constant(&ov5640)) {
+        xSemaphoreGive(camera_focus_success);
     }
 }

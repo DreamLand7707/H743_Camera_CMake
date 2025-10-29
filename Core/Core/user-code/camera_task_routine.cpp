@@ -22,8 +22,12 @@ SemaphoreHandle_t       camera_interface_changed {};
 SemaphoreHandle_t       camera_interface_restart {};
 bool                    camera_deinit_have_done = true;
 
+TimerHandle_t           camera_single_focus_timer;
+TimerHandle_t           camera_constant_focus_timer;
+
 lv_obj_t               *screen_container {};
 lv_obj_t               *camera_capture_image {};
+lv_obj_t               *camera_capture_image_eventor {};
 lv_obj_t               *button_container {};
 lv_obj_t               *take_photo_button {};
 lv_obj_t               *change_to_file_explorer_button {};
@@ -65,6 +69,12 @@ void lvgl_create_camera_interface() {
     lv_obj_set_style_size(camera_capture_image, LV_PCT(100), LV_PCT(100), LV_STATE_DEFAULT);
     lv_obj_set_style_pad_all(camera_capture_image, 0, LV_STATE_DEFAULT);
     lv_obj_set_style_border_width(camera_capture_image, 0, LV_STATE_DEFAULT);
+
+    camera_capture_image_eventor = lv_obj_create(camera_capture_image);
+    lv_obj_set_style_size(camera_capture_image_eventor, LV_PCT(100), LV_PCT(100), LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_all(camera_capture_image_eventor, 0, LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(camera_capture_image_eventor, 0, LV_STATE_DEFAULT);
+    lv_obj_set_style_opa(camera_capture_image_eventor, 0, LV_STATE_DEFAULT);
 
     button_container = lv_obj_create(camera_screen);
     lv_obj_set_style_size(button_container, LV_PCT(15), LV_PCT(100), LV_STATE_DEFAULT);
@@ -117,6 +127,7 @@ void lvgl_create_camera_interface() {
     lv_obj_add_event_cb(change_to_file_explorer_button, change_to_file_explorer_callback, LV_EVENT_CLICKED, nullptr);
     lv_obj_add_event_cb(take_photo_button, take_photo_callback, LV_EVENT_CLICKED, nullptr);
     lv_obj_add_event_cb(open_setting_button, open_setting_callback, LV_EVENT_CLICKED, nullptr);
+    lv_obj_add_event_cb(camera_capture_image_eventor, image_eventor_callback, LV_EVENT_CLICKED, nullptr);
 
     indicator_label = lv_label_create(camera_screen);
     lv_obj_set_align(indicator_label, LV_ALIGN_CENTER);
@@ -343,6 +354,11 @@ void checkboxs_callback(lv_event_t *e) {
     xSemaphoreGive(camera_strobe_setting_changed);
 }
 
+
+void image_eventor_callback(lv_event_t *e) {
+    xSemaphoreGive(camera_focus_begin);
+}
+
 void indicator_operate(const char *message) {
     if (!message) {
         lv_lock();
@@ -372,6 +388,7 @@ void screen_image_operate(void *source) {
     }
     lv_unlock();
 }
+
 
 void camera_task_routine(void const *argument) {
     static lv_image_dsc_t img_dsc;
@@ -403,6 +420,8 @@ void camera_task_routine(void const *argument) {
     uint32_t      use_full_buffer = 1;
     bool          screen_RGB_mode = true;
     uint32_t      strobe_state    = 0;
+
+    bool          focus_begin     = false;
 
     while (1) {
         // ?
@@ -438,9 +457,14 @@ void camera_task_routine(void const *argument) {
             if (!screen_RGB_mode)
                 continue;
 
-            current_resolution = camera_resolution::reso_QVGA;
+            current_resolution = camera_resolution::reso_VGA;
             current_format     = camera_format::format_RGB;
             resolution_parse(resolution, data_length, src_w, src_h, format);
+
+            if (focus_begin) {
+                focus_begin = false;
+                xTimerStop(camera_single_focus_timer, portMAX_DELAY);
+            }
 
             camera_deinit_have_done = false;
             if (camera_init(can_catch_scene, resolution, format, false) != 0) {
@@ -592,7 +616,7 @@ void camera_task_routine(void const *argument) {
                     }
 
                     // change to RGB
-                    current_resolution = camera_resolution::reso_QVGA;
+                    current_resolution = camera_resolution::reso_VGA;
                     current_format     = camera_format::format_RGB;
                     resolution_parse(resolution, data_length, src_w, src_h, format);
 
@@ -617,6 +641,11 @@ void camera_task_routine(void const *argument) {
             xSemaphoreTake(camera_exit, 0);
             queue_enable = false;
 
+            if (focus_begin) {
+                focus_begin = false;
+                xTimerStop(camera_single_focus_timer, portMAX_DELAY);
+            }
+
             camera_RGB_YCbCr_capture_stop(target_dcmi, current_format);
             camera_deinit(nullptr, nullptr);
             vTaskDelay(pdMS_TO_TICKS(20));
@@ -627,6 +656,11 @@ void camera_task_routine(void const *argument) {
         }
         else if (the_queue == camera_error) {
             xSemaphoreTake(camera_error, 0);
+
+            if (focus_begin) {
+                focus_begin = false;
+                xTimerStop(camera_single_focus_timer, portMAX_DELAY);
+            }
 
             camera_RGB_YCbCr_capture_stop(target_dcmi, current_format);
             camera_deinit(error_message, nullptr);
@@ -690,6 +724,34 @@ void camera_task_routine(void const *argument) {
             camera_start_capture(target_dcmi, current_format,
                                  (uintptr_t)(&(D2_SRAM[0])), sizeof(D2_SRAM),
                                  (uintptr_t)jpeg_before_buffer_rgb, 16 * 1024 * 1024); // JPEG Capture
+        }
+        else if (the_queue == camera_focus_begin) {
+            xSemaphoreTake(camera_focus_begin, 0);
+            if (!can_take_photo || focus_begin)
+                continue;
+            can_take_photo = false;
+            focus_begin    = true;
+            OV5640_Focus_Send_Single(&ov5640);
+            indicator_operate("Focus...");
+            xTimerStart(camera_single_focus_timer, portMAX_DELAY);
+        }
+        else if (the_queue == camera_focus_need_restart) {
+            xSemaphoreTake(camera_focus_need_restart, 0);
+            if (!focus_begin)
+                continue;
+            xTimerStart(camera_single_focus_timer, portMAX_DELAY);
+        }
+        else if (the_queue == camera_focus_success) {
+            xSemaphoreTake(camera_focus_success, 0);
+            can_take_photo = true;
+            focus_begin    = false;
+            indicator_operate(nullptr);
+        }
+        else if (the_queue == camera_focus_failed) {
+            xSemaphoreTake(camera_focus_failed, 0);
+            can_take_photo = true;
+            focus_begin    = false;
+            indicator_operate(nullptr);
         }
     }
 }

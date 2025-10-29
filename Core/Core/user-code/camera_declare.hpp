@@ -86,6 +86,8 @@ extern bool                    target_dcmi_is_ok;
 extern Camera_DCMI_HandleType  RGB_hdcmi;   // RGB(565) => Convert(YCbCr 4:4:4) => Encode Inside(JPEG)
 extern Camera_DCMI_HandleType  YCbCr_hdcmi; // YCbCr(4:2:2) => Encode Inside(JPEG)
 extern Camera_DCMI_HandleType  JPEG_hdcmi;  // JPEG(4:2:2)
+extern TimerHandle_t           camera_single_focus_timer;
+extern TimerHandle_t           camera_constant_focus_timer;
 
 
 extern SemaphoreHandle_t       camera_new_message;
@@ -94,6 +96,10 @@ extern SemaphoreHandle_t       camera_error;
 extern SemaphoreHandle_t       camera_take_photo;
 extern QueueSetHandle_t        camera_queue_set;
 extern SemaphoreHandle_t       camera_strobe_setting_changed;
+extern SemaphoreHandle_t       camera_focus_success;
+extern SemaphoreHandle_t       camera_focus_failed;
+extern SemaphoreHandle_t       camera_focus_need_restart;
+extern SemaphoreHandle_t       camera_focus_begin;
 
 extern lv_obj_t               *screen_container;
 extern lv_obj_t               *camera_capture_image;
@@ -152,6 +158,7 @@ void              take_photo_callback(lv_event_t *e);
 void              open_setting_callback(lv_event_t *e);
 void              indicator_return_btn_callback(lv_event_t *e);
 void              checkboxs_callback(lv_event_t *e);
+void              image_eventor_callback(lv_event_t *e);
 
 void              indicator_operate(const char *message);
 void              screen_image_operate(void *source);
@@ -170,12 +177,15 @@ void              camera_JPEG_capture_abort_first_stage_dma(Camera_DCMI_HandleTy
 void              camera_JPEG_capture_stop(Camera_DCMI_HandleType *Camera_DCMI, camera_format target_format);
 void              MY_HAL_DCMI_IRQHandler(DCMI_HandleTypeDef *hdcmi);
 
+void              camera_single_focus_timer_callback(TimerHandle_t xTimer);
+void              camera_constant_focus_timer_callback(TimerHandle_t xTimer);
+
 LV_FONT_DECLARE(photo_folder_setting)
-#define OV5640_ADDR          0x78
-#define OV5640_RST(n)        (HAL_GPIO_WritePin(DCMI_RESET_GPIO_Port, DCMI_RESET_Pin, (n) ? GPIO_PIN_SET : GPIO_PIN_RESET))
-#define OV5640_STROBE(n)     (HAL_GPIO_WritePin(DCMI_XCLK_GPIO_Port, DCMI_XCLK_Pin, (n) ? GPIO_PIN_SET : GPIO_PIN_RESET))
-#define DCMI_PWDN_IO         2
-#define MY_TAKE_PHOTO_SYMBOL "\xE2\x97\x89"
+#define OV5640_ADDR                  0x78
+#define OV5640_RST(n)                (HAL_GPIO_WritePin(DCMI_RESET_GPIO_Port, DCMI_RESET_Pin, (n) ? GPIO_PIN_SET : GPIO_PIN_RESET))
+#define OV5640_STROBE(n)             (HAL_GPIO_WritePin(DCMI_XCLK_GPIO_Port, DCMI_XCLK_Pin, (n) ? GPIO_PIN_SET : GPIO_PIN_RESET))
+#define DCMI_PWDN_IO                 2
+#define MY_TAKE_PHOTO_SYMBOL         "\xE2\x97\x89"
 
 // #define ALINTEK_BOARD
 

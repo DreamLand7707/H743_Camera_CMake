@@ -72,6 +72,7 @@ void dcmi_data_structure_init() {
     my_sccb.port_setting.SCL_pin    = DCMI_SCL_Pin;
     my_sccb.port_setting.SDA_port   = DCMI_SDA_GPIO_Port;
     my_sccb.port_setting.SDA_pin    = DCMI_SDA_Pin;
+    my_sccb.mutex                   = xSemaphoreCreateMutex();
 
     static auto get_tick            = []()
     {

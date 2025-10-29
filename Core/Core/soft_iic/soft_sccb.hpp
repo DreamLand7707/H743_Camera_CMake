@@ -10,6 +10,8 @@
 
 #include "main.h"
 #include "gpio.h"
+#include "FreeRTOS.h"
+#include "semphr.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -21,24 +23,25 @@ extern "C"
     typedef struct soft_sccb_port_origin {
         GPIO_TypeDef *SDA_port;
         GPIO_TypeDef *SCL_port;
-        uint16_t SDA_pin;
-        uint16_t SCL_pin;
+        uint16_t      SDA_pin;
+        uint16_t      SCL_pin;
     } soft_sccb_port;
 
     typedef struct soft_sccb_param_origin {
         soft_sccb_delay_us_handle delay_handle;
-        uint32_t frequency;
+        uint32_t                  frequency;
     } soft_sccb_param;
 
     typedef struct soft_sccb_handle_origin {
-        soft_sccb_port_origin port_setting;
+        soft_sccb_port_origin  port_setting;
         soft_sccb_param_origin parameters;
-        uint8_t address_withwr;
+        uint8_t                address_withwr;
+        SemaphoreHandle_t      mutex;
     } soft_sccb_handle;
 
-    void SCCB_Start(soft_sccb_handle *handle);
-    void SCCB_Stop(soft_sccb_handle *handle);
-    void SCCB_No_Ack(soft_sccb_handle *handle);
+    void    SCCB_Start(soft_sccb_handle *handle);
+    void    SCCB_Stop(soft_sccb_handle *handle);
+    void    SCCB_No_Ack(soft_sccb_handle *handle);
     uint8_t SCCB_WR_Byte(soft_sccb_handle *handle, uint8_t dat);
     uint8_t SCCB_RD_Byte(soft_sccb_handle *handle);
     uint8_t OV5640_WR_Reg(soft_sccb_handle *handle, uint16_t reg, uint8_t data);

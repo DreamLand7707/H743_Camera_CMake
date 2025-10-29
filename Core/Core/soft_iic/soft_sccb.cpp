@@ -97,6 +97,7 @@ uint8_t SCCB_RD_Byte(soft_sccb_handle *handle) {
 
 
 uint8_t OV5640_WR_Reg(soft_sccb_handle *handle, uint16_t reg, uint8_t data) {
+    xSemaphoreTake(handle->mutex, portMAX_DELAY);
     uint8_t res = 0;
     SCCB_Start(handle);
     if (SCCB_WR_Byte(handle, handle->address_withwr & 0xFEu))
@@ -108,10 +109,12 @@ uint8_t OV5640_WR_Reg(soft_sccb_handle *handle, uint16_t reg, uint8_t data) {
     if (SCCB_WR_Byte(handle, data))
         res = 1;
     SCCB_Stop(handle);
+    xSemaphoreGive(handle->mutex);
     return res;
 }
 
 uint8_t OV5640_RD_Reg(soft_sccb_handle *handle, uint16_t reg, uint8_t *rd_data) {
+    xSemaphoreTake(handle->mutex, portMAX_DELAY);
     SCCB_Start(handle);
     if (SCCB_WR_Byte(handle, handle->address_withwr & 0xFEu))
         return 1;
@@ -127,5 +130,6 @@ uint8_t OV5640_RD_Reg(soft_sccb_handle *handle, uint16_t reg, uint8_t *rd_data) 
     *rd_data = SCCB_RD_Byte(handle);
     SCCB_No_Ack(handle);
     SCCB_Stop(handle);
+    xSemaphoreGive(handle->mutex);
     return 0;
 }
