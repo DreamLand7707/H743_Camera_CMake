@@ -177,10 +177,10 @@ extern "C"
 #define KEY2_GPIO_Port                 GPIOC
 #define WK_UP_Pin                      GPIO_PIN_0
 #define WK_UP_GPIO_Port                GPIOA
-#define KEY1_Pin                       GPIO_PIN_2
-#define KEY1_GPIO_Port                 GPIOH
-#define KEY0_Pin                       GPIO_PIN_3
-#define KEY0_GPIO_Port                 GPIOH
+#define SHOT_Pin                       GPIO_PIN_2
+#define SHOT_Port                      GPIOH
+#define SDCARD_KEY_Pin                 GPIO_PIN_3
+#define SDCARD_KEY_Port                GPIOH
 
 #define LED0_Pin                       GPIO_PIN_1
 #define LED0_GPIO_Port                 GPIOB

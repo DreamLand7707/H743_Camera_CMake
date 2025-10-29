@@ -177,7 +177,7 @@ LV_FONT_DECLARE(photo_folder_setting)
 #define DCMI_PWDN_IO         2
 #define MY_TAKE_PHOTO_SYMBOL "\xE2\x97\x89"
 
-#define ALINTEK_BOARD
+// #define ALINTEK_BOARD
 
 #define FIRST_STAGE_DMA_ERROR        0b000000000001u
 #define FIRST_STAGE_DMA_ABORT        0b000000000010u

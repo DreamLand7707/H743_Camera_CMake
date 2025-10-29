@@ -84,12 +84,6 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(T_CS_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : KEY2_Pin */
-  GPIO_InitStruct.Pin = KEY2_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(KEY2_GPIO_Port, &GPIO_InitStruct);
-
   /*Configure GPIO pin : WK_UP_Pin */
   GPIO_InitStruct.Pin = WK_UP_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
@@ -97,7 +91,7 @@ void MX_GPIO_Init(void)
   HAL_GPIO_Init(WK_UP_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : KEY1_Pin KEY0_Pin T_PEN_Pin */
-  GPIO_InitStruct.Pin = KEY1_Pin|KEY0_Pin|T_PEN_Pin;
+  GPIO_InitStruct.Pin = SHOT_Pin|SDCARD_KEY_Pin|T_PEN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOH, &GPIO_InitStruct);

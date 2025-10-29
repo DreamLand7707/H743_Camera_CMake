@@ -2,6 +2,7 @@
 #include "camera_declare.hpp"
 
 bool PCF8574_init = false;
+bool GPIOC_PWDN   = false;
 
 int  camera_init(bool &can_catch_scene, uint32_t resolution, uint32_t format, bool just_change) {
     // DCMI Init -> IO Init -> OV5640 Init -> OV5640 Start -> DCMI DMA
@@ -79,6 +80,16 @@ int32_t ov5640_init() {
         PCF8574_Init();
         PCF8574_init = true;
     }
+#else
+    if (!GPIOC_PWDN) {
+        GPIO_InitTypeDef GPIO_InitStruct = {0};
+        GPIO_InitStruct.Pin              = GPIO_PIN_13;
+        GPIO_InitStruct.Mode             = GPIO_MODE_OUTPUT_PP;
+        GPIO_InitStruct.Pull             = GPIO_NOPULL;
+        GPIO_InitStruct.Speed            = GPIO_SPEED_FREQ_VERY_HIGH;
+        HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+        GPIOC_PWDN = true;
+    }
 #endif
 
     OV5640_RST(0);
@@ -138,6 +149,16 @@ void dcmi_io_deinit_ov5640() {
     if (!PCF8574_init) {
         PCF8574_Init();
         PCF8574_init = true;
+    }
+#else
+    if (!GPIOC_PWDN) {
+        GPIO_InitTypeDef GPIO_InitStruct = {0};
+        GPIO_InitStruct.Pin              = GPIO_PIN_13;
+        GPIO_InitStruct.Mode             = GPIO_MODE_OUTPUT_PP;
+        GPIO_InitStruct.Pull             = GPIO_NOPULL;
+        GPIO_InitStruct.Speed            = GPIO_SPEED_FREQ_VERY_HIGH;
+        HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+        GPIOC_PWDN = true;
     }
 #endif
     OV5640_PWDN_Set(1);
