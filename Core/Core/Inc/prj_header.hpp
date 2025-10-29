@@ -91,3 +91,4 @@ void                     picture_scaling(const void *src, void *dst, uint32_t sr
 
 extern SemaphoreHandle_t camera_interface_changed;
 extern SemaphoreHandle_t camera_interface_restart;
+extern void (*shot_btn_isr_callback)();

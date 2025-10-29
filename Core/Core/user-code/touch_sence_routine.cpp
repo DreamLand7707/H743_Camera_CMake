@@ -207,6 +207,10 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
         touch_ic_isr_callback();
         break;
     }
+    case SHOT_Pin: {
+        shot_btn_isr_callback();
+        break;
+    }
     default:
         break;
     }

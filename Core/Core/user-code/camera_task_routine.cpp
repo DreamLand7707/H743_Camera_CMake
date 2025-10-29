@@ -35,6 +35,8 @@ lv_obj_t               *indicator_label {};
 
 uint8_t D2_SRAM[128 * 1024] IN_SRAM2 __ALIGNED(32);
 
+void (*shot_btn_isr_callback)();
+
 // static variables
 
 static char                                    error_message[128] {};
@@ -44,6 +46,9 @@ static tms                                     t {};
 
 static std::default_random_engine              eng;
 static std::uniform_int_distribution<uint32_t> unif_name(0, UINT32_MAX);
+
+//
+static void set_shot_btn();
 
 // functions
 void lvgl_create_camera_interface() {
@@ -385,6 +390,7 @@ void camera_task_routine(void const *argument) {
     lvgl_create_camera_interface();
     lvgl_create_setting_interface();
     dcmi_capture_resource_init();
+    set_shot_btn();
 
     xSemaphoreGive(sema_camera_routine_init_done);
 
@@ -599,6 +605,8 @@ void camera_task_routine(void const *argument) {
                     camera_captured_end = false;
                     screen_RGB_mode     = true;
                     can_take_photo      = true;
+
+                    indicator_operate("");
                     camera_start_capture(target_dcmi, current_format,
                                          (uintptr_t)(&(D2_SRAM[0])), sizeof(D2_SRAM),
                                          (uintptr_t)jpeg_before_buffer_rgb, data_length); // RGB Capture
@@ -674,9 +682,38 @@ void camera_task_routine(void const *argument) {
             else {
                 target_dcmi->jpeg_use_strobe = false;
             }
+
+            indicator_operate("Please Wait...");
+
             camera_start_capture(target_dcmi, current_format,
                                  (uintptr_t)(&(D2_SRAM[0])), sizeof(D2_SRAM),
                                  (uintptr_t)jpeg_before_buffer_rgb, 16 * 1024 * 1024); // JPEG Capture
         }
     }
+}
+
+extern "C" void EXTI2_IRQHandler() {
+    HAL_GPIO_EXTI_IRQHandler(SHOT_Pin);
+}
+
+static void shot_btn_callback() {
+    BaseType_t woken = pdFALSE;
+    xSemaphoreGiveFromISR(camera_take_photo, &woken);
+    portYIELD_FROM_ISR(woken);
+}
+
+static void set_shot_btn() {
+#ifndef ALINTEK_BOARD
+    shot_btn_isr_callback            = shot_btn_callback;
+
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+    GPIO_InitStruct.Pin              = SHOT_Pin;
+    GPIO_InitStruct.Mode             = GPIO_MODE_IT_FALLING;
+    GPIO_InitStruct.Pull             = GPIO_PULLUP;
+    GPIO_InitStruct.Speed            = GPIO_SPEED_FREQ_VERY_HIGH;
+    HAL_GPIO_Init(SHOT_Port, &GPIO_InitStruct);
+
+    HAL_NVIC_SetPriority(EXTI2_IRQn, 6, 0);
+    HAL_NVIC_EnableIRQ(EXTI2_IRQn);
+#endif
 }
