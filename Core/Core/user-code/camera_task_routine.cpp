@@ -622,6 +622,7 @@ void camera_task_routine(void const *argument) {
             vTaskDelay(pdMS_TO_TICKS(20));
 
             screen_RGB_mode = true;
+            can_take_photo  = false;
             send_command_to_main_manage(nullptr, 0, manage_command_type::to_file_explorer, portMAX_DELAY);
         }
         else if (the_queue == camera_error) {
@@ -631,6 +632,7 @@ void camera_task_routine(void const *argument) {
             camera_deinit(error_message, nullptr);
 
             can_catch_scene = false;
+            can_take_photo  = false;
         }
         else if (the_queue == camera_take_photo) {
             xSemaphoreTake(camera_take_photo, 0);
