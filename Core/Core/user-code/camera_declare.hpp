@@ -96,10 +96,17 @@ extern SemaphoreHandle_t       camera_error;
 extern SemaphoreHandle_t       camera_take_photo;
 extern QueueSetHandle_t        camera_queue_set;
 extern SemaphoreHandle_t       camera_strobe_setting_changed;
+extern SemaphoreHandle_t       camera_light_mode_changed;
+extern SemaphoreHandle_t       camera_effect_changed;
 extern SemaphoreHandle_t       camera_focus_success;
 extern SemaphoreHandle_t       camera_focus_failed;
 extern SemaphoreHandle_t       camera_focus_need_restart;
 extern SemaphoreHandle_t       camera_focus_begin;
+extern SemaphoreHandle_t       zoom_mode_changed;
+extern SemaphoreHandle_t       mirror_flip_changed;
+extern SemaphoreHandle_t       colorbar_changed;
+extern SemaphoreHandle_t       nightmode_changed;
+extern SemaphoreHandle_t       roller_changed;
 
 extern lv_obj_t               *screen_container;
 extern lv_obj_t               *camera_capture_image;
@@ -158,6 +165,8 @@ void              take_photo_callback(lv_event_t *e);
 void              open_setting_callback(lv_event_t *e);
 void              indicator_return_btn_callback(lv_event_t *e);
 void              checkboxs_callback(lv_event_t *e);
+void              single_checkbox_callback(lv_event_t *e);
+void              roller_callback(lv_event_t *e);
 void              image_eventor_callback(lv_event_t *e);
 
 void              indicator_operate(const char *message);

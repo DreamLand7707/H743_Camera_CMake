@@ -86,9 +86,12 @@ struct lvgl_manage_command {
     lvgl_command_type type;
 };
 
-BaseType_t               send_command_to_main_manage(std::string *path, size_t ref_cnt, manage_command_type type, BaseType_t time);
-void                     picture_scaling(const void *src, void *dst, uint32_t src_w, uint32_t src_h, uint32_t &dst_w, uint32_t &dst_h);
-
+BaseType_t send_command_to_main_manage(std::string *path, size_t ref_cnt, manage_command_type type, BaseType_t time);
+void       picture_scaling(const void *src, void *dst, uint32_t src_w, uint32_t src_h, uint32_t &dst_w, uint32_t &dst_h);
+void       picture_scaling_fast_preview(const void *src, void *dst, uint32_t src_w, uint32_t src_h, uint32_t &dst_w, uint32_t &dst_h);
+void       picture_scaling_jpeg_view(const void *src, void *dst, uint32_t src_w, uint32_t src_h, uint32_t &dst_w, uint32_t &dst_h);
+void       picture_scaling_advanced(const void *src, void *dst, uint32_t src_w, uint32_t src_h, uint32_t &dst_w, uint32_t &dst_h);
+//
 extern SemaphoreHandle_t camera_interface_changed;
 extern SemaphoreHandle_t camera_interface_restart;
 extern void (*shot_btn_isr_callback)();

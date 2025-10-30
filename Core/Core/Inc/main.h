@@ -134,7 +134,8 @@ extern "C"
     extern uint8_t          *jpeg_after_buffer;      // YCbCr
     extern uint8_t          *jpeg_before_buffer_rgb; // YCbCr -> RGB
     extern uint8_t          *full_screen_pict_show_buffer;
-    extern uint8_t          *full_screen_pict_show_buffer_2;
+    extern uint8_t          *capture_screen_buffer;
+    extern uint8_t          *capture_screen_buffer_2;
     extern uint32_t          full_pict_show_size[2];
     extern uint8_t          *widget_pict_show_buffer;
     extern uint32_t          widget_pict_show_size[2];

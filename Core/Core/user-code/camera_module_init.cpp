@@ -52,6 +52,7 @@ int  camera_init(bool &can_catch_scene, uint32_t resolution, uint32_t format, bo
         if (OV5640_Set_Solution_More(&ov5640, resolution) != OV5640_OK) {
             return -1;
         }
+        OV5640_Start(&ov5640);
     }
 
     can_catch_scene = true;

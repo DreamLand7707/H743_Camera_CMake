@@ -447,14 +447,16 @@ static void lvgl_create_pict_message_interface() {
     lv_obj_add_event_cb(pict_message_delete, click_delete_call, LV_EVENT_CLICKED, nullptr);
 }
 
-uint8_t *file_exchange_buffer           = nullptr;
-uint8_t *jpeg_after_buffer              = nullptr; // YCbCr
-uint8_t *jpeg_before_buffer_rgb         = nullptr; // YCbCr -> RGB
-uint8_t *full_screen_pict_show_buffer   = nullptr;
-uint8_t *full_screen_pict_show_buffer_2 = nullptr;
-uint32_t full_pict_show_size[2]         = {};
-uint8_t *widget_pict_show_buffer        = nullptr;
-uint32_t widget_pict_show_size[2]       = {};
+uint8_t *file_exchange_buffer             = nullptr;
+uint8_t *jpeg_after_buffer                = nullptr; // YCbCr
+uint8_t *jpeg_before_buffer_rgb           = nullptr; // YCbCr -> RGB
+uint8_t *full_screen_pict_show_buffer     = nullptr;
+uint8_t *capture_screen_buffer            = nullptr;
+uint8_t *capture_screen_buffer_2          = nullptr;
+uint8_t *full_screen_pict_show_buffer_dou = nullptr;
+uint32_t full_pict_show_size[2]           = {};
+uint8_t *widget_pict_show_buffer          = nullptr;
+uint32_t widget_pict_show_size[2]         = {};
 
 namespace
 {
@@ -508,12 +510,14 @@ static void main_manage_init() {
 }
 
 static void jpeg_rgb_exchange_init() {
-    file_exchange_buffer           = (uint8_t *)pvPortMalloc(64 * 1024);        // 64KB
-    jpeg_after_buffer              = (uint8_t *)pvPortMalloc(64 * 1024);        // 64KB
-    jpeg_before_buffer_rgb         = (uint8_t *)sdram_Malloc(16 * 1024 * 1024); // 16MB
-    full_screen_pict_show_buffer   = (uint8_t *)sdram_Malloc(3 * 272 * 480);    // 382.5KB
-    full_screen_pict_show_buffer_2 = (uint8_t *)sdram_Malloc(3 * 272 * 480);    // 382.5KB
-    widget_pict_show_buffer        = (uint8_t *)sdram_Malloc(3 * 272 * 480);    // 382.5KB
+    file_exchange_buffer             = (uint8_t *)pvPortMalloc(64 * 1024);         // 64KB
+    jpeg_after_buffer                = (uint8_t *)pvPortMalloc(64 * 1024);         // 64KB
+    jpeg_before_buffer_rgb           = (uint8_t *)sdram_Malloc(16 * 1024 * 1024);  // 16MB
+    full_screen_pict_show_buffer     = (uint8_t *)sdram_Malloc(3 * 272 * 480);     // 382.5KB
+    capture_screen_buffer            = (uint8_t *)sdram_Malloc(3 * 272 * 480);     // 382.5KB
+    capture_screen_buffer_2          = (uint8_t *)sdram_Malloc(3 * 272 * 480);     // 382.5KB
+    full_screen_pict_show_buffer_dou = (uint8_t *)sdram_Malloc(3 * 272 * 480 * 4); // 1530 KB
+    widget_pict_show_buffer          = (uint8_t *)sdram_Malloc(3 * 272 * 480);     // 382.5KB
 }
 
 static void main_manage_task(void *args) {
@@ -1029,12 +1033,12 @@ static void jpeg_decode_task(void *args) {
                 full_pict_show_size[1]   = MY_DISP_VER_RES;
                 widget_pict_show_size[0] = lv_obj_get_width(image);
                 widget_pict_show_size[1] = lv_obj_get_height(image);
-                picture_scaling(jpeg_before_buffer_rgb, full_screen_pict_show_buffer,
-                                jpeg_decode_conf.ImageWidth, jpeg_decode_conf.ImageHeight,
-                                full_pict_show_size[0], full_pict_show_size[1]);
-                picture_scaling(jpeg_before_buffer_rgb, widget_pict_show_buffer,
-                                jpeg_decode_conf.ImageWidth, jpeg_decode_conf.ImageHeight,
-                                widget_pict_show_size[0], widget_pict_show_size[1]);
+                picture_scaling_advanced(jpeg_before_buffer_rgb, full_screen_pict_show_buffer,
+                                         jpeg_decode_conf.ImageWidth, jpeg_decode_conf.ImageHeight,
+                                         full_pict_show_size[0], full_pict_show_size[1]);
+                picture_scaling_advanced(jpeg_before_buffer_rgb, widget_pict_show_buffer,
+                                         jpeg_decode_conf.ImageWidth, jpeg_decode_conf.ImageHeight,
+                                         widget_pict_show_size[0], widget_pict_show_size[1]);
 
                 send_command_to_main_manage(jpeg_file_path->path, 0, manage_command_type::decode_complete, 0);
                 break;
@@ -1220,6 +1224,227 @@ void picture_scaling(const void *src, void *dst,
                 ((uint8_t *)dst)[2 * dst_w * y + 2 * x + 0] = ((uint8_t *)src)[2 * src_w * sy + 2 * sx + 0];
                 ((uint8_t *)dst)[2 * dst_w * y + 2 * x + 1] = ((uint8_t *)src)[2 * src_w * sy + 2 * sx + 1];
             }
+        }
+    }
+}
+
+void picture_scaling_fast_preview(const void *src, void *dst,
+                                  uint32_t src_w, uint32_t src_h,
+                                  uint32_t &dst_w, uint32_t &dst_h) {
+    float    ratio_w            = (float)src_w / (float)dst_w;
+    float    ratio_h            = (float)src_h / (float)dst_h;
+    float    all_ratio          = std::max(ratio_w, ratio_h);
+
+    uint32_t temp               = dst_w;
+    dst_w                       = std::min(temp, uint32_t((float)src_w / all_ratio));
+    temp                        = dst_h;
+    dst_h                       = std::min(temp, uint32_t((float)src_h / all_ratio));
+
+    const uint16_t *src_ptr     = (const uint16_t *)src;
+    uint16_t       *dst_ptr     = (uint16_t *)dst;
+
+    uint32_t        ratio_fixed = (uint32_t)(all_ratio * 65536.0f);
+
+    for (uint32_t y = 0; y < dst_h; y++) {
+        uint32_t sy             = (y * ratio_fixed) >> 16;
+        uint32_t src_row_offset = sy * src_w;
+        uint32_t dst_row_offset = y * dst_w;
+
+        for (uint32_t x = 0; x < dst_w; x++) {
+            uint32_t sx                 = (x * ratio_fixed) >> 16;
+            dst_ptr[dst_row_offset + x] = src_ptr[src_row_offset + sx];
+        }
+    }
+}
+
+void picture_scaling_jpeg_view(const void *src, void *dst,
+                               uint32_t src_w, uint32_t src_h,
+                               uint32_t &dst_w, uint32_t &dst_h) {
+
+    float    ratio_w            = (float)src_w / (float)dst_w;
+    float    ratio_h            = (float)src_h / (float)dst_h;
+    float    all_ratio          = std::max(ratio_w, ratio_h);
+
+    uint32_t temp               = dst_w;
+    dst_w                       = std::min(temp, uint32_t((float)src_w / all_ratio));
+    temp                        = dst_h;
+    dst_h                       = std::min(temp, uint32_t((float)src_h / all_ratio));
+
+    const uint16_t *src_ptr     = (const uint16_t *)src;
+    uint16_t       *dst_ptr     = (uint16_t *)dst;
+
+    uint32_t        mid_w       = dst_w * 2;
+    uint32_t        mid_h       = dst_h * 2;
+
+    uint16_t       *temp_buf    = (uint16_t *)full_screen_pict_show_buffer_dou;
+
+    float           first_ratio = (float)src_w / (float)mid_w;
+    if ((float)src_h / (float)mid_h > first_ratio) {
+        first_ratio = (float)src_h / (float)mid_h;
+    }
+
+    for (uint32_t y = 0; y < mid_h; y++) {
+        for (uint32_t x = 0; x < mid_w; x++) {
+            auto     x0    = (uint32_t)((float)x * first_ratio);
+            auto     y0    = (uint32_t)((float)y * first_ratio);
+            uint32_t x1    = std::min((uint32_t)((float)(x + 1) * first_ratio), src_w - 1);
+            uint32_t y1    = std::min((uint32_t)((float)(y + 1) * first_ratio), src_h - 1);
+
+            uint32_t sum_r = 0, sum_g = 0, sum_b = 0;
+            uint32_t count = 0;
+
+            for (uint32_t sy = y0; sy <= y1; sy += 2) {
+                for (uint32_t sx = x0; sx <= x1; sx += 2) {
+                    uint16_t pixel = src_ptr[sy * src_w + sx];
+                    sum_r += (pixel >> 11) & 0x1F;
+                    sum_g += (pixel >> 5) & 0x3F;
+                    sum_b += pixel & 0x1F;
+                    count++;
+                }
+            }
+
+            if (count > 0) {
+                uint32_t r              = (sum_r + count / 2) / count;
+                uint32_t g              = (sum_g + count / 2) / count;
+                uint32_t b              = (sum_b + count / 2) / count;
+                temp_buf[y * mid_w + x] = ((r & 0x1F) << 11) | ((g & 0x3F) << 5) | (b & 0x1F);
+            }
+        }
+    }
+
+    for (uint32_t y = 0; y < dst_h; y++) {
+        for (uint32_t x = 0; x < dst_w; x++) {
+            float    src_x = (float)x * 2.0f;
+            float    src_y = (float)y * 2.0f;
+
+            auto     x0    = (uint32_t)src_x;
+            auto     y0    = (uint32_t)src_y;
+            uint32_t x1    = std::min(x0 + 1, mid_w - 1);
+            uint32_t y1    = std::min(y0 + 1, mid_h - 1);
+
+            float    fx    = src_x - x0;
+            float    fy    = src_y - y0;
+
+            uint16_t p00   = temp_buf[y0 * mid_w + x0];
+            uint16_t p10   = temp_buf[y0 * mid_w + x1];
+            uint16_t p01   = temp_buf[y1 * mid_w + x0];
+            uint16_t p11   = temp_buf[y1 * mid_w + x1];
+
+            // 双线性插值
+            auto r = (uint32_t)(((p00 >> 11u) & 0x1F) * (1 - fx) * (1 - fy) +
+                                ((p10 >> 11u) & 0x1F) * fx * (1 - fy) +
+                                ((p01 >> 11u) & 0x1F) * (1 - fx) * fy +
+                                ((p11 >> 11u) & 0x1F) * fx * fy + 0.5f);
+
+            auto g = (uint32_t)(((p00 >> 5u) & 0x3F) * (1 - fx) * (1 - fy) +
+                                ((p10 >> 5u) & 0x3F) * fx * (1 - fy) +
+                                ((p01 >> 5u) & 0x3F) * (1 - fx) * fy +
+                                ((p11 >> 5u) & 0x3F) * fx * fy + 0.5f);
+
+            auto b = (uint32_t)((p00 & 0x1F) * (1 - fx) * (1 - fy) +
+                                (p10 & 0x1F) * fx * (1 - fy) +
+                                (p01 & 0x1F) * (1 - fx) * fy +
+                                (p11 & 0x1F) * fx * fy + 0.5f);
+            //
+            dst_ptr[y * dst_w + x] = ((r & 0x1F) << 11) | ((g & 0x3F) << 5) | (b & 0x1F);
+        }
+    }
+}
+
+void picture_scaling_advanced(const void *src, void *dst,
+                              uint32_t src_w, uint32_t src_h, uint32_t &dst_w, uint32_t &dst_h) {
+
+    if (src_w == dst_w && src_h == dst_h) {
+        memcpy(dst, src, (src_w * src_h * 2));
+        return;
+    }
+
+    float    ratio_w      = (float)src_w / (float)dst_w;
+    float    ratio_h      = (float)src_h / (float)dst_h;
+    float    all_ratio    = std::max(ratio_w, ratio_h);
+
+    uint32_t temp         = dst_w;
+    dst_w                 = std::min(temp, uint32_t((float)src_w / all_ratio));
+    temp                  = dst_h;
+    dst_h                 = std::min(temp, uint32_t((float)src_h / all_ratio));
+
+    const uint16_t *src16 = (const uint16_t *)src;
+    uint16_t       *dst16 = (uint16_t *)dst;
+
+    for (uint32_t y = 0; y < dst_h; y++) {
+        for (uint32_t x = 0; x < dst_w; x++) {
+            float   src_x = (float)x * all_ratio;
+            float   src_y = (float)y * all_ratio;
+
+            int32_t x0    = (int32_t)src_x;
+            int32_t y0    = (int32_t)src_y;
+
+            // 使用 3x3 采样核心进行边缘保持插值
+            int32_t r_sum = 0, g_sum = 0, b_sum = 0;
+            int32_t weight_sum = 0;
+
+            // 中心像素值（用于计算相似度）
+            int32_t cx = x0, cy = y0;
+            if (cx >= (int32_t)src_w)
+                cx = src_w - 1;
+            if (cy >= (int32_t)src_h)
+                cy = src_h - 1;
+
+            uint16_t center_pixel = src16[cy * src_w + cx];
+            int32_t  center_r     = (center_pixel >> 11) & 0x1F;
+            int32_t  center_g     = (center_pixel >> 5) & 0x3F;
+            int32_t  center_b     = center_pixel & 0x1F;
+
+            // 3x3 邻域采样
+            for (int32_t dy = -1; dy <= 1; dy++) {
+                for (int32_t dx = -1; dx <= 1; dx++) {
+                    int32_t sx = x0 + dx;
+                    int32_t sy = y0 + dy;
+
+                    // 边界处理
+                    if (sx < 0)
+                        sx = 0;
+                    if (sx >= (int32_t)src_w)
+                        sx = src_w - 1;
+                    if (sy < 0)
+                        sy = 0;
+                    if (sy >= (int32_t)src_h)
+                        sy = src_h - 1;
+
+                    uint16_t pixel = src16[sy * src_w + sx];
+                    int32_t  r     = (pixel >> 11) & 0x1F;
+                    int32_t  g     = (pixel >> 5) & 0x3F;
+                    int32_t  b     = pixel & 0x1F;
+
+                    // 计算颜色差异（边缘保持）
+                    int32_t diff_r     = abs(r - center_r);
+                    int32_t diff_g     = abs(g - center_g);
+                    int32_t diff_b     = abs(b - center_b);
+                    int32_t color_diff = diff_r + diff_g + diff_b;
+
+                    // 空间权重（距离越近权重越大）
+                    int32_t spatial_weight = (2 - abs(dx)) * (2 - abs(dy));
+
+                    // 颜色权重（颜色越接近权重越大，实现边缘保持）
+                    // 阈值可以调整：值越小边缘保持越强，值越大降噪越强
+                    int32_t color_threshold = 8; // 可调节参数
+                    int32_t color_weight    = (color_diff < color_threshold) ? 4 : 1;
+
+                    int32_t weight          = spatial_weight * color_weight;
+
+                    r_sum += r * weight;
+                    g_sum += g * weight;
+                    b_sum += b * weight;
+                    weight_sum += weight;
+                }
+            }
+
+            // 归一化
+            uint32_t r           = (r_sum / weight_sum) & 0x1F;
+            uint32_t g           = (g_sum / weight_sum) & 0x3F;
+            uint32_t b           = (b_sum / weight_sum) & 0x1F;
+
+            dst16[y * dst_w + x] = (r << 11) | (g << 5) | b;
         }
     }
 }
