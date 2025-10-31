@@ -212,10 +212,10 @@ namespace
     lv_obj_t *camera_settings_contrast_setting_box_text;
     lv_obj_t *camera_settings_contrast_setting_roller;
 
-    lv_obj_t *camera_settings_sharpness_setting_box;
-    lv_obj_t *camera_settings_sharpness_setting_box_text_box;
-    lv_obj_t *camera_settings_sharpness_setting_box_text;
-    lv_obj_t *camera_settings_sharpness_setting_roller;
+    lv_obj_t *camera_settings_huedegree_setting_box;
+    lv_obj_t *camera_settings_huedegree_setting_box_text_box;
+    lv_obj_t *camera_settings_huedegree_setting_box_text;
+    lv_obj_t *camera_settings_huedegree_setting_roller;
 } // namespace
 
 void lvgl_create_setting_interface() {
@@ -773,37 +773,37 @@ void lvgl_create_setting_interface() {
         }
 
         {
-            camera_settings_sharpness_setting_box = lv_obj_create(camera_settings_functions_container);
-            lv_obj_set_style_height(camera_settings_sharpness_setting_box, LV_PCT(80), LV_STATE_DEFAULT);
-            lv_obj_set_style_border_width(camera_settings_sharpness_setting_box, 1, LV_STATE_DEFAULT);
-            lv_obj_set_style_border_side(camera_settings_sharpness_setting_box, LV_BORDER_SIDE_BOTTOM, LV_STATE_DEFAULT);
-            lv_obj_set_style_pad_all(camera_settings_sharpness_setting_box, 0, LV_STATE_DEFAULT);
-            lv_obj_set_style_bg_color(camera_settings_sharpness_setting_box, lv_color_white(), LV_STATE_DEFAULT);
+            camera_settings_huedegree_setting_box = lv_obj_create(camera_settings_functions_container);
+            lv_obj_set_style_height(camera_settings_huedegree_setting_box, LV_PCT(80), LV_STATE_DEFAULT);
+            lv_obj_set_style_border_width(camera_settings_huedegree_setting_box, 1, LV_STATE_DEFAULT);
+            lv_obj_set_style_border_side(camera_settings_huedegree_setting_box, LV_BORDER_SIDE_BOTTOM, LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_all(camera_settings_huedegree_setting_box, 0, LV_STATE_DEFAULT);
+            lv_obj_set_style_bg_color(camera_settings_huedegree_setting_box, lv_color_white(), LV_STATE_DEFAULT);
             // lv_obj_set_style_radius(camera_settings_huedegree_setting_box, 0, LV_STATE_DEFAULT);
-            lv_obj_set_layout(camera_settings_sharpness_setting_box, LV_LAYOUT_FLEX);
-            lv_obj_set_flex_flow(camera_settings_sharpness_setting_box, LV_FLEX_FLOW_COLUMN);
-            lv_obj_set_style_flex_grow(camera_settings_sharpness_setting_box, 1, LV_STATE_DEFAULT);
-            lv_obj_set_flex_align(camera_settings_sharpness_setting_box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
+            lv_obj_set_layout(camera_settings_huedegree_setting_box, LV_LAYOUT_FLEX);
+            lv_obj_set_flex_flow(camera_settings_huedegree_setting_box, LV_FLEX_FLOW_COLUMN);
+            lv_obj_set_style_flex_grow(camera_settings_huedegree_setting_box, 1, LV_STATE_DEFAULT);
+            lv_obj_set_flex_align(camera_settings_huedegree_setting_box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
             {
-                camera_settings_sharpness_setting_box_text_box = lv_obj_create(camera_settings_sharpness_setting_box);
-                lv_obj_set_style_width(camera_settings_sharpness_setting_box_text_box, LV_PCT(100), LV_STATE_DEFAULT);
-                lv_obj_set_style_border_width(camera_settings_sharpness_setting_box_text_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_pad_all(camera_settings_sharpness_setting_box_text_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_flex_grow(camera_settings_sharpness_setting_box_text_box, 1, LV_STATE_DEFAULT);
+                camera_settings_huedegree_setting_box_text_box = lv_obj_create(camera_settings_huedegree_setting_box);
+                lv_obj_set_style_width(camera_settings_huedegree_setting_box_text_box, LV_PCT(100), LV_STATE_DEFAULT);
+                lv_obj_set_style_border_width(camera_settings_huedegree_setting_box_text_box, 0, LV_STATE_DEFAULT);
+                lv_obj_set_style_pad_all(camera_settings_huedegree_setting_box_text_box, 0, LV_STATE_DEFAULT);
+                lv_obj_set_style_flex_grow(camera_settings_huedegree_setting_box_text_box, 1, LV_STATE_DEFAULT);
 
-                camera_settings_sharpness_setting_box_text = lv_label_create(camera_settings_sharpness_setting_box_text_box);
-                lv_obj_set_style_align(camera_settings_sharpness_setting_box_text, LV_ALIGN_CENTER, LV_STATE_DEFAULT);
-                lv_obj_set_style_text_color(camera_settings_sharpness_setting_box_text, lv_color_black(), LV_STATE_DEFAULT);
-                lv_label_set_text(camera_settings_sharpness_setting_box_text, "HueDegree");
+                camera_settings_huedegree_setting_box_text = lv_label_create(camera_settings_huedegree_setting_box_text_box);
+                lv_obj_set_style_align(camera_settings_huedegree_setting_box_text, LV_ALIGN_CENTER, LV_STATE_DEFAULT);
+                lv_obj_set_style_text_color(camera_settings_huedegree_setting_box_text, lv_color_black(), LV_STATE_DEFAULT);
+                lv_label_set_text(camera_settings_huedegree_setting_box_text, "HueDegree");
             }
 
             {
                 static const char *opt                   = "-6\n-5\n-4\n-3\n-2\n-1\n0\n1\n2\n3\n4\n5";
-                camera_settings_sharpness_setting_roller = lv_roller_create(camera_settings_sharpness_setting_box);
-                lv_obj_set_style_flex_grow(camera_settings_sharpness_setting_roller, 1, LV_STATE_DEFAULT);
-                lv_roller_set_visible_row_count(camera_settings_sharpness_setting_roller, 4);
-                lv_roller_set_options(camera_settings_sharpness_setting_roller, opt, LV_ROLLER_MODE_NORMAL);
-                lv_obj_set_style_flex_grow(camera_settings_sharpness_setting_roller, 4, LV_STATE_DEFAULT);
+                camera_settings_huedegree_setting_roller = lv_roller_create(camera_settings_huedegree_setting_box);
+                lv_obj_set_style_flex_grow(camera_settings_huedegree_setting_roller, 1, LV_STATE_DEFAULT);
+                lv_roller_set_visible_row_count(camera_settings_huedegree_setting_roller, 4);
+                lv_roller_set_options(camera_settings_huedegree_setting_roller, opt, LV_ROLLER_MODE_NORMAL);
+                lv_obj_set_style_flex_grow(camera_settings_huedegree_setting_roller, 4, LV_STATE_DEFAULT);
             }
         }
     }
@@ -826,7 +826,7 @@ void lvgl_create_setting_interface() {
     lv_roller_set_selected(camera_settings_brightness_mode_setting_roller, 4, LV_ANIM_OFF);
     lv_roller_set_selected(camera_settings_saturation_setting_roller, 4, LV_ANIM_OFF);
     lv_roller_set_selected(camera_settings_contrast_setting_roller, 4, LV_ANIM_OFF);
-    lv_roller_set_selected(camera_settings_sharpness_setting_roller, 6, LV_ANIM_OFF);
+    lv_roller_set_selected(camera_settings_huedegree_setting_roller, 6, LV_ANIM_OFF);
 
     lv_obj_add_event_cb(camera_settings_indicator_return_btn, indicator_return_btn_callback, LV_EVENT_CLICKED, nullptr);
     lv_obj_add_event_cb(camera_settings_strobe_setting_box_btns_box, checkboxs_callback, LV_EVENT_CLICKED, nullptr);
@@ -839,7 +839,7 @@ void lvgl_create_setting_interface() {
     lv_obj_add_event_cb(camera_settings_brightness_mode_setting_roller, roller_callback, LV_EVENT_CLICKED, nullptr);
     lv_obj_add_event_cb(camera_settings_saturation_setting_roller, roller_callback, LV_EVENT_VALUE_CHANGED, nullptr);
     lv_obj_add_event_cb(camera_settings_contrast_setting_roller, roller_callback, LV_EVENT_VALUE_CHANGED, nullptr);
-    lv_obj_add_event_cb(camera_settings_sharpness_setting_roller, roller_callback, LV_EVENT_VALUE_CHANGED, nullptr);
+    lv_obj_add_event_cb(camera_settings_huedegree_setting_roller, roller_callback, LV_EVENT_VALUE_CHANGED, nullptr);
 }
 
 static bool promise_roller_changed = false;
@@ -980,7 +980,7 @@ void camera_task_routine(void const *argument) {
     uint32_t      nightmode_state     = 0;
     int32_t       satuation           = 0;
     int32_t       contrast            = 0;
-    int32_t       sharpness           = 0;
+    int32_t       huedegree           = 0;
 
     //
     auto set_settings = [&]()
@@ -1002,7 +1002,7 @@ void camera_task_routine(void const *argument) {
         OV5640_SetSaturation(&ov5640, satuation);
         OV5640_SetBrightness(&ov5640, brightness_state);
         OV5640_SetContrast(&ov5640, contrast);
-        OV5640_SetHueDegree(&ov5640, sharpness);
+        OV5640_SetHueDegree(&ov5640, huedegree);
     };
 
     while (1) {
@@ -1435,7 +1435,7 @@ void camera_task_routine(void const *argument) {
             {
                 satuation        = (int32_t)lv_roller_get_selected(camera_settings_saturation_setting_roller) - 4;
                 contrast         = (int32_t)lv_roller_get_selected(camera_settings_contrast_setting_roller) - 4;
-                sharpness        = (int32_t)lv_roller_get_selected(camera_settings_sharpness_setting_roller) - 6;
+                huedegree        = (int32_t)lv_roller_get_selected(camera_settings_huedegree_setting_roller) - 6;
                 brightness_state = -((int32_t)lv_roller_get_selected(camera_settings_brightness_mode_setting_roller) - 4);
             }
             lv_unlock();
@@ -1443,7 +1443,7 @@ void camera_task_routine(void const *argument) {
                 OV5640_SetSaturation(&ov5640, satuation);
             }
             OV5640_SetContrast(&ov5640, contrast);
-            OV5640_SetHueDegree(&ov5640, sharpness);
+            OV5640_SetHueDegree(&ov5640, huedegree);
             OV5640_SetBrightness(&ov5640, brightness_state);
         }
     }
