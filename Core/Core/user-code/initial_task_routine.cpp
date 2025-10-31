@@ -478,6 +478,8 @@ namespace
     SemaphoreHandle_t jpeg_decode_complete                 = nullptr;
     QueueHandle_t     lvgl_manage_task_queue               = nullptr;
     TimeOut_t         lastest_decode_time                  = {};
+
+    char              file_buffer[256];
 } // namespace
 
 static void jpeg_decode_task(void *args);
@@ -748,14 +750,30 @@ static void main_manage_task(void *args) {
         case manage_command_type::delete_curr_file: {
             can_click_pict = false;
 
+            get_directory_path(curr_open_path.c_str(), file_buffer, 256);
             if (!curr_open_path.empty()) {
                 f_unlink(curr_open_path.c_str());
             }
+
+            int empty_dir = is_directory_empty(file_buffer);
+            if (empty_dir == 1) {
+                delete_empty_directory(file_buffer);
+                strcat(file_buffer, "/..");
+            }
+
             old_message_path = safe_get_value(new_message.path);
             curr_open_path.clear();
             curr_file_info = {};
 
+            //
+            char *str = nullptr;
+            if (empty_dir) {
+                str = (char *)pvPortMalloc(256);
+                path_norm(file_buffer, str);
+            }
+
             lvgl_manage_command cm {};
+            cm.at   = (void *)str;
             cm.type = lvgl_command_type::delete_curr_file;
             xQueueSend(lvgl_manage_task_queue, &cm, portMAX_DELAY);
             break;
@@ -921,6 +939,11 @@ static void lvgl_manage_task(void *arg) {
                 lv_image_set_src(image, nullptr);
 
                 lv_screen_load(file_explorer_main_screen);
+
+                if ((int)cm.at) {
+                    file_explorer_open_dir(file_explorer_obj, (const char *)cm.at);
+                    vPortFree(cm.at);
+                }
                 file_explorer_reload_force(file_explorer_obj);
             }
             lv_unlock();

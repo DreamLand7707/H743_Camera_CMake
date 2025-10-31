@@ -529,6 +529,26 @@ void file_explorer_media_valid(lv_obj_t *fe_obj) {
     file_explorer_reload_force(fe_obj);
 }
 
+void file_explorer_open_dir(lv_obj_t *fe_obj, const char *path) {
+    auto *user_data = static_cast<file_explorer_data *>(lv_obj_get_user_data(fe_obj));
+    if (user_data->invalid)
+        return;
+    DIR     dir;
+    FRESULT fres = f_opendir(&dir, path);
+    if (fres == FR_OK) {
+        f_closedir(&dir);
+        strcpy(user_data->current_path, path);
+        lv_label_set_text_static(lv_obj_get_child(user_data->indicator, 0), user_data->current_path);
+    }
+    else {
+        user_data->invalid = true;
+        lv_label_set_text_static(lv_obj_get_child(user_data->indicator, 0), "Invalid Path!");
+        return;
+    }
+    user_data->invalid = false;
+    file_explorer_reload_force(fe_obj);
+}
+
 void file_explorer_set_callback(lv_obj_t *fe_obj, file_explorer_openfile_callback callback) {
     auto *user_data          = static_cast<file_explorer_data *>(lv_obj_get_user_data(fe_obj));
     user_data->open_callback = callback;

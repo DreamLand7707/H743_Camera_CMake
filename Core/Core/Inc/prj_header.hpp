@@ -84,6 +84,7 @@ struct main_manage_command {
 
 struct lvgl_manage_command {
     lvgl_command_type type;
+    void *at;
 };
 
 BaseType_t send_command_to_main_manage(std::string *path, size_t ref_cnt, manage_command_type type, BaseType_t time);

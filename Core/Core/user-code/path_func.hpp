@@ -10,6 +10,12 @@ int         path_get_disk_root(const char *lhs, char *disk_root);
 int         path_get_file_name(const char *lhs, char *file_name);
 void        path_get_file_extension(const char *file_name, char *extension);
 const char *path_get_file_name_static(const char *file_name);
+FRESULT     create_directory_recursive(const char *path);
+FRESULT     get_directory_path(const char *path, char *dir_path, size_t dir_path_size);
+int         is_directory_empty(const char *path);
+FRESULT     delete_directory_recursive(const char *path);
+FRESULT     delete_empty_directory(const char *path);
+FRESULT     delete_directory(const char *path, int recursive);
 
 #define PATH_IS_ABSOLUTE     1
 #define PATH_IS_NOT_COMPLETE 2

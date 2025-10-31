@@ -11,3 +11,4 @@ void      file_explorer_set_callback(lv_obj_t *fe_obj, file_explorer_openfile_ca
 void      file_explorer_reload_force(lv_obj_t *fe_obj);
 void      file_explorer_media_invalid(lv_obj_t *fe_obj);
 void      file_explorer_media_valid(lv_obj_t *fe_obj);
+void      file_explorer_open_dir(lv_obj_t *fe_obj, const char *path);

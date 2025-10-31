@@ -1,3 +1,4 @@
+#include "path_func.hpp"
 #define FILE_DEBUG 1
 
 #include "camera_declare.hpp"
@@ -52,7 +53,13 @@ static std::default_random_engine              eng;
 static std::uniform_int_distribution<uint32_t> unif_name(0, UINT32_MAX);
 
 //
-static void set_shot_btn();
+static void       set_shot_btn();
+
+static lv_coord_t inch_to_px(float inch) {
+    lv_disp_t *disp = lv_disp_get_default();
+    uint16_t   dpi  = lv_disp_get_dpi(disp);
+    return (lv_coord_t)(inch * dpi);
+}
 
 // functions
 void lvgl_create_camera_interface() {
@@ -139,6 +146,7 @@ void lvgl_create_camera_interface() {
 namespace
 {
     lv_obj_t *camera_settings_screen;
+    lv_obj_t *camera_settings_main_container;
     lv_obj_t *camera_settings_container;
 
     lv_obj_t *camera_settings_indicator_container;
@@ -147,7 +155,10 @@ namespace
     lv_obj_t *camera_settings_indicator_return_btn;
     lv_obj_t *camera_settings_indicator_return_btn_label;
 
+    lv_obj_t *camera_settings_functions_container_spacer;
+
     lv_obj_t *camera_settings_functions_container;
+    lv_obj_t *camera_keyboard;
 
     lv_obj_t *camera_settings_strobe_setting_box;
     lv_obj_t *camera_settings_strobe_setting_box_text_box;
@@ -160,6 +171,7 @@ namespace
     lv_obj_t *camera_settings_picture_size_box_text;
     lv_obj_t *camera_settings_picture_size_box_list_spacer;
     lv_obj_t *camera_settings_picture_size_box_list;
+    lv_obj_t *camera_settings_picture_name_textarea;
 
     lv_obj_t *camera_settings_light_mode_setting_box;
     lv_obj_t *camera_settings_light_mode_setting_box_text_box;
@@ -220,591 +232,628 @@ namespace
 
 void lvgl_create_setting_interface() {
 
-    static const char *options = "QXGA\n"
-                                 "SXGA\n"
-                                 "XGA\n"
-                                 "VGA";
+    static const char *options     = "QXGA\n"
+                                     "SXGA\n"
+                                     "XGA\n"
+                                     "VGA";
 
-    camera_settings_screen     = lv_obj_create(nullptr);
-
-    camera_settings_container  = lv_obj_create(camera_settings_screen);
-    lv_obj_set_style_size(camera_settings_container, LV_PCT(100), LV_PCT(100), LV_STATE_DEFAULT);
-    lv_obj_set_style_border_width(camera_settings_container, 0, LV_STATE_DEFAULT);
-    lv_obj_set_style_pad_all(camera_settings_container, 0, LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_color(camera_settings_container, lv_color_white(), LV_STATE_DEFAULT);
-    lv_obj_set_style_radius(camera_settings_container, 0, LV_STATE_DEFAULT);
-    lv_obj_set_layout(camera_settings_container, LV_LAYOUT_FLEX);
-    lv_obj_set_flex_flow(camera_settings_container, LV_FLEX_FLOW_COLUMN);
-    {
-        camera_settings_indicator_container = lv_obj_create(camera_settings_container);
-        lv_obj_set_style_width(camera_settings_indicator_container, LV_PCT(100), LV_STATE_DEFAULT);
-        lv_obj_set_style_border_width(camera_settings_indicator_container, 0, LV_STATE_DEFAULT);
-        lv_obj_set_style_pad_all(camera_settings_indicator_container, 8, LV_STATE_DEFAULT);
-        lv_obj_set_style_bg_color(camera_settings_indicator_container, lv_color_white(), LV_STATE_DEFAULT);
-        lv_obj_set_style_radius(camera_settings_indicator_container, 0, LV_STATE_DEFAULT);
-        lv_obj_set_layout(camera_settings_indicator_container, LV_LAYOUT_FLEX);
-        lv_obj_set_flex_flow(camera_settings_indicator_container, LV_FLEX_FLOW_ROW);
-        lv_obj_set_style_flex_grow(camera_settings_indicator_container, 1, LV_STATE_DEFAULT);
-
-        camera_settings_indicator_text_box = lv_obj_create(camera_settings_indicator_container);
-        lv_obj_set_style_height(camera_settings_indicator_text_box, LV_PCT(100), LV_STATE_DEFAULT);
-        lv_obj_set_style_border_width(camera_settings_indicator_text_box, 0, LV_STATE_DEFAULT);
-        lv_obj_set_style_pad_all(camera_settings_indicator_text_box, 0, LV_STATE_DEFAULT);
-        lv_obj_set_style_bg_color(camera_settings_indicator_text_box, lv_color_white(), LV_STATE_DEFAULT);
-        lv_obj_set_style_radius(camera_settings_indicator_text_box, 0, LV_STATE_DEFAULT);
-        lv_obj_set_style_flex_grow(camera_settings_indicator_text_box, 9, LV_STATE_DEFAULT);
-        lv_obj_remove_flag(camera_settings_indicator_text_box, LV_OBJ_FLAG_SCROLLABLE);
-
-        camera_settings_indicator_text = lv_label_create(camera_settings_indicator_text_box);
-        lv_obj_set_style_text_color(camera_settings_indicator_text, lv_color_black(), LV_STATE_DEFAULT);
-        lv_label_set_text_static(camera_settings_indicator_text, "Camera Settings");
-        lv_obj_set_align(camera_settings_indicator_text, LV_ALIGN_CENTER);
-        lv_obj_set_style_text_font(camera_settings_indicator_text, &lv_font_montserrat_18, LV_STATE_DEFAULT);
-
-        camera_settings_indicator_return_btn = lv_btn_create(camera_settings_indicator_container);
-        lv_obj_set_style_height(camera_settings_indicator_return_btn, LV_PCT(100), LV_STATE_DEFAULT);
-        lv_obj_set_style_bg_color(camera_settings_indicator_return_btn, lv_color_hex(0x34a3e7), LV_STATE_DEFAULT);
-        lv_obj_set_style_flex_grow(camera_settings_indicator_return_btn, 1, LV_STATE_DEFAULT);
-        lv_obj_remove_flag(camera_settings_indicator_return_btn, LV_OBJ_FLAG_SCROLLABLE);
-
-        camera_settings_indicator_return_btn_label = lv_label_create(camera_settings_indicator_return_btn);
-        lv_obj_set_align(camera_settings_indicator_return_btn_label, LV_ALIGN_CENTER);
-        lv_obj_set_style_text_color(camera_settings_indicator_return_btn_label, lv_color_black(), LV_STATE_DEFAULT);
-        lv_label_set_text_static(camera_settings_indicator_return_btn_label, LV_SYMBOL_LEFT);
-    }
+    camera_settings_screen         = lv_obj_create(nullptr);
+    camera_settings_main_container = lv_obj_create(camera_settings_screen);
+    lv_obj_set_style_size(camera_settings_main_container, LV_PCT(100), LV_PCT(100), LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(camera_settings_main_container, 0, LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_all(camera_settings_main_container, 0, LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(camera_settings_main_container, lv_color_white(), LV_STATE_DEFAULT);
+    lv_obj_set_style_radius(camera_settings_main_container, 0, LV_STATE_DEFAULT);
+    lv_obj_set_layout(camera_settings_main_container, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(camera_settings_main_container, LV_FLEX_FLOW_COLUMN);
 
     {
-        camera_settings_functions_container = lv_obj_create(camera_settings_container);
-        lv_obj_set_style_width(camera_settings_functions_container, LV_PCT(100), LV_STATE_DEFAULT);
-        lv_obj_set_style_border_width(camera_settings_functions_container, 0, LV_STATE_DEFAULT);
-        lv_obj_set_style_pad_all(camera_settings_functions_container, 8, LV_STATE_DEFAULT);
-        lv_obj_set_style_bg_color(camera_settings_functions_container, lv_color_white(), LV_STATE_DEFAULT);
-        lv_obj_set_style_radius(camera_settings_functions_container, 0, LV_STATE_DEFAULT);
-        lv_obj_set_layout(camera_settings_functions_container, LV_LAYOUT_FLEX);
-        lv_obj_set_flex_flow(camera_settings_functions_container, LV_FLEX_FLOW_ROW);
-        lv_obj_set_style_flex_grow(camera_settings_functions_container, 4, LV_STATE_DEFAULT);
-        lv_obj_add_flag(camera_settings_functions_container, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
-        lv_obj_set_flex_align(camera_settings_functions_container, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
+        camera_settings_container = lv_obj_create(camera_settings_main_container);
+        lv_obj_set_style_width(camera_settings_container, LV_PCT(100), LV_STATE_DEFAULT);
+        lv_obj_set_style_border_width(camera_settings_container, 0, LV_STATE_DEFAULT);
+        lv_obj_set_style_pad_all(camera_settings_container, 0, LV_STATE_DEFAULT);
+        lv_obj_set_style_bg_color(camera_settings_container, lv_color_white(), LV_STATE_DEFAULT);
+        lv_obj_set_style_radius(camera_settings_container, 0, LV_STATE_DEFAULT);
+        lv_obj_set_layout(camera_settings_container, LV_LAYOUT_FLEX);
+        lv_obj_set_flex_grow(camera_settings_container, 1);
+        lv_obj_set_flex_flow(camera_settings_container, LV_FLEX_FLOW_COLUMN);
 
         {
-            camera_settings_strobe_setting_box = lv_obj_create(camera_settings_functions_container);
-            lv_obj_set_style_height(camera_settings_strobe_setting_box, LV_PCT(90), LV_STATE_DEFAULT);
-            lv_obj_set_style_border_width(camera_settings_strobe_setting_box, 1, LV_STATE_DEFAULT);
-            lv_obj_set_style_border_side(camera_settings_strobe_setting_box, LV_BORDER_SIDE_BOTTOM, LV_STATE_DEFAULT);
-            lv_obj_set_style_pad_all(camera_settings_strobe_setting_box, 0, LV_STATE_DEFAULT);
-            lv_obj_set_style_bg_color(camera_settings_strobe_setting_box, lv_color_white(), LV_STATE_DEFAULT);
-            // lv_obj_set_style_radius(camera_settings_strobe_setting_box, 0, LV_STATE_DEFAULT);
-            lv_obj_set_layout(camera_settings_strobe_setting_box, LV_LAYOUT_FLEX);
-            lv_obj_set_flex_flow(camera_settings_strobe_setting_box, LV_FLEX_FLOW_COLUMN);
-            lv_obj_set_style_flex_grow(camera_settings_strobe_setting_box, 1, LV_STATE_DEFAULT);
+            camera_settings_indicator_container = lv_obj_create(camera_settings_container);
+            lv_obj_set_style_width(camera_settings_indicator_container, LV_PCT(100), LV_STATE_DEFAULT);
+            lv_obj_set_style_height(camera_settings_indicator_container, inch_to_px(0.4), LV_STATE_DEFAULT);
+            lv_obj_set_style_border_width(camera_settings_indicator_container, 0, LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_all(camera_settings_indicator_container, 8, LV_STATE_DEFAULT);
+            lv_obj_set_style_bg_color(camera_settings_indicator_container, lv_color_white(), LV_STATE_DEFAULT);
+            lv_obj_set_style_radius(camera_settings_indicator_container, 0, LV_STATE_DEFAULT);
+            lv_obj_set_layout(camera_settings_indicator_container, LV_LAYOUT_FLEX);
+            lv_obj_set_flex_flow(camera_settings_indicator_container, LV_FLEX_FLOW_ROW);
+            lv_obj_set_style_flex_grow(camera_settings_indicator_container, 0, LV_STATE_DEFAULT);
+
+            camera_settings_indicator_text_box = lv_obj_create(camera_settings_indicator_container);
+            lv_obj_set_style_height(camera_settings_indicator_text_box, LV_PCT(100), LV_STATE_DEFAULT);
+            lv_obj_set_style_border_width(camera_settings_indicator_text_box, 0, LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_all(camera_settings_indicator_text_box, 0, LV_STATE_DEFAULT);
+            lv_obj_set_style_bg_color(camera_settings_indicator_text_box, lv_color_white(), LV_STATE_DEFAULT);
+            lv_obj_set_style_radius(camera_settings_indicator_text_box, 0, LV_STATE_DEFAULT);
+            lv_obj_set_style_flex_grow(camera_settings_indicator_text_box, 9, LV_STATE_DEFAULT);
+            lv_obj_remove_flag(camera_settings_indicator_text_box, LV_OBJ_FLAG_SCROLLABLE);
+
+            camera_settings_indicator_text = lv_label_create(camera_settings_indicator_text_box);
+            lv_obj_set_style_text_color(camera_settings_indicator_text, lv_color_black(), LV_STATE_DEFAULT);
+            lv_label_set_text_static(camera_settings_indicator_text, "Camera Settings");
+            lv_obj_set_align(camera_settings_indicator_text, LV_ALIGN_CENTER);
+            lv_obj_set_style_text_font(camera_settings_indicator_text, &lv_font_montserrat_18, LV_STATE_DEFAULT);
+
+            camera_settings_indicator_return_btn = lv_btn_create(camera_settings_indicator_container);
+            lv_obj_set_style_height(camera_settings_indicator_return_btn, LV_PCT(100), LV_STATE_DEFAULT);
+            lv_obj_set_style_bg_color(camera_settings_indicator_return_btn, lv_color_hex(0x34a3e7), LV_STATE_DEFAULT);
+            lv_obj_set_style_flex_grow(camera_settings_indicator_return_btn, 1, LV_STATE_DEFAULT);
+            lv_obj_remove_flag(camera_settings_indicator_return_btn, LV_OBJ_FLAG_SCROLLABLE);
+
+            camera_settings_indicator_return_btn_label = lv_label_create(camera_settings_indicator_return_btn);
+            lv_obj_set_align(camera_settings_indicator_return_btn_label, LV_ALIGN_CENTER);
+            lv_obj_set_style_text_color(camera_settings_indicator_return_btn_label, lv_color_black(), LV_STATE_DEFAULT);
+            lv_label_set_text_static(camera_settings_indicator_return_btn_label, LV_SYMBOL_LEFT);
+        }
+
+        {
+            camera_settings_functions_container_spacer = lv_obj_create(camera_settings_container);
+            lv_obj_set_style_width(camera_settings_functions_container_spacer, LV_PCT(100), LV_STATE_DEFAULT);
+            lv_obj_set_style_border_width(camera_settings_functions_container_spacer, 0, LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_all(camera_settings_functions_container_spacer, 8, LV_STATE_DEFAULT);
+            lv_obj_set_style_bg_color(camera_settings_functions_container_spacer, lv_color_white(), LV_STATE_DEFAULT);
+            lv_obj_set_style_radius(camera_settings_functions_container_spacer, 0, LV_STATE_DEFAULT);
+            lv_obj_set_style_flex_grow(camera_settings_functions_container_spacer, 1, LV_STATE_DEFAULT);
+            lv_obj_add_flag(camera_settings_functions_container_spacer, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
 
             {
-                camera_settings_strobe_setting_box_text_box = lv_obj_create(camera_settings_strobe_setting_box);
-                lv_obj_set_style_width(camera_settings_strobe_setting_box_text_box, LV_PCT(100), LV_STATE_DEFAULT);
-                lv_obj_set_style_border_width(camera_settings_strobe_setting_box_text_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_pad_all(camera_settings_strobe_setting_box_text_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_flex_grow(camera_settings_strobe_setting_box_text_box, 1, LV_STATE_DEFAULT);
-
-                camera_settings_strobe_setting_box_text = lv_label_create(camera_settings_strobe_setting_box_text_box);
-                lv_obj_set_style_align(camera_settings_strobe_setting_box_text, LV_ALIGN_CENTER, LV_STATE_DEFAULT);
-                lv_obj_set_style_text_color(camera_settings_strobe_setting_box_text, lv_color_black(), LV_STATE_DEFAULT);
-                lv_label_set_text(camera_settings_strobe_setting_box_text, "strobe setting");
-            }
-
-            {
-                camera_settings_strobe_setting_box_btns_box = lv_obj_create(camera_settings_strobe_setting_box);
-                lv_obj_set_style_width(camera_settings_strobe_setting_box_btns_box, LV_PCT(100), LV_STATE_DEFAULT);
-                lv_obj_set_style_border_width(camera_settings_strobe_setting_box_btns_box, 1, LV_STATE_DEFAULT);
-                lv_obj_set_style_border_side(camera_settings_strobe_setting_box_btns_box, LV_BORDER_SIDE_BOTTOM, LV_STATE_DEFAULT);
-                lv_obj_set_style_pad_all(camera_settings_strobe_setting_box_btns_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_flex_grow(camera_settings_strobe_setting_box_btns_box, 4, LV_STATE_DEFAULT);
-                lv_obj_set_layout(camera_settings_strobe_setting_box_btns_box, LV_LAYOUT_FLEX);
-                lv_obj_set_flex_flow(camera_settings_strobe_setting_box_btns_box, LV_FLEX_FLOW_COLUMN);
-                lv_obj_set_flex_align(camera_settings_strobe_setting_box_btns_box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER);
+                camera_settings_functions_container = lv_obj_create(camera_settings_functions_container_spacer);
+                lv_obj_set_style_width(camera_settings_functions_container, LV_PCT(100), LV_STATE_DEFAULT);
+                lv_obj_set_style_height(camera_settings_functions_container, LV_SIZE_CONTENT, LV_STATE_DEFAULT);
+                lv_obj_set_style_border_width(camera_settings_functions_container, 0, LV_STATE_DEFAULT);
+                lv_obj_set_style_pad_all(camera_settings_functions_container, 8, LV_STATE_DEFAULT);
+                lv_obj_set_style_bg_color(camera_settings_functions_container, lv_color_white(), LV_STATE_DEFAULT);
+                lv_obj_set_style_radius(camera_settings_functions_container, 0, LV_STATE_DEFAULT);
+                lv_obj_set_layout(camera_settings_functions_container, LV_LAYOUT_FLEX);
+                lv_obj_set_flex_flow(camera_settings_functions_container, LV_FLEX_FLOW_ROW);
+                lv_obj_add_flag(camera_settings_functions_container, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+                lv_obj_set_flex_align(camera_settings_functions_container, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
 
                 {
-                    for (int i = 0; i < 4; i++) {
-                        camera_settings_strobe_settings_btns[i] = lv_checkbox_create(camera_settings_strobe_setting_box_btns_box);
-                        lv_obj_set_style_radius(camera_settings_strobe_settings_btns[i], LV_RADIUS_CIRCLE, LV_PART_INDICATOR);
-                        lv_obj_add_flag(camera_settings_strobe_settings_btns[i], LV_OBJ_FLAG_EVENT_BUBBLE);
-                        lv_obj_set_user_data(camera_settings_strobe_settings_btns[i], (void *)(uintptr_t)i);
+                    {
+                        camera_settings_strobe_setting_box = lv_obj_create(camera_settings_functions_container);
+                        lv_obj_set_style_height(camera_settings_strobe_setting_box, inch_to_px(1.3), LV_STATE_DEFAULT);
+                        lv_obj_set_style_border_width(camera_settings_strobe_setting_box, 1, LV_STATE_DEFAULT);
+                        lv_obj_set_style_border_side(camera_settings_strobe_setting_box, LV_BORDER_SIDE_BOTTOM, LV_STATE_DEFAULT);
+                        lv_obj_set_style_pad_all(camera_settings_strobe_setting_box, 0, LV_STATE_DEFAULT);
+                        lv_obj_set_style_bg_color(camera_settings_strobe_setting_box, lv_color_white(), LV_STATE_DEFAULT);
+                        // lv_obj_set_style_radius(camera_settings_strobe_setting_box, 0, LV_STATE_DEFAULT);
+                        lv_obj_set_layout(camera_settings_strobe_setting_box, LV_LAYOUT_FLEX);
+                        lv_obj_set_flex_flow(camera_settings_strobe_setting_box, LV_FLEX_FLOW_COLUMN);
+                        lv_obj_set_style_flex_grow(camera_settings_strobe_setting_box, 1, LV_STATE_DEFAULT);
+
+                        {
+                            camera_settings_strobe_setting_box_text_box = lv_obj_create(camera_settings_strobe_setting_box);
+                            lv_obj_set_style_width(camera_settings_strobe_setting_box_text_box, LV_PCT(100), LV_STATE_DEFAULT);
+                            lv_obj_set_style_border_width(camera_settings_strobe_setting_box_text_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_all(camera_settings_strobe_setting_box_text_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_flex_grow(camera_settings_strobe_setting_box_text_box, 1, LV_STATE_DEFAULT);
+
+                            camera_settings_strobe_setting_box_text = lv_label_create(camera_settings_strobe_setting_box_text_box);
+                            lv_obj_set_style_align(camera_settings_strobe_setting_box_text, LV_ALIGN_CENTER, LV_STATE_DEFAULT);
+                            lv_obj_set_style_text_color(camera_settings_strobe_setting_box_text, lv_color_black(), LV_STATE_DEFAULT);
+                            lv_label_set_text(camera_settings_strobe_setting_box_text, "strobe setting");
+                        }
+
+                        {
+                            camera_settings_strobe_setting_box_btns_box = lv_obj_create(camera_settings_strobe_setting_box);
+                            lv_obj_set_style_width(camera_settings_strobe_setting_box_btns_box, LV_PCT(100), LV_STATE_DEFAULT);
+                            lv_obj_set_style_border_width(camera_settings_strobe_setting_box_btns_box, 1, LV_STATE_DEFAULT);
+                            lv_obj_set_style_border_side(camera_settings_strobe_setting_box_btns_box, LV_BORDER_SIDE_BOTTOM, LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_all(camera_settings_strobe_setting_box_btns_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_flex_grow(camera_settings_strobe_setting_box_btns_box, 4, LV_STATE_DEFAULT);
+                            lv_obj_set_layout(camera_settings_strobe_setting_box_btns_box, LV_LAYOUT_FLEX);
+                            lv_obj_set_flex_flow(camera_settings_strobe_setting_box_btns_box, LV_FLEX_FLOW_COLUMN);
+                            lv_obj_set_flex_align(camera_settings_strobe_setting_box_btns_box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER);
+
+                            {
+                                for (int i = 0; i < 4; i++) {
+                                    camera_settings_strobe_settings_btns[i] = lv_checkbox_create(camera_settings_strobe_setting_box_btns_box);
+                                    lv_obj_set_style_radius(camera_settings_strobe_settings_btns[i], LV_RADIUS_CIRCLE, LV_PART_INDICATOR);
+                                    lv_obj_add_flag(camera_settings_strobe_settings_btns[i], LV_OBJ_FLAG_EVENT_BUBBLE);
+                                    lv_obj_set_user_data(camera_settings_strobe_settings_btns[i], (void *)(uintptr_t)i);
+                                }
+                                lv_checkbox_set_text_static(camera_settings_strobe_settings_btns[0], "close");
+                                lv_checkbox_set_text_static(camera_settings_strobe_settings_btns[1], "always");
+                                lv_checkbox_set_text_static(camera_settings_strobe_settings_btns[2], "once");
+                                lv_checkbox_set_text_static(camera_settings_strobe_settings_btns[3], "after shot");
+                            }
+                        }
                     }
-                    lv_checkbox_set_text_static(camera_settings_strobe_settings_btns[0], "close");
-                    lv_checkbox_set_text_static(camera_settings_strobe_settings_btns[1], "always");
-                    lv_checkbox_set_text_static(camera_settings_strobe_settings_btns[2], "once");
-                    lv_checkbox_set_text_static(camera_settings_strobe_settings_btns[3], "after shot");
+
+                    {
+                        camera_settings_picture_size_box = lv_obj_create(camera_settings_functions_container);
+                        lv_obj_set_style_height(camera_settings_picture_size_box, inch_to_px(1.3), LV_STATE_DEFAULT);
+                        lv_obj_set_style_border_width(camera_settings_picture_size_box, 1, LV_STATE_DEFAULT);
+                        lv_obj_set_style_border_side(camera_settings_picture_size_box, LV_BORDER_SIDE_BOTTOM, LV_STATE_DEFAULT);
+                        lv_obj_set_style_pad_all(camera_settings_picture_size_box, 0, LV_STATE_DEFAULT);
+                        lv_obj_set_style_bg_color(camera_settings_picture_size_box, lv_color_white(), LV_STATE_DEFAULT);
+                        // lv_obj_set_style_radius(camera_settings_picture_size_box, 0, LV_STATE_DEFAULT);
+                        lv_obj_set_layout(camera_settings_picture_size_box, LV_LAYOUT_FLEX);
+                        lv_obj_set_flex_flow(camera_settings_picture_size_box, LV_FLEX_FLOW_COLUMN);
+                        lv_obj_set_style_flex_grow(camera_settings_picture_size_box, 1, LV_STATE_DEFAULT);
+                        lv_obj_set_flex_align(camera_settings_picture_size_box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER);
+
+                        {
+                            camera_settings_picture_size_box_text_box = lv_obj_create(camera_settings_picture_size_box);
+                            lv_obj_set_style_border_width(camera_settings_picture_size_box_text_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_all(camera_settings_picture_size_box_text_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_size(camera_settings_picture_size_box_text_box, LV_PCT(100), LV_PCT(25), LV_STATE_DEFAULT);
+
+                            camera_settings_picture_size_box_text = lv_label_create(camera_settings_picture_size_box_text_box);
+                            lv_obj_set_style_align(camera_settings_picture_size_box_text, LV_ALIGN_CENTER, LV_STATE_DEFAULT);
+                            lv_obj_set_style_text_color(camera_settings_picture_size_box_text, lv_color_black(), LV_STATE_DEFAULT);
+                            lv_label_set_text(camera_settings_picture_size_box_text, "output file size");
+                        }
+
+                        {
+                            camera_settings_picture_size_box_list_spacer = lv_obj_create(camera_settings_picture_size_box);
+                            lv_obj_set_style_border_width(camera_settings_picture_size_box_list_spacer, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_all(camera_settings_picture_size_box_list_spacer, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_size(camera_settings_picture_size_box_list_spacer, LV_PCT(100), LV_PCT(25), LV_STATE_DEFAULT);
+
+                            camera_settings_picture_size_box_list = lv_dropdown_create(camera_settings_picture_size_box_list_spacer);
+                            lv_obj_set_style_size(camera_settings_picture_size_box_list, LV_PCT(100), LV_PCT(100), LV_STATE_DEFAULT);
+                            lv_obj_set_style_align(camera_settings_picture_size_box_list, LV_ALIGN_CENTER, LV_STATE_DEFAULT);
+                            lv_dropdown_set_options_static(camera_settings_picture_size_box_list, options);
+                        }
+                        {
+                            camera_settings_picture_name_textarea = lv_textarea_create(camera_settings_picture_size_box);
+                            lv_obj_set_style_size(camera_settings_picture_name_textarea, LV_PCT(100), LV_PCT(25), LV_STATE_DEFAULT);
+                            lv_textarea_set_one_line(camera_settings_picture_name_textarea, true);
+                        }
+                    }
+
+                    {
+                        camera_settings_brightness_mode_setting_box = lv_obj_create(camera_settings_functions_container);
+                        lv_obj_set_style_height(camera_settings_brightness_mode_setting_box, inch_to_px(1.2), LV_STATE_DEFAULT);
+                        lv_obj_set_style_border_width(camera_settings_brightness_mode_setting_box, 1, LV_STATE_DEFAULT);
+                        lv_obj_set_style_border_side(camera_settings_brightness_mode_setting_box, LV_BORDER_SIDE_BOTTOM, LV_STATE_DEFAULT);
+                        lv_obj_set_style_pad_all(camera_settings_brightness_mode_setting_box, 0, LV_STATE_DEFAULT);
+                        lv_obj_set_style_bg_color(camera_settings_brightness_mode_setting_box, lv_color_white(), LV_STATE_DEFAULT);
+                        // lv_obj_set_style_radius(camera_settings_brightness_mode_setting_box, 0, LV_STATE_DEFAULT);
+                        lv_obj_set_layout(camera_settings_brightness_mode_setting_box, LV_LAYOUT_FLEX);
+                        lv_obj_set_flex_flow(camera_settings_brightness_mode_setting_box, LV_FLEX_FLOW_COLUMN);
+                        lv_obj_set_style_flex_grow(camera_settings_brightness_mode_setting_box, 1, LV_STATE_DEFAULT);
+                        lv_obj_set_flex_align(camera_settings_brightness_mode_setting_box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
+                        lv_obj_add_flag(camera_settings_brightness_mode_setting_box, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK);
+                        {
+                            camera_settings_brightness_mode_setting_box_text_box = lv_obj_create(camera_settings_brightness_mode_setting_box);
+                            lv_obj_set_style_width(camera_settings_brightness_mode_setting_box_text_box, LV_PCT(100), LV_STATE_DEFAULT);
+                            lv_obj_set_style_border_width(camera_settings_brightness_mode_setting_box_text_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_all(camera_settings_brightness_mode_setting_box_text_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_flex_grow(camera_settings_brightness_mode_setting_box_text_box, 1, LV_STATE_DEFAULT);
+
+                            camera_settings_brightness_mode_setting_box_text = lv_label_create(camera_settings_brightness_mode_setting_box_text_box);
+                            lv_obj_set_style_align(camera_settings_brightness_mode_setting_box_text, LV_ALIGN_CENTER, LV_STATE_DEFAULT);
+                            lv_obj_set_style_text_color(camera_settings_brightness_mode_setting_box_text, lv_color_black(), LV_STATE_DEFAULT);
+                            lv_label_set_text(camera_settings_brightness_mode_setting_box_text, "brightness");
+                        }
+
+                        {
+                            static const char *opt                         = "-4\n-3\n-2\n-1\n0\n1\n2\n3\n4";
+                            camera_settings_brightness_mode_setting_roller = lv_roller_create(camera_settings_brightness_mode_setting_box);
+                            lv_obj_set_style_flex_grow(camera_settings_brightness_mode_setting_roller, 1, LV_STATE_DEFAULT);
+                            lv_roller_set_visible_row_count(camera_settings_brightness_mode_setting_roller, 4);
+                            lv_roller_set_options(camera_settings_brightness_mode_setting_roller, opt, LV_ROLLER_MODE_NORMAL);
+                            lv_obj_set_style_flex_grow(camera_settings_brightness_mode_setting_roller, 4, LV_STATE_DEFAULT);
+                        }
+                    }
+
+                    {
+                        camera_settings_saturation_setting_box = lv_obj_create(camera_settings_functions_container);
+                        lv_obj_set_style_height(camera_settings_saturation_setting_box, inch_to_px(1.2), LV_STATE_DEFAULT);
+                        lv_obj_set_style_border_width(camera_settings_saturation_setting_box, 1, LV_STATE_DEFAULT);
+                        lv_obj_set_style_border_side(camera_settings_saturation_setting_box, LV_BORDER_SIDE_BOTTOM, LV_STATE_DEFAULT);
+                        lv_obj_set_style_pad_all(camera_settings_saturation_setting_box, 0, LV_STATE_DEFAULT);
+                        lv_obj_set_style_bg_color(camera_settings_saturation_setting_box, lv_color_white(), LV_STATE_DEFAULT);
+                        // lv_obj_set_style_radius(camera_settings_saturation_setting_box, 0, LV_STATE_DEFAULT);
+                        lv_obj_set_layout(camera_settings_saturation_setting_box, LV_LAYOUT_FLEX);
+                        lv_obj_set_flex_flow(camera_settings_saturation_setting_box, LV_FLEX_FLOW_COLUMN);
+                        lv_obj_set_style_flex_grow(camera_settings_saturation_setting_box, 1, LV_STATE_DEFAULT);
+                        lv_obj_set_flex_align(camera_settings_saturation_setting_box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
+                        {
+                            camera_settings_saturation_setting_box_text_box = lv_obj_create(camera_settings_saturation_setting_box);
+                            lv_obj_set_style_width(camera_settings_saturation_setting_box_text_box, LV_PCT(100), LV_STATE_DEFAULT);
+                            lv_obj_set_style_border_width(camera_settings_saturation_setting_box_text_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_all(camera_settings_saturation_setting_box_text_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_flex_grow(camera_settings_saturation_setting_box_text_box, 1, LV_STATE_DEFAULT);
+
+                            camera_settings_saturation_setting_box_text = lv_label_create(camera_settings_saturation_setting_box_text_box);
+                            lv_obj_set_style_align(camera_settings_saturation_setting_box_text, LV_ALIGN_CENTER, LV_STATE_DEFAULT);
+                            lv_obj_set_style_text_color(camera_settings_saturation_setting_box_text, lv_color_black(), LV_STATE_DEFAULT);
+                            lv_label_set_text(camera_settings_saturation_setting_box_text, "saturation");
+                        }
+
+                        {
+                            static const char *opt                    = "-4\n-3\n-2\n-1\n0\n1\n2\n3\n4";
+                            camera_settings_saturation_setting_roller = lv_roller_create(camera_settings_saturation_setting_box);
+                            lv_obj_set_style_flex_grow(camera_settings_saturation_setting_roller, 1, LV_STATE_DEFAULT);
+                            lv_roller_set_visible_row_count(camera_settings_saturation_setting_roller, 4);
+                            lv_roller_set_options(camera_settings_saturation_setting_roller, opt, LV_ROLLER_MODE_NORMAL);
+                            lv_obj_set_style_flex_grow(camera_settings_saturation_setting_roller, 4, LV_STATE_DEFAULT);
+                        }
+                    }
+
+                    {
+                        camera_settings_contrast_setting_box = lv_obj_create(camera_settings_functions_container);
+                        lv_obj_set_style_height(camera_settings_contrast_setting_box, inch_to_px(1.2), LV_STATE_DEFAULT);
+                        lv_obj_set_style_border_width(camera_settings_contrast_setting_box, 1, LV_STATE_DEFAULT);
+                        lv_obj_set_style_border_side(camera_settings_contrast_setting_box, LV_BORDER_SIDE_BOTTOM, LV_STATE_DEFAULT);
+                        lv_obj_set_style_pad_all(camera_settings_contrast_setting_box, 0, LV_STATE_DEFAULT);
+                        lv_obj_set_style_bg_color(camera_settings_contrast_setting_box, lv_color_white(), LV_STATE_DEFAULT);
+                        // lv_obj_set_style_radius(camera_settings_contrast_setting_box, 0, LV_STATE_DEFAULT);
+                        lv_obj_set_layout(camera_settings_contrast_setting_box, LV_LAYOUT_FLEX);
+                        lv_obj_set_flex_flow(camera_settings_contrast_setting_box, LV_FLEX_FLOW_COLUMN);
+                        lv_obj_set_style_flex_grow(camera_settings_contrast_setting_box, 1, LV_STATE_DEFAULT);
+                        lv_obj_set_flex_align(camera_settings_contrast_setting_box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
+                        {
+                            camera_settings_contrast_setting_box_text_box = lv_obj_create(camera_settings_contrast_setting_box);
+                            lv_obj_set_style_width(camera_settings_contrast_setting_box_text_box, LV_PCT(100), LV_STATE_DEFAULT);
+                            lv_obj_set_style_border_width(camera_settings_contrast_setting_box_text_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_all(camera_settings_contrast_setting_box_text_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_flex_grow(camera_settings_contrast_setting_box_text_box, 1, LV_STATE_DEFAULT);
+
+                            camera_settings_contrast_setting_box_text = lv_label_create(camera_settings_contrast_setting_box_text_box);
+                            lv_obj_set_style_align(camera_settings_contrast_setting_box_text, LV_ALIGN_CENTER, LV_STATE_DEFAULT);
+                            lv_obj_set_style_text_color(camera_settings_contrast_setting_box_text, lv_color_black(), LV_STATE_DEFAULT);
+                            lv_label_set_text(camera_settings_contrast_setting_box_text, "contrast");
+                        }
+
+                        {
+                            static const char *opt                  = "-4\n-3\n-2\n-1\n0\n1\n2\n3\n4";
+                            camera_settings_contrast_setting_roller = lv_roller_create(camera_settings_contrast_setting_box);
+                            lv_obj_set_style_flex_grow(camera_settings_contrast_setting_roller, 1, LV_STATE_DEFAULT);
+                            lv_roller_set_visible_row_count(camera_settings_contrast_setting_roller, 4);
+                            lv_roller_set_options(camera_settings_contrast_setting_roller, opt, LV_ROLLER_MODE_NORMAL);
+                            lv_obj_set_style_flex_grow(camera_settings_contrast_setting_roller, 4, LV_STATE_DEFAULT);
+                        }
+                    }
+
+                    {
+                        camera_settings_huedegree_setting_box = lv_obj_create(camera_settings_functions_container);
+                        lv_obj_set_style_height(camera_settings_huedegree_setting_box, inch_to_px(1.2), LV_STATE_DEFAULT);
+                        lv_obj_set_style_border_width(camera_settings_huedegree_setting_box, 1, LV_STATE_DEFAULT);
+                        lv_obj_set_style_border_side(camera_settings_huedegree_setting_box, LV_BORDER_SIDE_BOTTOM, LV_STATE_DEFAULT);
+                        lv_obj_set_style_pad_all(camera_settings_huedegree_setting_box, 0, LV_STATE_DEFAULT);
+                        lv_obj_set_style_bg_color(camera_settings_huedegree_setting_box, lv_color_white(), LV_STATE_DEFAULT);
+                        // lv_obj_set_style_radius(camera_settings_huedegree_setting_box, 0, LV_STATE_DEFAULT);
+                        lv_obj_set_layout(camera_settings_huedegree_setting_box, LV_LAYOUT_FLEX);
+                        lv_obj_set_flex_flow(camera_settings_huedegree_setting_box, LV_FLEX_FLOW_COLUMN);
+                        lv_obj_set_style_flex_grow(camera_settings_huedegree_setting_box, 1, LV_STATE_DEFAULT);
+                        lv_obj_set_flex_align(camera_settings_huedegree_setting_box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
+                        {
+                            camera_settings_huedegree_setting_box_text_box = lv_obj_create(camera_settings_huedegree_setting_box);
+                            lv_obj_set_style_width(camera_settings_huedegree_setting_box_text_box, LV_PCT(100), LV_STATE_DEFAULT);
+                            lv_obj_set_style_border_width(camera_settings_huedegree_setting_box_text_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_all(camera_settings_huedegree_setting_box_text_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_flex_grow(camera_settings_huedegree_setting_box_text_box, 1, LV_STATE_DEFAULT);
+
+                            camera_settings_huedegree_setting_box_text = lv_label_create(camera_settings_huedegree_setting_box_text_box);
+                            lv_obj_set_style_align(camera_settings_huedegree_setting_box_text, LV_ALIGN_CENTER, LV_STATE_DEFAULT);
+                            lv_obj_set_style_text_color(camera_settings_huedegree_setting_box_text, lv_color_black(), LV_STATE_DEFAULT);
+                            lv_label_set_text(camera_settings_huedegree_setting_box_text, "HueDegree");
+                        }
+
+                        {
+                            static const char *opt                   = "-6\n-5\n-4\n-3\n-2\n-1\n0\n1\n2\n3\n4\n5";
+                            camera_settings_huedegree_setting_roller = lv_roller_create(camera_settings_huedegree_setting_box);
+                            lv_obj_set_style_flex_grow(camera_settings_huedegree_setting_roller, 1, LV_STATE_DEFAULT);
+                            lv_roller_set_visible_row_count(camera_settings_huedegree_setting_roller, 4);
+                            lv_roller_set_options(camera_settings_huedegree_setting_roller, opt, LV_ROLLER_MODE_NORMAL);
+                            lv_obj_set_style_flex_grow(camera_settings_huedegree_setting_roller, 4, LV_STATE_DEFAULT);
+                        }
+                    }
+
+                    {
+                        camera_settings_mirror_flip_mode_setting_box = lv_obj_create(camera_settings_functions_container);
+                        lv_obj_set_style_height(camera_settings_mirror_flip_mode_setting_box, inch_to_px(1.2), LV_STATE_DEFAULT);
+                        lv_obj_set_style_border_width(camera_settings_mirror_flip_mode_setting_box, 1, LV_STATE_DEFAULT);
+                        lv_obj_set_style_border_side(camera_settings_mirror_flip_mode_setting_box, LV_BORDER_SIDE_BOTTOM, LV_STATE_DEFAULT);
+                        lv_obj_set_style_pad_all(camera_settings_mirror_flip_mode_setting_box, 0, LV_STATE_DEFAULT);
+                        lv_obj_set_style_bg_color(camera_settings_mirror_flip_mode_setting_box, lv_color_white(), LV_STATE_DEFAULT);
+                        // lv_obj_set_style_radius(camera_settings_mirror_flip_mode_setting_box, 0, LV_STATE_DEFAULT);
+                        lv_obj_set_layout(camera_settings_mirror_flip_mode_setting_box, LV_LAYOUT_FLEX);
+                        lv_obj_set_flex_flow(camera_settings_mirror_flip_mode_setting_box, LV_FLEX_FLOW_COLUMN);
+                        lv_obj_set_style_flex_grow(camera_settings_mirror_flip_mode_setting_box, 1, LV_STATE_DEFAULT);
+                        lv_obj_add_flag(camera_settings_mirror_flip_mode_setting_box, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK);
+                        {
+                            camera_settings_mirror_flip_mode_setting_box_text_box = lv_obj_create(camera_settings_mirror_flip_mode_setting_box);
+                            lv_obj_set_style_width(camera_settings_mirror_flip_mode_setting_box_text_box, LV_PCT(100), LV_STATE_DEFAULT);
+                            lv_obj_set_style_border_width(camera_settings_mirror_flip_mode_setting_box_text_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_all(camera_settings_mirror_flip_mode_setting_box_text_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_flex_grow(camera_settings_mirror_flip_mode_setting_box_text_box, 1, LV_STATE_DEFAULT);
+
+                            camera_settings_mirror_flip_mode_setting_box_text = lv_label_create(camera_settings_mirror_flip_mode_setting_box_text_box);
+                            lv_obj_set_style_align(camera_settings_mirror_flip_mode_setting_box_text, LV_ALIGN_CENTER, LV_STATE_DEFAULT);
+                            lv_obj_set_style_text_color(camera_settings_mirror_flip_mode_setting_box_text, lv_color_black(), LV_STATE_DEFAULT);
+                            lv_label_set_text(camera_settings_mirror_flip_mode_setting_box_text, "mirror flip");
+                        }
+
+                        {
+                            camera_settings_mirror_flip_mode_setting_box_btns_box = lv_obj_create(camera_settings_mirror_flip_mode_setting_box);
+                            lv_obj_set_style_width(camera_settings_mirror_flip_mode_setting_box_btns_box, LV_PCT(100), LV_STATE_DEFAULT);
+                            lv_obj_set_style_border_width(camera_settings_mirror_flip_mode_setting_box_btns_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_all(camera_settings_mirror_flip_mode_setting_box_btns_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_flex_grow(camera_settings_mirror_flip_mode_setting_box_btns_box, 4, LV_STATE_DEFAULT);
+                            lv_obj_set_layout(camera_settings_mirror_flip_mode_setting_box_btns_box, LV_LAYOUT_FLEX);
+                            lv_obj_set_flex_flow(camera_settings_mirror_flip_mode_setting_box_btns_box, LV_FLEX_FLOW_COLUMN);
+                            lv_obj_set_flex_align(camera_settings_mirror_flip_mode_setting_box_btns_box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER);
+                            {
+                                for (int i = 0; i < 4; i++) {
+                                    camera_settings_mirror_flip_mode_settings_btns[i] = lv_checkbox_create(camera_settings_mirror_flip_mode_setting_box_btns_box);
+                                    lv_obj_set_style_radius(camera_settings_mirror_flip_mode_settings_btns[i], LV_RADIUS_CIRCLE, LV_PART_INDICATOR);
+                                    lv_obj_add_flag(camera_settings_mirror_flip_mode_settings_btns[i], LV_OBJ_FLAG_EVENT_BUBBLE);
+                                    lv_obj_set_user_data(camera_settings_mirror_flip_mode_settings_btns[i], (void *)(uintptr_t)i);
+                                }
+                                lv_checkbox_set_text_static(camera_settings_mirror_flip_mode_settings_btns[0], "none");
+                                lv_checkbox_set_text_static(camera_settings_mirror_flip_mode_settings_btns[1], "flip");
+                                lv_checkbox_set_text_static(camera_settings_mirror_flip_mode_settings_btns[2], "mirror");
+                                lv_checkbox_set_text_static(camera_settings_mirror_flip_mode_settings_btns[3], "mirror flip");
+                            }
+                        }
+                    }
+
+                    {
+                        camera_settings_colorbar_mode_setting_box = lv_obj_create(camera_settings_functions_container);
+                        lv_obj_set_style_height(camera_settings_colorbar_mode_setting_box, inch_to_px(1.2), LV_STATE_DEFAULT);
+                        lv_obj_set_style_border_width(camera_settings_colorbar_mode_setting_box, 1, LV_STATE_DEFAULT);
+                        lv_obj_set_style_border_side(camera_settings_colorbar_mode_setting_box, LV_BORDER_SIDE_BOTTOM, LV_STATE_DEFAULT);
+                        lv_obj_set_style_pad_all(camera_settings_colorbar_mode_setting_box, 0, LV_STATE_DEFAULT);
+                        lv_obj_set_style_bg_color(camera_settings_colorbar_mode_setting_box, lv_color_white(), LV_STATE_DEFAULT);
+                        // lv_obj_set_style_radius(camera_settings_colorbar_mode_setting_box, 0, LV_STATE_DEFAULT);
+                        lv_obj_set_layout(camera_settings_colorbar_mode_setting_box, LV_LAYOUT_FLEX);
+                        lv_obj_set_flex_flow(camera_settings_colorbar_mode_setting_box, LV_FLEX_FLOW_COLUMN);
+                        lv_obj_set_style_flex_grow(camera_settings_colorbar_mode_setting_box, 1, LV_STATE_DEFAULT);
+                        {
+                            camera_settings_colorbar_mode_setting_box_text_box = lv_obj_create(camera_settings_colorbar_mode_setting_box);
+                            lv_obj_set_style_width(camera_settings_colorbar_mode_setting_box_text_box, LV_PCT(100), LV_STATE_DEFAULT);
+                            lv_obj_set_style_border_width(camera_settings_colorbar_mode_setting_box_text_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_all(camera_settings_colorbar_mode_setting_box_text_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_flex_grow(camera_settings_colorbar_mode_setting_box_text_box, 1, LV_STATE_DEFAULT);
+
+                            camera_settings_colorbar_mode_setting_box_text = lv_label_create(camera_settings_colorbar_mode_setting_box_text_box);
+                            lv_obj_set_style_align(camera_settings_colorbar_mode_setting_box_text, LV_ALIGN_CENTER, LV_STATE_DEFAULT);
+                            lv_obj_set_style_text_color(camera_settings_colorbar_mode_setting_box_text, lv_color_black(), LV_STATE_DEFAULT);
+                            lv_label_set_text(camera_settings_colorbar_mode_setting_box_text, "color bar");
+                        }
+
+                        {
+                            camera_settings_colorbar_mode_setting_box_btns_box = lv_obj_create(camera_settings_colorbar_mode_setting_box);
+                            lv_obj_set_style_width(camera_settings_colorbar_mode_setting_box_btns_box, LV_PCT(100), LV_STATE_DEFAULT);
+                            lv_obj_set_style_border_width(camera_settings_colorbar_mode_setting_box_btns_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_all(camera_settings_colorbar_mode_setting_box_btns_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_flex_grow(camera_settings_colorbar_mode_setting_box_btns_box, 4, LV_STATE_DEFAULT);
+                            lv_obj_set_layout(camera_settings_colorbar_mode_setting_box_btns_box, LV_LAYOUT_FLEX);
+                            lv_obj_set_flex_flow(camera_settings_colorbar_mode_setting_box_btns_box, LV_FLEX_FLOW_COLUMN);
+                            lv_obj_set_flex_align(camera_settings_colorbar_mode_setting_box_btns_box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER);
+                            {
+                                for (int i = 0; i < 3; i++) {
+                                    camera_settings_colorbar_mode_settings_btns[i] = lv_checkbox_create(camera_settings_colorbar_mode_setting_box_btns_box);
+                                    lv_obj_set_style_radius(camera_settings_colorbar_mode_settings_btns[i], LV_RADIUS_CIRCLE, LV_PART_INDICATOR);
+                                    lv_obj_add_flag(camera_settings_colorbar_mode_settings_btns[i], LV_OBJ_FLAG_EVENT_BUBBLE);
+                                    lv_obj_set_user_data(camera_settings_colorbar_mode_settings_btns[i], (void *)(uintptr_t)i);
+                                }
+                                lv_checkbox_set_text_static(camera_settings_colorbar_mode_settings_btns[0], "disable");
+                                lv_checkbox_set_text_static(camera_settings_colorbar_mode_settings_btns[1], "enable");
+                                lv_checkbox_set_text_static(camera_settings_colorbar_mode_settings_btns[2], "grad ualv");
+                            }
+                        }
+                    }
+
+                    {
+                        camera_settings_night_mode_setting_box = lv_obj_create(camera_settings_functions_container);
+                        lv_obj_set_style_height(camera_settings_night_mode_setting_box, inch_to_px(1.2), LV_STATE_DEFAULT);
+                        lv_obj_set_style_border_width(camera_settings_night_mode_setting_box, 1, LV_STATE_DEFAULT);
+                        lv_obj_set_style_border_side(camera_settings_night_mode_setting_box, LV_BORDER_SIDE_BOTTOM, LV_STATE_DEFAULT);
+                        lv_obj_set_style_pad_all(camera_settings_night_mode_setting_box, 0, LV_STATE_DEFAULT);
+                        lv_obj_set_style_bg_color(camera_settings_night_mode_setting_box, lv_color_white(), LV_STATE_DEFAULT);
+                        // lv_obj_set_style_radius(camera_settings_night_mode_setting_box, 0, LV_STATE_DEFAULT);
+                        lv_obj_set_layout(camera_settings_night_mode_setting_box, LV_LAYOUT_FLEX);
+                        lv_obj_set_flex_flow(camera_settings_night_mode_setting_box, LV_FLEX_FLOW_COLUMN);
+                        lv_obj_set_style_flex_grow(camera_settings_night_mode_setting_box, 1, LV_STATE_DEFAULT);
+                        {
+                            camera_settings_night_mode_setting_box_text_box = lv_obj_create(camera_settings_night_mode_setting_box);
+                            lv_obj_set_style_width(camera_settings_night_mode_setting_box_text_box, LV_PCT(100), LV_STATE_DEFAULT);
+                            lv_obj_set_style_border_width(camera_settings_night_mode_setting_box_text_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_all(camera_settings_night_mode_setting_box_text_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_flex_grow(camera_settings_night_mode_setting_box_text_box, 1, LV_STATE_DEFAULT);
+
+                            camera_settings_night_mode_setting_box_text = lv_label_create(camera_settings_night_mode_setting_box_text_box);
+                            lv_obj_set_style_align(camera_settings_night_mode_setting_box_text, LV_ALIGN_CENTER, LV_STATE_DEFAULT);
+                            lv_obj_set_style_text_color(camera_settings_night_mode_setting_box_text, lv_color_black(), LV_STATE_DEFAULT);
+                            lv_label_set_text(camera_settings_night_mode_setting_box_text, "night mode");
+                        }
+
+                        {
+                            camera_settings_night_mode_setting_box_btns_box = lv_obj_create(camera_settings_night_mode_setting_box);
+                            lv_obj_set_style_width(camera_settings_night_mode_setting_box_btns_box, LV_PCT(100), LV_STATE_DEFAULT);
+                            lv_obj_set_style_border_width(camera_settings_night_mode_setting_box_btns_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_all(camera_settings_night_mode_setting_box_btns_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_flex_grow(camera_settings_night_mode_setting_box_btns_box, 4, LV_STATE_DEFAULT);
+                            lv_obj_set_layout(camera_settings_night_mode_setting_box_btns_box, LV_LAYOUT_FLEX);
+                            lv_obj_set_flex_flow(camera_settings_night_mode_setting_box_btns_box, LV_FLEX_FLOW_COLUMN);
+                            lv_obj_set_flex_align(camera_settings_night_mode_setting_box_btns_box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER);
+
+                            {
+                                for (int i = 0; i < 1; i++) {
+                                    camera_settings_night_mode_settings_btns[i] = lv_checkbox_create(camera_settings_night_mode_setting_box_btns_box);
+                                    lv_obj_add_flag(camera_settings_night_mode_settings_btns[i], LV_OBJ_FLAG_EVENT_BUBBLE);
+                                    lv_obj_set_user_data(camera_settings_night_mode_settings_btns[i], (void *)(uintptr_t)i);
+                                }
+                                lv_checkbox_set_text_static(camera_settings_night_mode_settings_btns[0], "Enable");
+                            }
+                        }
+                    }
+
+                    {
+                        camera_settings_light_mode_setting_box = lv_obj_create(camera_settings_functions_container);
+                        lv_obj_set_style_height(camera_settings_light_mode_setting_box, inch_to_px(1.5), LV_STATE_DEFAULT);
+                        lv_obj_set_style_border_width(camera_settings_light_mode_setting_box, 1, LV_STATE_DEFAULT);
+                        lv_obj_set_style_border_side(camera_settings_light_mode_setting_box, LV_BORDER_SIDE_BOTTOM, LV_STATE_DEFAULT);
+                        lv_obj_set_style_pad_all(camera_settings_light_mode_setting_box, 0, LV_STATE_DEFAULT);
+                        lv_obj_set_style_bg_color(camera_settings_light_mode_setting_box, lv_color_white(), LV_STATE_DEFAULT);
+                        // lv_obj_set_style_radius(camera_settings_light_mode_setting_box, 0, LV_STATE_DEFAULT);
+                        lv_obj_set_layout(camera_settings_light_mode_setting_box, LV_LAYOUT_FLEX);
+                        lv_obj_set_flex_flow(camera_settings_light_mode_setting_box, LV_FLEX_FLOW_COLUMN);
+                        lv_obj_set_style_flex_grow(camera_settings_light_mode_setting_box, 1, LV_STATE_DEFAULT);
+                        lv_obj_add_flag(camera_settings_light_mode_setting_box, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK);
+                        {
+                            camera_settings_light_mode_setting_box_text_box = lv_obj_create(camera_settings_light_mode_setting_box);
+                            lv_obj_set_style_width(camera_settings_light_mode_setting_box_text_box, LV_PCT(100), LV_STATE_DEFAULT);
+                            lv_obj_set_style_border_width(camera_settings_light_mode_setting_box_text_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_all(camera_settings_light_mode_setting_box_text_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_flex_grow(camera_settings_light_mode_setting_box_text_box, 1, LV_STATE_DEFAULT);
+
+                            camera_settings_light_mode_setting_box_text = lv_label_create(camera_settings_light_mode_setting_box_text_box);
+                            lv_obj_set_style_align(camera_settings_light_mode_setting_box_text, LV_ALIGN_CENTER, LV_STATE_DEFAULT);
+                            lv_obj_set_style_text_color(camera_settings_light_mode_setting_box_text, lv_color_black(), LV_STATE_DEFAULT);
+                            lv_label_set_text(camera_settings_light_mode_setting_box_text, "light mode");
+                        }
+
+                        {
+                            camera_settings_light_mode_setting_box_btns_box = lv_obj_create(camera_settings_light_mode_setting_box);
+                            lv_obj_set_style_width(camera_settings_light_mode_setting_box_btns_box, LV_PCT(100), LV_STATE_DEFAULT);
+                            lv_obj_set_style_border_width(camera_settings_light_mode_setting_box_btns_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_all(camera_settings_light_mode_setting_box_btns_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_flex_grow(camera_settings_light_mode_setting_box_btns_box, 4, LV_STATE_DEFAULT);
+                            lv_obj_set_layout(camera_settings_light_mode_setting_box_btns_box, LV_LAYOUT_FLEX);
+                            lv_obj_set_flex_flow(camera_settings_light_mode_setting_box_btns_box, LV_FLEX_FLOW_COLUMN);
+                            lv_obj_set_flex_align(camera_settings_light_mode_setting_box_btns_box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER);
+                            {
+                                for (int i = 0; i < 5; i++) {
+                                    camera_settings_light_mode_settings_btns[i] = lv_checkbox_create(camera_settings_light_mode_setting_box_btns_box);
+                                    lv_obj_set_style_radius(camera_settings_light_mode_settings_btns[i], LV_RADIUS_CIRCLE, LV_PART_INDICATOR);
+                                    lv_obj_add_flag(camera_settings_light_mode_settings_btns[i], LV_OBJ_FLAG_EVENT_BUBBLE);
+                                    lv_obj_set_user_data(camera_settings_light_mode_settings_btns[i], (void *)(uintptr_t)i);
+                                }
+                                lv_checkbox_set_text_static(camera_settings_light_mode_settings_btns[0], "auto");
+                                lv_checkbox_set_text_static(camera_settings_light_mode_settings_btns[1], "sunny");
+                                lv_checkbox_set_text_static(camera_settings_light_mode_settings_btns[2], "office");
+                                lv_checkbox_set_text_static(camera_settings_light_mode_settings_btns[3], "cloudy");
+                                lv_checkbox_set_text_static(camera_settings_light_mode_settings_btns[4], "home");
+                            }
+                        }
+                    }
+
+                    {
+                        camera_settings_effect_mode_setting_box = lv_obj_create(camera_settings_functions_container);
+                        lv_obj_set_style_height(camera_settings_effect_mode_setting_box, inch_to_px(2.0), LV_STATE_DEFAULT);
+                        lv_obj_set_style_border_width(camera_settings_effect_mode_setting_box, 1, LV_STATE_DEFAULT);
+                        lv_obj_set_style_border_side(camera_settings_effect_mode_setting_box, LV_BORDER_SIDE_BOTTOM, LV_STATE_DEFAULT);
+                        lv_obj_set_style_pad_all(camera_settings_effect_mode_setting_box, 0, LV_STATE_DEFAULT);
+                        lv_obj_set_style_bg_color(camera_settings_effect_mode_setting_box, lv_color_white(), LV_STATE_DEFAULT);
+                        // lv_obj_set_style_radius(camera_settings_effect_mode_setting_box, 0, LV_STATE_DEFAULT);
+                        lv_obj_set_layout(camera_settings_effect_mode_setting_box, LV_LAYOUT_FLEX);
+                        lv_obj_set_flex_flow(camera_settings_effect_mode_setting_box, LV_FLEX_FLOW_COLUMN);
+                        lv_obj_set_style_flex_grow(camera_settings_effect_mode_setting_box, 1, LV_STATE_DEFAULT);
+                        {
+                            camera_settings_effect_mode_setting_box_text_box = lv_obj_create(camera_settings_effect_mode_setting_box);
+                            lv_obj_set_style_width(camera_settings_effect_mode_setting_box_text_box, LV_PCT(100), LV_STATE_DEFAULT);
+                            lv_obj_set_style_border_width(camera_settings_effect_mode_setting_box_text_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_all(camera_settings_effect_mode_setting_box_text_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_flex_grow(camera_settings_effect_mode_setting_box_text_box, 1, LV_STATE_DEFAULT);
+
+                            camera_settings_effect_mode_setting_box_text = lv_label_create(camera_settings_effect_mode_setting_box_text_box);
+                            lv_obj_set_style_align(camera_settings_effect_mode_setting_box_text, LV_ALIGN_CENTER, LV_STATE_DEFAULT);
+                            lv_obj_set_style_text_color(camera_settings_effect_mode_setting_box_text, lv_color_black(), LV_STATE_DEFAULT);
+                            lv_label_set_text(camera_settings_effect_mode_setting_box_text, "effect");
+                        }
+
+                        {
+                            camera_settings_effect_mode_setting_box_btns_box = lv_obj_create(camera_settings_effect_mode_setting_box);
+                            lv_obj_set_style_width(camera_settings_effect_mode_setting_box_btns_box, LV_PCT(100), LV_STATE_DEFAULT);
+                            lv_obj_set_style_border_width(camera_settings_effect_mode_setting_box_btns_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_all(camera_settings_effect_mode_setting_box_btns_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_flex_grow(camera_settings_effect_mode_setting_box_btns_box, 4, LV_STATE_DEFAULT);
+                            lv_obj_set_layout(camera_settings_effect_mode_setting_box_btns_box, LV_LAYOUT_FLEX);
+                            lv_obj_set_flex_flow(camera_settings_effect_mode_setting_box_btns_box, LV_FLEX_FLOW_COLUMN);
+                            lv_obj_set_flex_align(camera_settings_effect_mode_setting_box_btns_box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER);
+
+                            {
+                                for (int i = 0; i < 7; i++) {
+                                    camera_settings_effect_mode_settings_btns[i] = lv_checkbox_create(camera_settings_effect_mode_setting_box_btns_box);
+                                    lv_obj_set_style_radius(camera_settings_effect_mode_settings_btns[i], LV_RADIUS_CIRCLE, LV_PART_INDICATOR);
+                                    lv_obj_add_flag(camera_settings_effect_mode_settings_btns[i], LV_OBJ_FLAG_EVENT_BUBBLE);
+                                    lv_obj_set_user_data(camera_settings_effect_mode_settings_btns[i], (void *)(uintptr_t)i);
+                                }
+                                lv_checkbox_set_text_static(camera_settings_effect_mode_settings_btns[0], "none");
+                                lv_checkbox_set_text_static(camera_settings_effect_mode_settings_btns[1], "blue");
+                                lv_checkbox_set_text_static(camera_settings_effect_mode_settings_btns[2], "red");
+                                lv_checkbox_set_text_static(camera_settings_effect_mode_settings_btns[3], "green");
+                                lv_checkbox_set_text_static(camera_settings_effect_mode_settings_btns[4], "bw");
+                                lv_checkbox_set_text_static(camera_settings_effect_mode_settings_btns[5], "sepia");
+                                lv_checkbox_set_text_static(camera_settings_effect_mode_settings_btns[6], "negative");
+                            }
+                        }
+                    }
+
+                    {
+                        camera_settings_zoom_mode_setting_box = lv_obj_create(camera_settings_functions_container);
+                        lv_obj_set_style_height(camera_settings_zoom_mode_setting_box, inch_to_px(1.5), LV_STATE_DEFAULT);
+                        lv_obj_set_style_border_width(camera_settings_zoom_mode_setting_box, 1, LV_STATE_DEFAULT);
+                        lv_obj_set_style_border_side(camera_settings_zoom_mode_setting_box, LV_BORDER_SIDE_BOTTOM, LV_STATE_DEFAULT);
+                        lv_obj_set_style_pad_all(camera_settings_zoom_mode_setting_box, 0, LV_STATE_DEFAULT);
+                        lv_obj_set_style_bg_color(camera_settings_zoom_mode_setting_box, lv_color_white(), LV_STATE_DEFAULT);
+                        // lv_obj_set_style_radius(camera_settings_zoom_mode_setting_box, 0, LV_STATE_DEFAULT);
+                        lv_obj_set_layout(camera_settings_zoom_mode_setting_box, LV_LAYOUT_FLEX);
+                        lv_obj_set_flex_flow(camera_settings_zoom_mode_setting_box, LV_FLEX_FLOW_COLUMN);
+                        lv_obj_set_style_flex_grow(camera_settings_zoom_mode_setting_box, 1, LV_STATE_DEFAULT);
+                        {
+                            camera_settings_zoom_mode_setting_box_text_box = lv_obj_create(camera_settings_zoom_mode_setting_box);
+                            lv_obj_set_style_width(camera_settings_zoom_mode_setting_box_text_box, LV_PCT(100), LV_STATE_DEFAULT);
+                            lv_obj_set_style_border_width(camera_settings_zoom_mode_setting_box_text_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_all(camera_settings_zoom_mode_setting_box_text_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_flex_grow(camera_settings_zoom_mode_setting_box_text_box, 1, LV_STATE_DEFAULT);
+
+                            camera_settings_zoom_mode_setting_box_text = lv_label_create(camera_settings_zoom_mode_setting_box_text_box);
+                            lv_obj_set_style_align(camera_settings_zoom_mode_setting_box_text, LV_ALIGN_CENTER, LV_STATE_DEFAULT);
+                            lv_obj_set_style_text_color(camera_settings_zoom_mode_setting_box_text, lv_color_black(), LV_STATE_DEFAULT);
+                            lv_label_set_text(camera_settings_zoom_mode_setting_box_text, "zoom");
+                        }
+
+                        {
+                            camera_settings_zoom_mode_setting_box_btns_box = lv_obj_create(camera_settings_zoom_mode_setting_box);
+                            lv_obj_set_style_width(camera_settings_zoom_mode_setting_box_btns_box, LV_PCT(100), LV_STATE_DEFAULT);
+                            lv_obj_set_style_border_width(camera_settings_zoom_mode_setting_box_btns_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_all(camera_settings_zoom_mode_setting_box_btns_box, 0, LV_STATE_DEFAULT);
+                            lv_obj_set_style_flex_grow(camera_settings_zoom_mode_setting_box_btns_box, 4, LV_STATE_DEFAULT);
+                            lv_obj_set_layout(camera_settings_zoom_mode_setting_box_btns_box, LV_LAYOUT_FLEX);
+                            lv_obj_set_flex_flow(camera_settings_zoom_mode_setting_box_btns_box, LV_FLEX_FLOW_COLUMN);
+                            lv_obj_set_flex_align(camera_settings_zoom_mode_setting_box_btns_box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER);
+                            {
+                                for (int i = 0; i < 4; i++) {
+                                    camera_settings_zoom_mode_settings_btns[i] = lv_checkbox_create(camera_settings_zoom_mode_setting_box_btns_box);
+                                    lv_obj_set_style_radius(camera_settings_zoom_mode_settings_btns[i], LV_RADIUS_CIRCLE, LV_PART_INDICATOR);
+                                    lv_obj_add_flag(camera_settings_zoom_mode_settings_btns[i], LV_OBJ_FLAG_EVENT_BUBBLE);
+                                    lv_obj_set_user_data(camera_settings_zoom_mode_settings_btns[i], (void *)(uintptr_t)i);
+                                }
+                                lv_checkbox_set_text_static(camera_settings_zoom_mode_settings_btns[0], "x1");
+                                lv_checkbox_set_text_static(camera_settings_zoom_mode_settings_btns[1], "x2");
+                                lv_checkbox_set_text_static(camera_settings_zoom_mode_settings_btns[2], "x4");
+                                lv_checkbox_set_text_static(camera_settings_zoom_mode_settings_btns[3], "x8");
+                            }
+                        }
+                    }
                 }
             }
         }
 
         {
-            camera_settings_picture_size_box = lv_obj_create(camera_settings_functions_container);
-            lv_obj_set_style_height(camera_settings_picture_size_box, LV_PCT(90), LV_STATE_DEFAULT);
-            lv_obj_set_style_border_width(camera_settings_picture_size_box, 1, LV_STATE_DEFAULT);
-            lv_obj_set_style_border_side(camera_settings_picture_size_box, LV_BORDER_SIDE_BOTTOM, LV_STATE_DEFAULT);
-            lv_obj_set_style_pad_all(camera_settings_picture_size_box, 0, LV_STATE_DEFAULT);
-            lv_obj_set_style_bg_color(camera_settings_picture_size_box, lv_color_white(), LV_STATE_DEFAULT);
-            // lv_obj_set_style_radius(camera_settings_picture_size_box, 0, LV_STATE_DEFAULT);
-            lv_obj_set_layout(camera_settings_picture_size_box, LV_LAYOUT_FLEX);
-            lv_obj_set_flex_flow(camera_settings_picture_size_box, LV_FLEX_FLOW_COLUMN);
-            lv_obj_set_style_flex_grow(camera_settings_picture_size_box, 1, LV_STATE_DEFAULT);
-
-            {
-                camera_settings_picture_size_box_text_box = lv_obj_create(camera_settings_picture_size_box);
-                lv_obj_set_style_width(camera_settings_picture_size_box_text_box, LV_PCT(100), LV_STATE_DEFAULT);
-                lv_obj_set_style_border_width(camera_settings_picture_size_box_text_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_pad_all(camera_settings_picture_size_box_text_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_flex_grow(camera_settings_picture_size_box_text_box, 1, LV_STATE_DEFAULT);
-
-                camera_settings_picture_size_box_text = lv_label_create(camera_settings_picture_size_box_text_box);
-                lv_obj_set_style_align(camera_settings_picture_size_box_text, LV_ALIGN_CENTER, LV_STATE_DEFAULT);
-                lv_obj_set_style_text_color(camera_settings_picture_size_box_text, lv_color_black(), LV_STATE_DEFAULT);
-                lv_label_set_text(camera_settings_picture_size_box_text, "output file size");
-            }
-
-            {
-                camera_settings_picture_size_box_list_spacer = lv_obj_create(camera_settings_picture_size_box);
-                lv_obj_set_style_width(camera_settings_picture_size_box_list_spacer, LV_PCT(100), LV_STATE_DEFAULT);
-                lv_obj_set_style_border_width(camera_settings_picture_size_box_list_spacer, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_pad_all(camera_settings_picture_size_box_list_spacer, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_flex_grow(camera_settings_picture_size_box_list_spacer, 4, LV_STATE_DEFAULT);
-
-                camera_settings_picture_size_box_list = lv_dropdown_create(camera_settings_picture_size_box_list_spacer);
-                lv_obj_set_style_size(camera_settings_picture_size_box_list, LV_PCT(100), LV_PCT(33), LV_STATE_DEFAULT);
-                lv_dropdown_set_options_static(camera_settings_picture_size_box_list, options);
-            }
-        }
-
-        {
-            camera_settings_light_mode_setting_box = lv_obj_create(camera_settings_functions_container);
-            lv_obj_set_style_height(camera_settings_light_mode_setting_box, LV_PCT(100), LV_STATE_DEFAULT);
-            lv_obj_set_style_border_width(camera_settings_light_mode_setting_box, 1, LV_STATE_DEFAULT);
-            lv_obj_set_style_border_side(camera_settings_light_mode_setting_box, LV_BORDER_SIDE_BOTTOM, LV_STATE_DEFAULT);
-            lv_obj_set_style_pad_all(camera_settings_light_mode_setting_box, 0, LV_STATE_DEFAULT);
-            lv_obj_set_style_bg_color(camera_settings_light_mode_setting_box, lv_color_white(), LV_STATE_DEFAULT);
-            // lv_obj_set_style_radius(camera_settings_light_mode_setting_box, 0, LV_STATE_DEFAULT);
-            lv_obj_set_layout(camera_settings_light_mode_setting_box, LV_LAYOUT_FLEX);
-            lv_obj_set_flex_flow(camera_settings_light_mode_setting_box, LV_FLEX_FLOW_COLUMN);
-            lv_obj_set_style_flex_grow(camera_settings_light_mode_setting_box, 1, LV_STATE_DEFAULT);
-            lv_obj_add_flag(camera_settings_light_mode_setting_box, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK);
-            {
-                camera_settings_light_mode_setting_box_text_box = lv_obj_create(camera_settings_light_mode_setting_box);
-                lv_obj_set_style_width(camera_settings_light_mode_setting_box_text_box, LV_PCT(100), LV_STATE_DEFAULT);
-                lv_obj_set_style_border_width(camera_settings_light_mode_setting_box_text_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_pad_all(camera_settings_light_mode_setting_box_text_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_flex_grow(camera_settings_light_mode_setting_box_text_box, 1, LV_STATE_DEFAULT);
-
-                camera_settings_light_mode_setting_box_text = lv_label_create(camera_settings_light_mode_setting_box_text_box);
-                lv_obj_set_style_align(camera_settings_light_mode_setting_box_text, LV_ALIGN_CENTER, LV_STATE_DEFAULT);
-                lv_obj_set_style_text_color(camera_settings_light_mode_setting_box_text, lv_color_black(), LV_STATE_DEFAULT);
-                lv_label_set_text(camera_settings_light_mode_setting_box_text, "light mode");
-            }
-
-            {
-                camera_settings_light_mode_setting_box_btns_box = lv_obj_create(camera_settings_light_mode_setting_box);
-                lv_obj_set_style_width(camera_settings_light_mode_setting_box_btns_box, LV_PCT(100), LV_STATE_DEFAULT);
-                lv_obj_set_style_border_width(camera_settings_light_mode_setting_box_btns_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_pad_all(camera_settings_light_mode_setting_box_btns_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_flex_grow(camera_settings_light_mode_setting_box_btns_box, 4, LV_STATE_DEFAULT);
-                lv_obj_set_layout(camera_settings_light_mode_setting_box_btns_box, LV_LAYOUT_FLEX);
-                lv_obj_set_flex_flow(camera_settings_light_mode_setting_box_btns_box, LV_FLEX_FLOW_COLUMN);
-                lv_obj_set_flex_align(camera_settings_light_mode_setting_box_btns_box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER);
-                {
-                    for (int i = 0; i < 5; i++) {
-                        camera_settings_light_mode_settings_btns[i] = lv_checkbox_create(camera_settings_light_mode_setting_box_btns_box);
-                        lv_obj_set_style_radius(camera_settings_light_mode_settings_btns[i], LV_RADIUS_CIRCLE, LV_PART_INDICATOR);
-                        lv_obj_add_flag(camera_settings_light_mode_settings_btns[i], LV_OBJ_FLAG_EVENT_BUBBLE);
-                        lv_obj_set_user_data(camera_settings_light_mode_settings_btns[i], (void *)(uintptr_t)i);
-                    }
-                    lv_checkbox_set_text_static(camera_settings_light_mode_settings_btns[0], "auto");
-                    lv_checkbox_set_text_static(camera_settings_light_mode_settings_btns[1], "sunny");
-                    lv_checkbox_set_text_static(camera_settings_light_mode_settings_btns[2], "office");
-                    lv_checkbox_set_text_static(camera_settings_light_mode_settings_btns[3], "cloudy");
-                    lv_checkbox_set_text_static(camera_settings_light_mode_settings_btns[4], "home");
-                }
-            }
-        }
-
-        {
-            camera_settings_effect_mode_setting_box = lv_obj_create(camera_settings_functions_container);
-            lv_obj_set_style_height(camera_settings_effect_mode_setting_box, LV_PCT(140), LV_STATE_DEFAULT);
-            lv_obj_set_style_border_width(camera_settings_effect_mode_setting_box, 1, LV_STATE_DEFAULT);
-            lv_obj_set_style_border_side(camera_settings_effect_mode_setting_box, LV_BORDER_SIDE_BOTTOM, LV_STATE_DEFAULT);
-            lv_obj_set_style_pad_all(camera_settings_effect_mode_setting_box, 0, LV_STATE_DEFAULT);
-            lv_obj_set_style_bg_color(camera_settings_effect_mode_setting_box, lv_color_white(), LV_STATE_DEFAULT);
-            // lv_obj_set_style_radius(camera_settings_effect_mode_setting_box, 0, LV_STATE_DEFAULT);
-            lv_obj_set_layout(camera_settings_effect_mode_setting_box, LV_LAYOUT_FLEX);
-            lv_obj_set_flex_flow(camera_settings_effect_mode_setting_box, LV_FLEX_FLOW_COLUMN);
-            lv_obj_set_style_flex_grow(camera_settings_effect_mode_setting_box, 1, LV_STATE_DEFAULT);
-            {
-                camera_settings_effect_mode_setting_box_text_box = lv_obj_create(camera_settings_effect_mode_setting_box);
-                lv_obj_set_style_width(camera_settings_effect_mode_setting_box_text_box, LV_PCT(100), LV_STATE_DEFAULT);
-                lv_obj_set_style_border_width(camera_settings_effect_mode_setting_box_text_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_pad_all(camera_settings_effect_mode_setting_box_text_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_flex_grow(camera_settings_effect_mode_setting_box_text_box, 1, LV_STATE_DEFAULT);
-
-                camera_settings_effect_mode_setting_box_text = lv_label_create(camera_settings_effect_mode_setting_box_text_box);
-                lv_obj_set_style_align(camera_settings_effect_mode_setting_box_text, LV_ALIGN_CENTER, LV_STATE_DEFAULT);
-                lv_obj_set_style_text_color(camera_settings_effect_mode_setting_box_text, lv_color_black(), LV_STATE_DEFAULT);
-                lv_label_set_text(camera_settings_effect_mode_setting_box_text, "effect");
-            }
-
-            {
-                camera_settings_effect_mode_setting_box_btns_box = lv_obj_create(camera_settings_effect_mode_setting_box);
-                lv_obj_set_style_width(camera_settings_effect_mode_setting_box_btns_box, LV_PCT(100), LV_STATE_DEFAULT);
-                lv_obj_set_style_border_width(camera_settings_effect_mode_setting_box_btns_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_pad_all(camera_settings_effect_mode_setting_box_btns_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_flex_grow(camera_settings_effect_mode_setting_box_btns_box, 4, LV_STATE_DEFAULT);
-                lv_obj_set_layout(camera_settings_effect_mode_setting_box_btns_box, LV_LAYOUT_FLEX);
-                lv_obj_set_flex_flow(camera_settings_effect_mode_setting_box_btns_box, LV_FLEX_FLOW_COLUMN);
-                lv_obj_set_flex_align(camera_settings_effect_mode_setting_box_btns_box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER);
-
-                {
-                    for (int i = 0; i < 7; i++) {
-                        camera_settings_effect_mode_settings_btns[i] = lv_checkbox_create(camera_settings_effect_mode_setting_box_btns_box);
-                        lv_obj_set_style_radius(camera_settings_effect_mode_settings_btns[i], LV_RADIUS_CIRCLE, LV_PART_INDICATOR);
-                        lv_obj_add_flag(camera_settings_effect_mode_settings_btns[i], LV_OBJ_FLAG_EVENT_BUBBLE);
-                        lv_obj_set_user_data(camera_settings_effect_mode_settings_btns[i], (void *)(uintptr_t)i);
-                    }
-                    lv_checkbox_set_text_static(camera_settings_effect_mode_settings_btns[0], "none");
-                    lv_checkbox_set_text_static(camera_settings_effect_mode_settings_btns[1], "blue");
-                    lv_checkbox_set_text_static(camera_settings_effect_mode_settings_btns[2], "red");
-                    lv_checkbox_set_text_static(camera_settings_effect_mode_settings_btns[3], "green");
-                    lv_checkbox_set_text_static(camera_settings_effect_mode_settings_btns[4], "bw");
-                    lv_checkbox_set_text_static(camera_settings_effect_mode_settings_btns[5], "sepia");
-                    lv_checkbox_set_text_static(camera_settings_effect_mode_settings_btns[6], "negative");
-                }
-            }
-        }
-
-        {
-            camera_settings_zoom_mode_setting_box = lv_obj_create(camera_settings_functions_container);
-            lv_obj_set_style_height(camera_settings_zoom_mode_setting_box, LV_PCT(100), LV_STATE_DEFAULT);
-            lv_obj_set_style_border_width(camera_settings_zoom_mode_setting_box, 1, LV_STATE_DEFAULT);
-            lv_obj_set_style_border_side(camera_settings_zoom_mode_setting_box, LV_BORDER_SIDE_BOTTOM, LV_STATE_DEFAULT);
-            lv_obj_set_style_pad_all(camera_settings_zoom_mode_setting_box, 0, LV_STATE_DEFAULT);
-            lv_obj_set_style_bg_color(camera_settings_zoom_mode_setting_box, lv_color_white(), LV_STATE_DEFAULT);
-            // lv_obj_set_style_radius(camera_settings_zoom_mode_setting_box, 0, LV_STATE_DEFAULT);
-            lv_obj_set_layout(camera_settings_zoom_mode_setting_box, LV_LAYOUT_FLEX);
-            lv_obj_set_flex_flow(camera_settings_zoom_mode_setting_box, LV_FLEX_FLOW_COLUMN);
-            lv_obj_set_style_flex_grow(camera_settings_zoom_mode_setting_box, 1, LV_STATE_DEFAULT);
-            {
-                camera_settings_zoom_mode_setting_box_text_box = lv_obj_create(camera_settings_zoom_mode_setting_box);
-                lv_obj_set_style_width(camera_settings_zoom_mode_setting_box_text_box, LV_PCT(100), LV_STATE_DEFAULT);
-                lv_obj_set_style_border_width(camera_settings_zoom_mode_setting_box_text_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_pad_all(camera_settings_zoom_mode_setting_box_text_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_flex_grow(camera_settings_zoom_mode_setting_box_text_box, 1, LV_STATE_DEFAULT);
-
-                camera_settings_zoom_mode_setting_box_text = lv_label_create(camera_settings_zoom_mode_setting_box_text_box);
-                lv_obj_set_style_align(camera_settings_zoom_mode_setting_box_text, LV_ALIGN_CENTER, LV_STATE_DEFAULT);
-                lv_obj_set_style_text_color(camera_settings_zoom_mode_setting_box_text, lv_color_black(), LV_STATE_DEFAULT);
-                lv_label_set_text(camera_settings_zoom_mode_setting_box_text, "zoom");
-            }
-
-            {
-                camera_settings_zoom_mode_setting_box_btns_box = lv_obj_create(camera_settings_zoom_mode_setting_box);
-                lv_obj_set_style_width(camera_settings_zoom_mode_setting_box_btns_box, LV_PCT(100), LV_STATE_DEFAULT);
-                lv_obj_set_style_border_width(camera_settings_zoom_mode_setting_box_btns_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_pad_all(camera_settings_zoom_mode_setting_box_btns_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_flex_grow(camera_settings_zoom_mode_setting_box_btns_box, 4, LV_STATE_DEFAULT);
-                lv_obj_set_layout(camera_settings_zoom_mode_setting_box_btns_box, LV_LAYOUT_FLEX);
-                lv_obj_set_flex_flow(camera_settings_zoom_mode_setting_box_btns_box, LV_FLEX_FLOW_COLUMN);
-                lv_obj_set_flex_align(camera_settings_zoom_mode_setting_box_btns_box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER);
-                {
-                    for (int i = 0; i < 4; i++) {
-                        camera_settings_zoom_mode_settings_btns[i] = lv_checkbox_create(camera_settings_zoom_mode_setting_box_btns_box);
-                        lv_obj_set_style_radius(camera_settings_zoom_mode_settings_btns[i], LV_RADIUS_CIRCLE, LV_PART_INDICATOR);
-                        lv_obj_add_flag(camera_settings_zoom_mode_settings_btns[i], LV_OBJ_FLAG_EVENT_BUBBLE);
-                        lv_obj_set_user_data(camera_settings_zoom_mode_settings_btns[i], (void *)(uintptr_t)i);
-                    }
-                    lv_checkbox_set_text_static(camera_settings_zoom_mode_settings_btns[0], "x1");
-                    lv_checkbox_set_text_static(camera_settings_zoom_mode_settings_btns[1], "x2");
-                    lv_checkbox_set_text_static(camera_settings_zoom_mode_settings_btns[2], "x4");
-                    lv_checkbox_set_text_static(camera_settings_zoom_mode_settings_btns[3], "x8");
-                }
-            }
-        }
-
-        {
-            camera_settings_mirror_flip_mode_setting_box = lv_obj_create(camera_settings_functions_container);
-            lv_obj_set_style_height(camera_settings_mirror_flip_mode_setting_box, LV_PCT(90), LV_STATE_DEFAULT);
-            lv_obj_set_style_border_width(camera_settings_mirror_flip_mode_setting_box, 1, LV_STATE_DEFAULT);
-            lv_obj_set_style_border_side(camera_settings_mirror_flip_mode_setting_box, LV_BORDER_SIDE_BOTTOM, LV_STATE_DEFAULT);
-            lv_obj_set_style_pad_all(camera_settings_mirror_flip_mode_setting_box, 0, LV_STATE_DEFAULT);
-            lv_obj_set_style_bg_color(camera_settings_mirror_flip_mode_setting_box, lv_color_white(), LV_STATE_DEFAULT);
-            // lv_obj_set_style_radius(camera_settings_mirror_flip_mode_setting_box, 0, LV_STATE_DEFAULT);
-            lv_obj_set_layout(camera_settings_mirror_flip_mode_setting_box, LV_LAYOUT_FLEX);
-            lv_obj_set_flex_flow(camera_settings_mirror_flip_mode_setting_box, LV_FLEX_FLOW_COLUMN);
-            lv_obj_set_style_flex_grow(camera_settings_mirror_flip_mode_setting_box, 1, LV_STATE_DEFAULT);
-            lv_obj_add_flag(camera_settings_mirror_flip_mode_setting_box, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK);
-            {
-                camera_settings_mirror_flip_mode_setting_box_text_box = lv_obj_create(camera_settings_mirror_flip_mode_setting_box);
-                lv_obj_set_style_width(camera_settings_mirror_flip_mode_setting_box_text_box, LV_PCT(100), LV_STATE_DEFAULT);
-                lv_obj_set_style_border_width(camera_settings_mirror_flip_mode_setting_box_text_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_pad_all(camera_settings_mirror_flip_mode_setting_box_text_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_flex_grow(camera_settings_mirror_flip_mode_setting_box_text_box, 1, LV_STATE_DEFAULT);
-
-                camera_settings_mirror_flip_mode_setting_box_text = lv_label_create(camera_settings_mirror_flip_mode_setting_box_text_box);
-                lv_obj_set_style_align(camera_settings_mirror_flip_mode_setting_box_text, LV_ALIGN_CENTER, LV_STATE_DEFAULT);
-                lv_obj_set_style_text_color(camera_settings_mirror_flip_mode_setting_box_text, lv_color_black(), LV_STATE_DEFAULT);
-                lv_label_set_text(camera_settings_mirror_flip_mode_setting_box_text, "mirror flip");
-            }
-
-            {
-                camera_settings_mirror_flip_mode_setting_box_btns_box = lv_obj_create(camera_settings_mirror_flip_mode_setting_box);
-                lv_obj_set_style_width(camera_settings_mirror_flip_mode_setting_box_btns_box, LV_PCT(100), LV_STATE_DEFAULT);
-                lv_obj_set_style_border_width(camera_settings_mirror_flip_mode_setting_box_btns_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_pad_all(camera_settings_mirror_flip_mode_setting_box_btns_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_flex_grow(camera_settings_mirror_flip_mode_setting_box_btns_box, 4, LV_STATE_DEFAULT);
-                lv_obj_set_layout(camera_settings_mirror_flip_mode_setting_box_btns_box, LV_LAYOUT_FLEX);
-                lv_obj_set_flex_flow(camera_settings_mirror_flip_mode_setting_box_btns_box, LV_FLEX_FLOW_COLUMN);
-                lv_obj_set_flex_align(camera_settings_mirror_flip_mode_setting_box_btns_box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER);
-                {
-                    for (int i = 0; i < 4; i++) {
-                        camera_settings_mirror_flip_mode_settings_btns[i] = lv_checkbox_create(camera_settings_mirror_flip_mode_setting_box_btns_box);
-                        lv_obj_set_style_radius(camera_settings_mirror_flip_mode_settings_btns[i], LV_RADIUS_CIRCLE, LV_PART_INDICATOR);
-                        lv_obj_add_flag(camera_settings_mirror_flip_mode_settings_btns[i], LV_OBJ_FLAG_EVENT_BUBBLE);
-                        lv_obj_set_user_data(camera_settings_mirror_flip_mode_settings_btns[i], (void *)(uintptr_t)i);
-                    }
-                    lv_checkbox_set_text_static(camera_settings_mirror_flip_mode_settings_btns[0], "none");
-                    lv_checkbox_set_text_static(camera_settings_mirror_flip_mode_settings_btns[1], "flip");
-                    lv_checkbox_set_text_static(camera_settings_mirror_flip_mode_settings_btns[2], "mirror");
-                    lv_checkbox_set_text_static(camera_settings_mirror_flip_mode_settings_btns[3], "mirror flip");
-                }
-            }
-        }
-
-        {
-            camera_settings_colorbar_mode_setting_box = lv_obj_create(camera_settings_functions_container);
-            lv_obj_set_style_height(camera_settings_colorbar_mode_setting_box, LV_PCT(90), LV_STATE_DEFAULT);
-            lv_obj_set_style_border_width(camera_settings_colorbar_mode_setting_box, 1, LV_STATE_DEFAULT);
-            lv_obj_set_style_border_side(camera_settings_colorbar_mode_setting_box, LV_BORDER_SIDE_BOTTOM, LV_STATE_DEFAULT);
-            lv_obj_set_style_pad_all(camera_settings_colorbar_mode_setting_box, 0, LV_STATE_DEFAULT);
-            lv_obj_set_style_bg_color(camera_settings_colorbar_mode_setting_box, lv_color_white(), LV_STATE_DEFAULT);
-            // lv_obj_set_style_radius(camera_settings_colorbar_mode_setting_box, 0, LV_STATE_DEFAULT);
-            lv_obj_set_layout(camera_settings_colorbar_mode_setting_box, LV_LAYOUT_FLEX);
-            lv_obj_set_flex_flow(camera_settings_colorbar_mode_setting_box, LV_FLEX_FLOW_COLUMN);
-            lv_obj_set_style_flex_grow(camera_settings_colorbar_mode_setting_box, 1, LV_STATE_DEFAULT);
-            {
-                camera_settings_colorbar_mode_setting_box_text_box = lv_obj_create(camera_settings_colorbar_mode_setting_box);
-                lv_obj_set_style_width(camera_settings_colorbar_mode_setting_box_text_box, LV_PCT(100), LV_STATE_DEFAULT);
-                lv_obj_set_style_border_width(camera_settings_colorbar_mode_setting_box_text_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_pad_all(camera_settings_colorbar_mode_setting_box_text_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_flex_grow(camera_settings_colorbar_mode_setting_box_text_box, 1, LV_STATE_DEFAULT);
-
-                camera_settings_colorbar_mode_setting_box_text = lv_label_create(camera_settings_colorbar_mode_setting_box_text_box);
-                lv_obj_set_style_align(camera_settings_colorbar_mode_setting_box_text, LV_ALIGN_CENTER, LV_STATE_DEFAULT);
-                lv_obj_set_style_text_color(camera_settings_colorbar_mode_setting_box_text, lv_color_black(), LV_STATE_DEFAULT);
-                lv_label_set_text(camera_settings_colorbar_mode_setting_box_text, "color bar");
-            }
-
-            {
-                camera_settings_colorbar_mode_setting_box_btns_box = lv_obj_create(camera_settings_colorbar_mode_setting_box);
-                lv_obj_set_style_width(camera_settings_colorbar_mode_setting_box_btns_box, LV_PCT(100), LV_STATE_DEFAULT);
-                lv_obj_set_style_border_width(camera_settings_colorbar_mode_setting_box_btns_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_pad_all(camera_settings_colorbar_mode_setting_box_btns_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_flex_grow(camera_settings_colorbar_mode_setting_box_btns_box, 4, LV_STATE_DEFAULT);
-                lv_obj_set_layout(camera_settings_colorbar_mode_setting_box_btns_box, LV_LAYOUT_FLEX);
-                lv_obj_set_flex_flow(camera_settings_colorbar_mode_setting_box_btns_box, LV_FLEX_FLOW_COLUMN);
-                lv_obj_set_flex_align(camera_settings_colorbar_mode_setting_box_btns_box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER);
-                {
-                    for (int i = 0; i < 3; i++) {
-                        camera_settings_colorbar_mode_settings_btns[i] = lv_checkbox_create(camera_settings_colorbar_mode_setting_box_btns_box);
-                        lv_obj_set_style_radius(camera_settings_colorbar_mode_settings_btns[i], LV_RADIUS_CIRCLE, LV_PART_INDICATOR);
-                        lv_obj_add_flag(camera_settings_colorbar_mode_settings_btns[i], LV_OBJ_FLAG_EVENT_BUBBLE);
-                        lv_obj_set_user_data(camera_settings_colorbar_mode_settings_btns[i], (void *)(uintptr_t)i);
-                    }
-                    lv_checkbox_set_text_static(camera_settings_colorbar_mode_settings_btns[0], "disable");
-                    lv_checkbox_set_text_static(camera_settings_colorbar_mode_settings_btns[1], "enable");
-                    lv_checkbox_set_text_static(camera_settings_colorbar_mode_settings_btns[2], "grad ualv");
-                }
-            }
-        }
-
-        {
-            camera_settings_night_mode_setting_box = lv_obj_create(camera_settings_functions_container);
-            lv_obj_set_style_height(camera_settings_night_mode_setting_box, LV_PCT(60), LV_STATE_DEFAULT);
-            lv_obj_set_style_border_width(camera_settings_night_mode_setting_box, 1, LV_STATE_DEFAULT);
-            lv_obj_set_style_border_side(camera_settings_night_mode_setting_box, LV_BORDER_SIDE_BOTTOM, LV_STATE_DEFAULT);
-            lv_obj_set_style_pad_all(camera_settings_night_mode_setting_box, 0, LV_STATE_DEFAULT);
-            lv_obj_set_style_bg_color(camera_settings_night_mode_setting_box, lv_color_white(), LV_STATE_DEFAULT);
-            // lv_obj_set_style_radius(camera_settings_night_mode_setting_box, 0, LV_STATE_DEFAULT);
-            lv_obj_set_layout(camera_settings_night_mode_setting_box, LV_LAYOUT_FLEX);
-            lv_obj_set_flex_flow(camera_settings_night_mode_setting_box, LV_FLEX_FLOW_COLUMN);
-            lv_obj_set_style_flex_grow(camera_settings_night_mode_setting_box, 1, LV_STATE_DEFAULT);
-            {
-                camera_settings_night_mode_setting_box_text_box = lv_obj_create(camera_settings_night_mode_setting_box);
-                lv_obj_set_style_width(camera_settings_night_mode_setting_box_text_box, LV_PCT(100), LV_STATE_DEFAULT);
-                lv_obj_set_style_border_width(camera_settings_night_mode_setting_box_text_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_pad_all(camera_settings_night_mode_setting_box_text_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_flex_grow(camera_settings_night_mode_setting_box_text_box, 1, LV_STATE_DEFAULT);
-
-                camera_settings_night_mode_setting_box_text = lv_label_create(camera_settings_night_mode_setting_box_text_box);
-                lv_obj_set_style_align(camera_settings_night_mode_setting_box_text, LV_ALIGN_CENTER, LV_STATE_DEFAULT);
-                lv_obj_set_style_text_color(camera_settings_night_mode_setting_box_text, lv_color_black(), LV_STATE_DEFAULT);
-                lv_label_set_text(camera_settings_night_mode_setting_box_text, "night mode");
-            }
-
-            {
-                camera_settings_night_mode_setting_box_btns_box = lv_obj_create(camera_settings_night_mode_setting_box);
-                lv_obj_set_style_width(camera_settings_night_mode_setting_box_btns_box, LV_PCT(100), LV_STATE_DEFAULT);
-                lv_obj_set_style_border_width(camera_settings_night_mode_setting_box_btns_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_pad_all(camera_settings_night_mode_setting_box_btns_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_flex_grow(camera_settings_night_mode_setting_box_btns_box, 4, LV_STATE_DEFAULT);
-                lv_obj_set_layout(camera_settings_night_mode_setting_box_btns_box, LV_LAYOUT_FLEX);
-                lv_obj_set_flex_flow(camera_settings_night_mode_setting_box_btns_box, LV_FLEX_FLOW_COLUMN);
-                lv_obj_set_flex_align(camera_settings_night_mode_setting_box_btns_box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER);
-
-                {
-                    for (int i = 0; i < 1; i++) {
-                        camera_settings_night_mode_settings_btns[i] = lv_checkbox_create(camera_settings_night_mode_setting_box_btns_box);
-                        lv_obj_add_flag(camera_settings_night_mode_settings_btns[i], LV_OBJ_FLAG_EVENT_BUBBLE);
-                        lv_obj_set_user_data(camera_settings_night_mode_settings_btns[i], (void *)(uintptr_t)i);
-                    }
-                    lv_checkbox_set_text_static(camera_settings_night_mode_settings_btns[0], "Enable");
-                }
-            }
-        }
-
-        {
-            camera_settings_brightness_mode_setting_box = lv_obj_create(camera_settings_functions_container);
-            lv_obj_set_style_height(camera_settings_brightness_mode_setting_box, LV_PCT(80), LV_STATE_DEFAULT);
-            lv_obj_set_style_border_width(camera_settings_brightness_mode_setting_box, 1, LV_STATE_DEFAULT);
-            lv_obj_set_style_border_side(camera_settings_brightness_mode_setting_box, LV_BORDER_SIDE_BOTTOM, LV_STATE_DEFAULT);
-            lv_obj_set_style_pad_all(camera_settings_brightness_mode_setting_box, 0, LV_STATE_DEFAULT);
-            lv_obj_set_style_bg_color(camera_settings_brightness_mode_setting_box, lv_color_white(), LV_STATE_DEFAULT);
-            // lv_obj_set_style_radius(camera_settings_brightness_mode_setting_box, 0, LV_STATE_DEFAULT);
-            lv_obj_set_layout(camera_settings_brightness_mode_setting_box, LV_LAYOUT_FLEX);
-            lv_obj_set_flex_flow(camera_settings_brightness_mode_setting_box, LV_FLEX_FLOW_COLUMN);
-            lv_obj_set_style_flex_grow(camera_settings_brightness_mode_setting_box, 1, LV_STATE_DEFAULT);
-            lv_obj_set_flex_align(camera_settings_brightness_mode_setting_box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
-            lv_obj_add_flag(camera_settings_brightness_mode_setting_box, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK);
-            {
-                camera_settings_brightness_mode_setting_box_text_box = lv_obj_create(camera_settings_brightness_mode_setting_box);
-                lv_obj_set_style_width(camera_settings_brightness_mode_setting_box_text_box, LV_PCT(100), LV_STATE_DEFAULT);
-                lv_obj_set_style_border_width(camera_settings_brightness_mode_setting_box_text_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_pad_all(camera_settings_brightness_mode_setting_box_text_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_flex_grow(camera_settings_brightness_mode_setting_box_text_box, 1, LV_STATE_DEFAULT);
-
-                camera_settings_brightness_mode_setting_box_text = lv_label_create(camera_settings_brightness_mode_setting_box_text_box);
-                lv_obj_set_style_align(camera_settings_brightness_mode_setting_box_text, LV_ALIGN_CENTER, LV_STATE_DEFAULT);
-                lv_obj_set_style_text_color(camera_settings_brightness_mode_setting_box_text, lv_color_black(), LV_STATE_DEFAULT);
-                lv_label_set_text(camera_settings_brightness_mode_setting_box_text, "brightness");
-            }
-
-            {
-                static const char *opt                         = "-4\n-3\n-2\n-1\n0\n1\n2\n3\n4";
-                camera_settings_brightness_mode_setting_roller = lv_roller_create(camera_settings_brightness_mode_setting_box);
-                lv_obj_set_style_flex_grow(camera_settings_brightness_mode_setting_roller, 1, LV_STATE_DEFAULT);
-                lv_roller_set_visible_row_count(camera_settings_brightness_mode_setting_roller, 4);
-                lv_roller_set_options(camera_settings_brightness_mode_setting_roller, opt, LV_ROLLER_MODE_NORMAL);
-                lv_obj_set_style_flex_grow(camera_settings_brightness_mode_setting_roller, 4, LV_STATE_DEFAULT);
-            }
-        }
-
-        {
-            camera_settings_saturation_setting_box = lv_obj_create(camera_settings_functions_container);
-            lv_obj_set_style_height(camera_settings_saturation_setting_box, LV_PCT(80), LV_STATE_DEFAULT);
-            lv_obj_set_style_border_width(camera_settings_saturation_setting_box, 1, LV_STATE_DEFAULT);
-            lv_obj_set_style_border_side(camera_settings_saturation_setting_box, LV_BORDER_SIDE_BOTTOM, LV_STATE_DEFAULT);
-            lv_obj_set_style_pad_all(camera_settings_saturation_setting_box, 0, LV_STATE_DEFAULT);
-            lv_obj_set_style_bg_color(camera_settings_saturation_setting_box, lv_color_white(), LV_STATE_DEFAULT);
-            // lv_obj_set_style_radius(camera_settings_saturation_setting_box, 0, LV_STATE_DEFAULT);
-            lv_obj_set_layout(camera_settings_saturation_setting_box, LV_LAYOUT_FLEX);
-            lv_obj_set_flex_flow(camera_settings_saturation_setting_box, LV_FLEX_FLOW_COLUMN);
-            lv_obj_set_style_flex_grow(camera_settings_saturation_setting_box, 1, LV_STATE_DEFAULT);
-            lv_obj_set_flex_align(camera_settings_saturation_setting_box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
-            {
-                camera_settings_saturation_setting_box_text_box = lv_obj_create(camera_settings_saturation_setting_box);
-                lv_obj_set_style_width(camera_settings_saturation_setting_box_text_box, LV_PCT(100), LV_STATE_DEFAULT);
-                lv_obj_set_style_border_width(camera_settings_saturation_setting_box_text_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_pad_all(camera_settings_saturation_setting_box_text_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_flex_grow(camera_settings_saturation_setting_box_text_box, 1, LV_STATE_DEFAULT);
-
-                camera_settings_saturation_setting_box_text = lv_label_create(camera_settings_saturation_setting_box_text_box);
-                lv_obj_set_style_align(camera_settings_saturation_setting_box_text, LV_ALIGN_CENTER, LV_STATE_DEFAULT);
-                lv_obj_set_style_text_color(camera_settings_saturation_setting_box_text, lv_color_black(), LV_STATE_DEFAULT);
-                lv_label_set_text(camera_settings_saturation_setting_box_text, "saturation");
-            }
-
-            {
-                static const char *opt                    = "-4\n-3\n-2\n-1\n0\n1\n2\n3\n4";
-                camera_settings_saturation_setting_roller = lv_roller_create(camera_settings_saturation_setting_box);
-                lv_obj_set_style_flex_grow(camera_settings_saturation_setting_roller, 1, LV_STATE_DEFAULT);
-                lv_roller_set_visible_row_count(camera_settings_saturation_setting_roller, 4);
-                lv_roller_set_options(camera_settings_saturation_setting_roller, opt, LV_ROLLER_MODE_NORMAL);
-                lv_obj_set_style_flex_grow(camera_settings_saturation_setting_roller, 4, LV_STATE_DEFAULT);
-            }
-        }
-
-        {
-            camera_settings_contrast_setting_box = lv_obj_create(camera_settings_functions_container);
-            lv_obj_set_style_height(camera_settings_contrast_setting_box, LV_PCT(80), LV_STATE_DEFAULT);
-            lv_obj_set_style_border_width(camera_settings_contrast_setting_box, 1, LV_STATE_DEFAULT);
-            lv_obj_set_style_border_side(camera_settings_contrast_setting_box, LV_BORDER_SIDE_BOTTOM, LV_STATE_DEFAULT);
-            lv_obj_set_style_pad_all(camera_settings_contrast_setting_box, 0, LV_STATE_DEFAULT);
-            lv_obj_set_style_bg_color(camera_settings_contrast_setting_box, lv_color_white(), LV_STATE_DEFAULT);
-            // lv_obj_set_style_radius(camera_settings_contrast_setting_box, 0, LV_STATE_DEFAULT);
-            lv_obj_set_layout(camera_settings_contrast_setting_box, LV_LAYOUT_FLEX);
-            lv_obj_set_flex_flow(camera_settings_contrast_setting_box, LV_FLEX_FLOW_COLUMN);
-            lv_obj_set_style_flex_grow(camera_settings_contrast_setting_box, 1, LV_STATE_DEFAULT);
-            lv_obj_set_flex_align(camera_settings_contrast_setting_box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
-            {
-                camera_settings_contrast_setting_box_text_box = lv_obj_create(camera_settings_contrast_setting_box);
-                lv_obj_set_style_width(camera_settings_contrast_setting_box_text_box, LV_PCT(100), LV_STATE_DEFAULT);
-                lv_obj_set_style_border_width(camera_settings_contrast_setting_box_text_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_pad_all(camera_settings_contrast_setting_box_text_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_flex_grow(camera_settings_contrast_setting_box_text_box, 1, LV_STATE_DEFAULT);
-
-                camera_settings_contrast_setting_box_text = lv_label_create(camera_settings_contrast_setting_box_text_box);
-                lv_obj_set_style_align(camera_settings_contrast_setting_box_text, LV_ALIGN_CENTER, LV_STATE_DEFAULT);
-                lv_obj_set_style_text_color(camera_settings_contrast_setting_box_text, lv_color_black(), LV_STATE_DEFAULT);
-                lv_label_set_text(camera_settings_contrast_setting_box_text, "contrast");
-            }
-
-            {
-                static const char *opt                  = "-4\n-3\n-2\n-1\n0\n1\n2\n3\n4";
-                camera_settings_contrast_setting_roller = lv_roller_create(camera_settings_contrast_setting_box);
-                lv_obj_set_style_flex_grow(camera_settings_contrast_setting_roller, 1, LV_STATE_DEFAULT);
-                lv_roller_set_visible_row_count(camera_settings_contrast_setting_roller, 4);
-                lv_roller_set_options(camera_settings_contrast_setting_roller, opt, LV_ROLLER_MODE_NORMAL);
-                lv_obj_set_style_flex_grow(camera_settings_contrast_setting_roller, 4, LV_STATE_DEFAULT);
-            }
-        }
-
-        {
-            camera_settings_huedegree_setting_box = lv_obj_create(camera_settings_functions_container);
-            lv_obj_set_style_height(camera_settings_huedegree_setting_box, LV_PCT(80), LV_STATE_DEFAULT);
-            lv_obj_set_style_border_width(camera_settings_huedegree_setting_box, 1, LV_STATE_DEFAULT);
-            lv_obj_set_style_border_side(camera_settings_huedegree_setting_box, LV_BORDER_SIDE_BOTTOM, LV_STATE_DEFAULT);
-            lv_obj_set_style_pad_all(camera_settings_huedegree_setting_box, 0, LV_STATE_DEFAULT);
-            lv_obj_set_style_bg_color(camera_settings_huedegree_setting_box, lv_color_white(), LV_STATE_DEFAULT);
-            // lv_obj_set_style_radius(camera_settings_huedegree_setting_box, 0, LV_STATE_DEFAULT);
-            lv_obj_set_layout(camera_settings_huedegree_setting_box, LV_LAYOUT_FLEX);
-            lv_obj_set_flex_flow(camera_settings_huedegree_setting_box, LV_FLEX_FLOW_COLUMN);
-            lv_obj_set_style_flex_grow(camera_settings_huedegree_setting_box, 1, LV_STATE_DEFAULT);
-            lv_obj_set_flex_align(camera_settings_huedegree_setting_box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
-            {
-                camera_settings_huedegree_setting_box_text_box = lv_obj_create(camera_settings_huedegree_setting_box);
-                lv_obj_set_style_width(camera_settings_huedegree_setting_box_text_box, LV_PCT(100), LV_STATE_DEFAULT);
-                lv_obj_set_style_border_width(camera_settings_huedegree_setting_box_text_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_pad_all(camera_settings_huedegree_setting_box_text_box, 0, LV_STATE_DEFAULT);
-                lv_obj_set_style_flex_grow(camera_settings_huedegree_setting_box_text_box, 1, LV_STATE_DEFAULT);
-
-                camera_settings_huedegree_setting_box_text = lv_label_create(camera_settings_huedegree_setting_box_text_box);
-                lv_obj_set_style_align(camera_settings_huedegree_setting_box_text, LV_ALIGN_CENTER, LV_STATE_DEFAULT);
-                lv_obj_set_style_text_color(camera_settings_huedegree_setting_box_text, lv_color_black(), LV_STATE_DEFAULT);
-                lv_label_set_text(camera_settings_huedegree_setting_box_text, "HueDegree");
-            }
-
-            {
-                static const char *opt                   = "-6\n-5\n-4\n-3\n-2\n-1\n0\n1\n2\n3\n4\n5";
-                camera_settings_huedegree_setting_roller = lv_roller_create(camera_settings_huedegree_setting_box);
-                lv_obj_set_style_flex_grow(camera_settings_huedegree_setting_roller, 1, LV_STATE_DEFAULT);
-                lv_roller_set_visible_row_count(camera_settings_huedegree_setting_roller, 4);
-                lv_roller_set_options(camera_settings_huedegree_setting_roller, opt, LV_ROLLER_MODE_NORMAL);
-                lv_obj_set_style_flex_grow(camera_settings_huedegree_setting_roller, 4, LV_STATE_DEFAULT);
-            }
+            camera_keyboard = lv_keyboard_create(camera_settings_container);
+            lv_obj_add_flag(camera_keyboard, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_flex_grow(camera_keyboard, 0);
         }
     }
 
@@ -830,6 +879,7 @@ void lvgl_create_setting_interface() {
 
     lv_obj_add_event_cb(camera_settings_indicator_return_btn, indicator_return_btn_callback, LV_EVENT_CLICKED, nullptr);
     lv_obj_add_event_cb(camera_settings_strobe_setting_box_btns_box, checkboxs_callback, LV_EVENT_CLICKED, nullptr);
+    lv_obj_add_event_cb(camera_settings_picture_name_textarea, file_name_callback, LV_EVENT_ALL, nullptr);
     lv_obj_add_event_cb(camera_settings_light_mode_setting_box_btns_box, checkboxs_callback, LV_EVENT_CLICKED, nullptr);
     lv_obj_add_event_cb(camera_settings_effect_mode_setting_box_btns_box, checkboxs_callback, LV_EVENT_CLICKED, nullptr);
     lv_obj_add_event_cb(camera_settings_zoom_mode_setting_box_btns_box, checkboxs_callback, LV_EVENT_CLICKED, nullptr);
@@ -859,6 +909,21 @@ void indicator_return_btn_callback(lv_event_t *e) {
         xSemaphoreGive(roller_changed);
     }
     lv_screen_load(camera_screen);
+}
+
+void file_name_callback(lv_event_t *e) {
+    lv_event_code_t code = lv_event_get_code(e);
+    auto           *ta   = (lv_obj_t *)lv_event_get_target(e);
+
+    if (code == LV_EVENT_FOCUSED) {
+        lv_keyboard_set_textarea(camera_keyboard, ta);
+        lv_obj_clear_flag(camera_keyboard, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_scroll_to_view_recursive(ta, LV_ANIM_ON);
+    }
+    else if (code == LV_EVENT_DEFOCUSED || code == LV_EVENT_READY) {
+        lv_keyboard_set_textarea(camera_keyboard, NULL);
+        lv_obj_add_flag(camera_keyboard, LV_OBJ_FLAG_HIDDEN);
+    }
 }
 
 void checkboxs_callback(lv_event_t *e) {
@@ -1153,29 +1218,50 @@ void camera_task_routine(void const *argument) {
                 }
                 else {
                     camera_JPEG_capture_stop(target_dcmi, current_format);
+
                     if (sdcard_is_mounted) {
                         size_t length = (target_dcmi->jpeg_data_count_calculate << 2u);
                         MYSCB_InvalidateDCache_by_Addr((void *)jpeg_before_buffer_rgb, (int32_t)length);
 
                         // storage to file
-                        FRESULT f_res       = FR_OK;
-                        UINT    write_bytes = 0;
+                        FRESULT     f_res       = FR_OK;
+                        UINT        write_bytes = 0;
 
-                        eng.seed(times(&t));
-                        do {
-                            FILINFO fno;
-                            sprintf(file_name, "0:/%X.jpeg", (unsigned)unif_name(eng));
-                            f_res = f_stat(file_name, &fno);
+                        const char *ptr;
+                        lv_lock();
+                        {
+                            ptr = lv_textarea_get_text(camera_settings_picture_name_textarea);
                         }
-                        while (f_res == FR_OK);
+                        lv_unlock();
 
-                        f_res = f_open(&picture_file, file_name, FA_WRITE | FA_CREATE_NEW);
-                        if (f_res == FR_OK) {
-                            f_res = f_write(&picture_file, (void *)jpeg_before_buffer_rgb, length, &write_bytes);
-                            if (f_res == FR_OK && (length == write_bytes)) {
-                                f_res = f_close(&picture_file);
-                                if (f_res == FR_OK) {
-                                    // pass
+                        sprintf(file_name, "0:/%s", ptr);
+                        f_res = create_directory_recursive(file_name);
+
+                        if (f_res != FR_OK) {
+                            indicator_operate("Failed to save Picture! : Error Path");
+                            vTaskDelay(pdMS_TO_TICKS(500));
+                        }
+                        else {
+                            eng.seed(times(&t));
+                            do {
+                                FILINFO fno;
+                                sprintf(file_name, "0:/%s/%X.jpeg", ptr, (unsigned)unif_name(eng));
+                                f_res = f_stat(file_name, &fno);
+                            }
+                            while (f_res == FR_OK);
+
+                            f_res = f_open(&picture_file, file_name, FA_WRITE | FA_CREATE_NEW);
+                            if (f_res == FR_OK) {
+                                f_res = f_write(&picture_file, (void *)jpeg_before_buffer_rgb, length, &write_bytes);
+                                if (f_res == FR_OK && (length == write_bytes)) {
+                                    f_res = f_close(&picture_file);
+                                    if (f_res == FR_OK) {
+                                        // pass
+                                    }
+                                    else {
+                                        indicator_operate("Failed to save Picture!");
+                                        vTaskDelay(pdMS_TO_TICKS(500));
+                                    }
                                 }
                                 else {
                                     indicator_operate("Failed to save Picture!");
@@ -1183,15 +1269,10 @@ void camera_task_routine(void const *argument) {
                                 }
                             }
                             else {
-                                indicator_operate("Failed to save Picture!");
+                                indicator_operate("Failed to Open SD Card File!");
                                 vTaskDelay(pdMS_TO_TICKS(500));
                             }
                         }
-                        else {
-                            indicator_operate("Failed to Open SD Card File!");
-                            vTaskDelay(pdMS_TO_TICKS(500));
-                        }
-
                         // indicator and others..
                         indicator_operate(nullptr);
                     }

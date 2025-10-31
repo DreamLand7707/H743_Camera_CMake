@@ -164,6 +164,7 @@ void              change_to_file_explorer_callback(lv_event_t *e);
 void              take_photo_callback(lv_event_t *e);
 void              open_setting_callback(lv_event_t *e);
 void              indicator_return_btn_callback(lv_event_t *e);
+void              file_name_callback(lv_event_t *e);
 void              checkboxs_callback(lv_event_t *e);
 void              single_checkbox_callback(lv_event_t *e);
 void              roller_callback(lv_event_t *e);
