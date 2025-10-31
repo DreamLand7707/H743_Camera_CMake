@@ -314,8 +314,8 @@ void lvgl_create_setting_interface() {
             {
                 camera_settings_strobe_setting_box_btns_box = lv_obj_create(camera_settings_strobe_setting_box);
                 lv_obj_set_style_width(camera_settings_strobe_setting_box_btns_box, LV_PCT(100), LV_STATE_DEFAULT);
-            lv_obj_set_style_border_width(camera_settings_strobe_setting_box_btns_box, 1, LV_STATE_DEFAULT);
-            lv_obj_set_style_border_side(camera_settings_strobe_setting_box_btns_box, LV_BORDER_SIDE_BOTTOM, LV_STATE_DEFAULT);
+                lv_obj_set_style_border_width(camera_settings_strobe_setting_box_btns_box, 1, LV_STATE_DEFAULT);
+                lv_obj_set_style_border_side(camera_settings_strobe_setting_box_btns_box, LV_BORDER_SIDE_BOTTOM, LV_STATE_DEFAULT);
                 lv_obj_set_style_pad_all(camera_settings_strobe_setting_box_btns_box, 0, LV_STATE_DEFAULT);
                 lv_obj_set_style_flex_grow(camera_settings_strobe_setting_box_btns_box, 4, LV_STATE_DEFAULT);
                 lv_obj_set_layout(camera_settings_strobe_setting_box_btns_box, LV_LAYOUT_FLEX);
@@ -974,10 +974,9 @@ void camera_task_routine(void const *argument) {
 
     uint32_t      light_mode_state    = 0;
     uint32_t      effect_mode_state   = 0;
-    uint32_t      zoom_mode_state     = 0;
     uint32_t      mirror_flip_state   = 0;
     uint32_t      colorbar_mode_state = 0;
-    int32_t       brightness_state    = 4;
+    int32_t       brightness_state    = 0;
     uint32_t      nightmode_state     = 0;
     int32_t       satuation           = 0;
     int32_t       contrast            = 0;
@@ -999,9 +998,9 @@ void camera_task_routine(void const *argument) {
                                          : mirror_flip_state == OV5640_MIRROR_FLIP    ? OV5640_MIRROR
                                                                                       : OV5640_MIRROR_FLIP);
         OV5640_ColorbarModeConfig(&ov5640, colorbar_mode_state);
-        OV5640_SetBrightness(&ov5640, (brightness_state - 4));
         OV5640_NightModeConfig(&ov5640, nightmode_state);
         OV5640_SetSaturation(&ov5640, satuation);
+        OV5640_SetBrightness(&ov5640, brightness_state);
         OV5640_SetContrast(&ov5640, contrast);
         OV5640_SetHueDegree(&ov5640, sharpness);
     };
@@ -1371,24 +1370,19 @@ void camera_task_routine(void const *argument) {
                 effect_mode_state = (uint32_t)lv_obj_get_user_data((lv_obj_t *)lv_obj_get_user_data(camera_settings_effect_mode_setting_box_btns_box));
             }
             lv_unlock();
-            OV5640_SetColorEffect(&ov5640, effect_mode_state ? (1u << (effect_mode_state - 1)) : 0);
+            if (effect_mode_state) {
+                OV5640_SetColorEffect(&ov5640, (1u << (effect_mode_state - 1)));
+            }
+            else {
+                OV5640_SetColorEffect(&ov5640, 0);
+                OV5640_SetSaturation(&ov5640, satuation);
+            }
         }
 
         else if (the_queue == zoom_mode_changed) {
             xSemaphoreTake(zoom_mode_changed, 0);
             if (!can_take_photo)
                 continue;
-
-            lv_lock();
-            {
-                zoom_mode_state = (uint32_t)lv_obj_get_user_data((lv_obj_t *)lv_obj_get_user_data(camera_settings_zoom_mode_setting_box_btns_box));
-            }
-            lv_unlock();
-            // OV5640_ZoomConfig(&ov5640, zoom_mode_state == 0   ? OV5640_ZOOM_x1
-            //                            : zoom_mode_state == 1 ? OV5640_ZOOM_x2
-            //                            : zoom_mode_state == 2 ? OV5640_ZOOM_x4
-            //                            : zoom_mode_state == 4 ? OV5640_ZOOM_x8
-            //                                                   : OV5640_ZOOM_x1);
         }
 
         else if (the_queue == mirror_flip_changed) {
@@ -1445,7 +1439,9 @@ void camera_task_routine(void const *argument) {
                 brightness_state = -((int32_t)lv_roller_get_selected(camera_settings_brightness_mode_setting_roller) - 4);
             }
             lv_unlock();
-            OV5640_SetSaturation(&ov5640, satuation);
+            if (!effect_mode_state) {
+                OV5640_SetSaturation(&ov5640, satuation);
+            }
             OV5640_SetContrast(&ov5640, contrast);
             OV5640_SetHueDegree(&ov5640, sharpness);
             OV5640_SetBrightness(&ov5640, brightness_state);
