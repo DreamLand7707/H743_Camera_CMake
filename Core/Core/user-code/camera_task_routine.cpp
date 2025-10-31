@@ -1427,7 +1427,7 @@ void camera_task_routine(void const *argument) {
 
             lv_lock();
             {
-                nightmode_state = (uint32_t)lv_obj_get_user_data((lv_obj_t *)lv_obj_get_user_data(camera_settings_night_mode_setting_box_btns_box));
+                nightmode_state = (lv_obj_get_state(camera_settings_night_mode_settings_btns[0]) & LV_STATE_CHECKED);
             }
             lv_unlock();
             OV5640_NightModeConfig(&ov5640, nightmode_state);
@@ -1440,9 +1440,9 @@ void camera_task_routine(void const *argument) {
             lv_lock();
             {
                 satuation        = (int32_t)lv_roller_get_selected(camera_settings_saturation_setting_roller) - 4;
-                contrast         = (int32_t)lv_roller_get_selected(camera_settings_contrast_setting_roller) - 3;
+                contrast         = (int32_t)lv_roller_get_selected(camera_settings_contrast_setting_roller) - 4;
                 sharpness        = (int32_t)lv_roller_get_selected(camera_settings_sharpness_setting_roller) - 6;
-                brightness_state = (int32_t)lv_roller_get_selected(camera_settings_brightness_mode_setting_roller) - 4;
+                brightness_state = -((int32_t)lv_roller_get_selected(camera_settings_brightness_mode_setting_roller) - 4);
             }
             lv_unlock();
             OV5640_SetSaturation(&ov5640, satuation);

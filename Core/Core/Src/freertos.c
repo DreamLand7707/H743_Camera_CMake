@@ -177,7 +177,7 @@ void MX_FREERTOS_Init(void) {
   TouchSence_TaskHandle = osThreadCreate(osThread(TouchSence_Task), NULL);
 
   /* definition and creation of Camera_Task */
-  osThreadDef(Camera_Task, camera_task_routine, osPriorityNormal, 0, 4096);
+  osThreadDef(Camera_Task, camera_task_routine, osPriorityNormal, 0, 8192);
   Camera_TaskHandle = osThreadCreate(osThread(Camera_Task), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
