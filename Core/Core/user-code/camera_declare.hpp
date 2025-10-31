@@ -102,8 +102,6 @@ extern SemaphoreHandle_t       camera_focus_success;
 extern SemaphoreHandle_t       camera_focus_failed;
 extern SemaphoreHandle_t       camera_focus_need_restart;
 extern SemaphoreHandle_t       camera_focus_begin;
-extern SemaphoreHandle_t       zoom_mode_changed;
-extern SemaphoreHandle_t       mirror_flip_changed;
 extern SemaphoreHandle_t       colorbar_changed;
 extern SemaphoreHandle_t       nightmode_changed;
 extern SemaphoreHandle_t       roller_changed;

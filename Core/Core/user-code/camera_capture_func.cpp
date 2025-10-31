@@ -10,8 +10,6 @@ SemaphoreHandle_t camera_take_photo {};
 SemaphoreHandle_t camera_strobe_setting_changed {};
 SemaphoreHandle_t camera_light_mode_changed {};
 SemaphoreHandle_t camera_effect_changed {};
-SemaphoreHandle_t zoom_mode_changed {};
-SemaphoreHandle_t mirror_flip_changed {};
 SemaphoreHandle_t colorbar_changed {};
 SemaphoreHandle_t nightmode_changed {};
 SemaphoreHandle_t roller_changed {};
@@ -22,7 +20,7 @@ SemaphoreHandle_t camera_focus_need_restart {};
 QueueSetHandle_t  camera_queue_set {};
 
 void              dcmi_capture_resource_init() {
-    camera_queue_set              = xQueueCreateSet(18);
+    camera_queue_set              = xQueueCreateSet(16);
     camera_interface_changed      = xSemaphoreCreateBinary();
     camera_new_message            = xSemaphoreCreateBinary();
     camera_exit                   = xSemaphoreCreateBinary();
@@ -36,8 +34,6 @@ void              dcmi_capture_resource_init() {
     camera_focus_begin            = xSemaphoreCreateBinary();
     camera_light_mode_changed     = xSemaphoreCreateBinary();
     camera_effect_changed         = xSemaphoreCreateBinary();
-    zoom_mode_changed             = xSemaphoreCreateBinary();
-    mirror_flip_changed           = xSemaphoreCreateBinary();
     colorbar_changed              = xSemaphoreCreateBinary();
     nightmode_changed             = xSemaphoreCreateBinary();
     roller_changed                = xSemaphoreCreateBinary();
@@ -55,8 +51,6 @@ void              dcmi_capture_resource_init() {
     xQueueAddToSet(camera_focus_begin, camera_queue_set);
     xQueueAddToSet(camera_light_mode_changed, camera_queue_set);
     xQueueAddToSet(camera_effect_changed, camera_queue_set);
-    xQueueAddToSet(zoom_mode_changed, camera_queue_set);
-    xQueueAddToSet(mirror_flip_changed, camera_queue_set);
     xQueueAddToSet(colorbar_changed, camera_queue_set);
     xQueueAddToSet(nightmode_changed, camera_queue_set);
     xQueueAddToSet(roller_changed, camera_queue_set);
