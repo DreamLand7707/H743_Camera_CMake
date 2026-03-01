@@ -62,6 +62,7 @@
 2. FatFS（使用CubeMX生成）
 3. LVGL（手动移植，版本9.2.2，正好是不支持DMA2D的那个版本）
 4. SEGGER RTT（版本7.94）
+5. git@github.com:DreamLand7707/stm32-ov5640.git 仓库，使用submodule，需要手动拉下来
 
 在代码库中会有很多多余的文件，但只要没出现在这个列表里，就是没用上。
 
